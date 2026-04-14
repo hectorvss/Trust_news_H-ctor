@@ -7,13 +7,21 @@ import Pricing from './components/Pricing';
 import Auth from './components/Auth';
 import CorporateLanding from './components/CorporateLanding';
 import BiasAnalysis from './components/BiasAnalysis';
+import StoryReader from './components/StoryReader';
+
 
 const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
 
 const App = () => {
   const [selectedStory, setSelectedStory] = useState(null);
+  const [selectedArticle, setSelectedArticle] = useState(null);
+  const [scrollPos, setScrollPos] = useState(0);
+
   const [view, setView] = useState('feed'); // 'feed' | 'pricing' | 'auth'
   const [activeCategory, setActiveCategory] = useState('TODO');
+  const [activeStoryFilter, setActiveStoryFilter] = useState('TODO');
+  const [activeStoryTab, setActiveStoryTab] = useState('RESUMEN');
+
   const [showForYou, setShowForYou] = useState(false);
 
   const categories = ['TODO', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
@@ -41,7 +49,7 @@ const App = () => {
               onClick={(e) => { e.preventDefault(); setShowForYou(!showForYou); }}
               style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
             >
-              PARA TI {showForYou ? '▲' : '▼'}
+              CATEGORÍAS {showForYou ? '▲' : '▼'}
             </a>
             {showForYou && (
               <div style={{
@@ -132,18 +140,56 @@ const App = () => {
     );
   }
 
+  if (selectedArticle) {
+    return (
+      <div className="app">
+        <Navbar />
+        <main style={{ marginTop: '72px' }}>
+          <div className="container" style={{ padding: '60px 24px' }}>
+            <StoryReader 
+              article={selectedArticle} 
+              onBack={() => {
+                setSelectedArticle(null);
+                setTimeout(() => window.scrollTo(0, scrollPos), 50);
+              }} 
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (selectedStory) {
     return (
       <div className="app">
         <Navbar />
         <main style={{ marginTop: '72px' }}>
           <div className="container" style={{ padding: '60px 24px' }}>
-            <StoryDetail story={selectedStory} onBack={() => setSelectedStory(null)} />
+            <StoryDetail 
+              story={{
+                ...selectedStory,
+                onSelectArticle: (art) => {
+                  setScrollPos(window.scrollY);
+                  setSelectedArticle(art);
+                }
+              }} 
+              onBack={() => {
+                setSelectedStory(null);
+                setActiveStoryFilter('TODO');
+                setActiveStoryTab('RESUMEN');
+              }}
+              activeFilter={activeStoryFilter}
+              setActiveFilter={setActiveStoryFilter}
+              activeTab={activeStoryTab}
+              setActiveTab={setActiveStoryTab}
+            />
           </div>
+
         </main>
       </div>
     );
   }
+
 
   return (
     <div className="app">
@@ -322,17 +368,7 @@ const App = () => {
               </div>
             </div>
 
-            {/* My News Bias Section */}
-            <div style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', marginBottom: '60px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Mi Sesgo de Lectura</h3>
-              <p style={{ fontSize: '12px', opacity: 0.5, marginBottom: '24px' }}>Análisis basado en tus últimos 30 artículos.</p>
-              <div style={{ display: 'flex', height: '12px', gap: '2px', marginBottom: '20px', borderRadius: '12px', overflow: 'hidden' }}>
-                <div style={{ flex: 1, background: '#eee' }}></div>
-                <div style={{ flex: 2, background: 'black' }}></div>
-                <div style={{ flex: 1, background: '#eee' }}></div>
-              </div>
-              <button style={{ width: '100%', padding: '12px', background: 'none', border: '1px solid black', borderRadius: '30px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>VER ANALÍTICA DETALLADA</button>
-            </div>
+
 
             {/* Similar Topics Widget */}
             <div style={{ marginBottom: '60px' }}>

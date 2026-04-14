@@ -33,7 +33,13 @@ const StoryCard = ({ story }) => {
       minHeight: 'auto'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span className="tag" style={{ borderRadius: '24px', padding: '8px 20px', fontWeight: 800, fontSize: '11px' }}>{story.location}</span>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <span className="tag" style={{ borderRadius: '24px', padding: '8px 20px', fontWeight: 800, fontSize: '11px' }}>{story.location}</span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, fontFamily: 'var(--font-mono)' }}>CONSENSO: {story.consensus || 'MEDIO'}</span>
+            <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, fontFamily: 'var(--font-mono)' }}>IMPACTO: {story.impact || 'ALTO'}</span>
+          </div>
+        </div>
         <span style={{ fontSize: '11px', fontWeight: 800, opacity: 0.3, letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>{story.sourceCount} SOURCES</span>
       </div>
       
@@ -50,9 +56,25 @@ const StoryCard = ({ story }) => {
           {story.time} — Covering the latest developments in the region.
         </p>
       </div>
+
+      <div style={{ 
+        padding: '20px 24px', 
+        background: '#fcfcfc', 
+        border: 'var(--border-thin)', 
+        borderRadius: '12px',
+        fontSize: '13px',
+        lineHeight: '1.4',
+        fontWeight: 600
+      }}>
+        <span style={{ opacity: 0.4, marginRight: '8px', fontSize: '10px', fontWeight: 800 }}>ANALÍTICA GNE:</span>
+        La cobertura nacional se divide entre el impacto regulatorio ({story.bias.center}%) y el riesgo de mercado ({story.bias.right}%). Se detecta un fuerte interés en el segmento de arrendatarios jóvenes.
+      </div>
       
-      <div style={{ marginTop: '16px' }}>
-        <span style={{ fontSize: '12px', fontWeight: 800, display: 'block', marginBottom: '12px', letterSpacing: '-0.3px' }}>Media Bias Spectrum</span>
+      <div style={{ marginTop: '0px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+           <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '-0.3px' }}>Media Bias Spectrum</span>
+           <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.4 }}>VER PERSPECTIVAS ↗</span>
+        </div>
         <BiasBar bias={story.bias} />
       </div>
     </article>
