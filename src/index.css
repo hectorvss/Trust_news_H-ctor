@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700&display=swap');
+
+/* ============================================
+   TRUST NEWS ESPAÑA (TNE) — Minimalist Blueprint UI
+   Based on Landing_page_h-l Design
+   ============================================ */
+
+/* --- CSS Variables / Design Tokens --- */
+:root {
+  --color-primary: #000000;
+  --color-bg: #FFFFFF;
+  --color-dark: #000005;
+  --color-dark-alt: #000105;
+  --color-white: #FFFFFF;
+  --color-primary-50: rgba(0, 0, 0, 0.98);
+
+  --font-heading: 'Manrope', sans-serif;
+  --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+
+  --page-max-width: 1440px;
+  --page-padding: 30px;
+  --content-width: 1380px;
+  --sidebar-width: 345px;
+
+  --radius-sm: 25px;
+  --radius-md: 32px;
+  --radius-pill: 60px;
+  --radius-circle: 100px;
+
+  --border-thin: 0.888889px solid var(--color-primary);
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Ground News Specific (Grayscale Mode) */
+  --bias-left: #000000;
+  --bias-center: #888888;
+  --bias-right: #cccccc;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('https://cdn.jsdelivr.net/npm/geist@1.2.2/dist/fonts/geist-mono/GeistMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+}
+
+/* --- Reset & Base --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-heading);
+  background: var(--color-bg);
+  color: var(--color-primary);
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Global Vertical Grid Lines */
+body::before, body::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.888889px;
+  background-color: var(--color-primary);
+  z-index: 5;
+  pointer-events: none;
+}
+
+body::before { left: 0; }
+body::after { right: 0; }
+
+a { text-decoration: none; color: inherit; }
+
+/* --- Stitched Components --- */
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: 72px;
+  background: var(--color-bg);
+  border-bottom: var(--border-thin);
+  display: flex;
+  justify-content: center;
+}
+
+.navbar__inner {
+  width: 100%;
+  max-width: var(--page-max-width);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--page-padding);
+}
+
+.navbar__logo {
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: -1px;
+}
+
+.navbar__links {
+  display: flex;
+  gap: 8px;
+}
+
+.navbar__link {
+  font-weight: var(--fw-semibold);
+  font-size: 16px;
+  padding: 9px 22px;
+  border-radius: var(--radius-pill);
+  transition: var(--transition);
+}
+
+.navbar__link:hover { background: rgba(0, 0, 0, 0.04); }
+
+.navbar__link--btn {
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border: 1px solid var(--color-primary);
+}
+
+/* Sections */
+section { border-bottom: var(--border-thin); }
+
+.layout-split {
+  display: flex;
+  align-items: stretch;
+  min-height: 400px;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  padding: var(--page-padding);
+  border-right: var(--border-thin);
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--page-padding);
+}
+
+.section-title {
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -1.2px;
+  margin-bottom: 40px;
+}
+
+.story-card {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--radius-sm);
+  border: var(--border-thin);
+  margin-bottom: 30px;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+  min-height: 380px;
+  cursor: pointer;
+}
+
+.story-card:hover {
+  background: rgba(0, 0, 0, 0.02);
+  transform: translateY(-4px);
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid var(--color-primary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--color-primary);
+  align-self: flex-start;
+}
+
+.story-title {
+  font-size: 42px;
+  font-weight: var(--fw-semibold);
+  line-height: 1.1;
+  letter-spacing: -2px;
+  margin-top: 20px;
+  max-width: 80%;
+}
+
+.story-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 12px;
+}
+
+.container {
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+}
+
+/* Source Card Refinements */
+.source-card:hover { 
+  background-color: #fafafa !important; 
+  transform: translateX(4px); 
+} 
+
+.action-button {
+  cursor: pointer;
+}
+
+.action-button:hover {
+  background-color: black !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.action-button svg {
+  transition: stroke 0.2s;
+}
+
+.action-button:hover svg {
+  stroke: white;
+}
+
+.source-card { 
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+
+/* Interactivity Utilities */
+.special-card-hover {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.special-card-hover:hover {
+  background: rgba(0,0,0,0.02) !important;
+}
+
+footer .footer-link {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+footer .footer-link:hover {
+  opacity: 1 !important;
+  color: white;
+  transform: translateX(4px);
+}
+
+.navbar__link, .navbar__logo {
+  cursor: pointer;
+}
