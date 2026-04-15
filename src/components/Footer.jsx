@@ -84,21 +84,21 @@ const Footer = () => {
           <div>
             <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>Compañía</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>Sobre nosotros</li>
-              <li>Misión</li>
-              <li>Blog</li>
-              <li>Suscripciones</li>
-              <li>Carreras</li>
+              <li key="c1"><a href="/company?section=sobre-nosotros" style={{ color: 'inherit', textDecoration: 'none' }}>Sobre nosotros</a></li>
+              <li key="c2"><a href="/company?section=mision" style={{ color: 'inherit', textDecoration: 'none' }}>Misión</a></li>
+              <li key="c3"><a href="/company?section=blog" style={{ color: 'inherit', textDecoration: 'none' }}>Blog</a></li>
+              <li key="c4"><a href="/company?section=suscripciones" style={{ color: 'inherit', textDecoration: 'none' }}>Suscripciones</a></li>
+              <li key="c5"><a href="/company?section=carreras" style={{ color: 'inherit', textDecoration: 'none' }}>Carreras</a></li>
             </ul>
           </div>
           <div>
             <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>Ayuda</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>Centro de ayuda</li>
-              <li>FAQ</li>
-              <li>Contacto</li>
-              <li>Ratings de Sesgo</li>
-              <li>Fuentes de noticias</li>
+              <li key="a1"><a href="/help?section=centro-ayuda" style={{ color: 'inherit', textDecoration: 'none' }}>Centro de ayuda</a></li>
+              <li key="a2"><a href="/help?section=faq" style={{ color: 'inherit', textDecoration: 'none' }}>FAQ</a></li>
+              <li key="a3"><a href="/help?section=contacto" style={{ color: 'inherit', textDecoration: 'none' }}>Contacto</a></li>
+              <li key="a4"><a href="/help?section=ratings" style={{ color: 'inherit', textDecoration: 'none' }}>Ratings de Sesgo</a></li>
+              <li key="a5"><a href="/help?section=fuentes" style={{ color: 'inherit', textDecoration: 'none' }}>Fuentes de noticias</a></li>
             </ul>
           </div>
           <div>

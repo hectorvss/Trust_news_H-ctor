@@ -7,8 +7,8 @@ const Plus = () => (
 );
 
 const CorporateLanding = ({ type, onBack }) => {
-  const [activeSection, setActiveSection] = useState(0);
-  const [openFaq, setOpenFaq] = useState(null);
+  const [searchParams, setSearchParams] = React.useMemo(() => [new URLSearchParams(window.location.search)], []);
+  const initialSectionId = searchParams[0].get('section');
 
   const companySections = [
     { 
@@ -127,6 +127,30 @@ const CorporateLanding = ({ type, onBack }) => {
           tag: 'CANALES'
         }
       ]
+    },
+    { 
+      id: 'ratings', 
+      title: 'Ratings de Sesgo', 
+      subtitle: 'METODOLOGÍA ANALÍTICA', 
+      blocks: [
+        {
+          title: 'Cómo medimos la verdad.',
+          content: 'Nuestro sistema de calificación de sesgo es dinámico. Evaluamos las fuentes basándonos en la omisión de hechos, el uso de lenguaje denotativo y la diversidad de citación.',
+          tag: 'AUDITORÍA'
+        }
+      ]
+    },
+    { 
+      id: 'fuentes', 
+      title: 'Fuentes de noticias', 
+      subtitle: 'NUESTRO ÍNDICE', 
+      blocks: [
+        {
+          title: 'Índice de Diversidad Informativa.',
+          content: 'Auditamos más de 500 fuentes en español, desde medios tradicionales hasta boletines independientes, asegurando un espectro ideológico completo.',
+          tag: 'REPOSITORIO'
+        }
+      ]
     }
   ];
 
@@ -146,6 +170,18 @@ const CorporateLanding = ({ type, onBack }) => {
   ];
 
   const sections = type === 'COMPANY' ? companySections : helpSections;
+  
+  const initialIndex = initialSectionId 
+    ? sections.findIndex(s => s.id === initialSectionId) 
+    : 0;
+
+  const [activeSection, setActiveSection] = useState(initialIndex !== -1 ? initialIndex : 0);
+  const [openFaq, setOpenFaq] = useState(null);
+
+  React.useEffect(() => {
+    if (initialIndex !== -1) setActiveSection(initialIndex);
+  }, [initialSectionId, initialIndex]);
+
   const activeData = sections[activeSection];
 
   return (
