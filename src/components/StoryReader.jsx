@@ -140,21 +140,30 @@ const StoryReader = ({ article, onBack }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
             <section>
               <h2 style={{ fontSize: '12px', fontWeight: 800, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>QUÉ HA PASADO</h2>
-              <p style={{ fontSize: '20px', lineHeight: '1.6', fontWeight: 600, margin: 0 }}>
-                El Gobierno de España ha ratificado formalmente el Real Decreto-Ley 12/2024, que establece un marco regulatorio estricto para los precios del alquiler en zonas de alta demanda residencial. Esta medida busca amortiguar el impacto de la inflación inmobiliaria en las familias con menos ingresos.
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <p style={{ fontSize: '20px', lineHeight: '1.6', fontWeight: 600, margin: 0 }}>
+                  En una sesión extraordinaria marcada por la urgencia legislativa, el Ejecutivo ha procedido a la ratificación definitiva del Real Decreto-Ley 12/2024. Esta normativa, que entra en vigor de forma inmediata tras su publicación en el BOE, despliega un blindaje jurídico sin precedentes sobre el mercado del alquiler. 
+                </p>
+                <p style={{ fontSize: '18px', lineHeight: '1.6', opacity: 0.7, margin: 0 }}>
+                  El texto establece un cordón sanitario en las denominadas "zonas de alta demanda residencial", donde los precios han experimentado una deriva inflacionista que la administración califica de insostenible para el tejido social de las grandes capitales. El objetivo principal es la congelación efectiva de las rentas para evitar que la volatilidad de los indicadores macroeconómicos se traslade de forma directa al presupuesto de las familias con menores ingresos.
+                </p>
+              </div>
             </section>
 
             <section>
               <h2 style={{ fontSize: '12px', fontWeight: 800, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>CONTEXTO Y NECESIDAD</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ display: 'flex', gap: '24px' }}>
                   <Plus /> 
-                  <p style={{ fontSize: '17px', lineHeight: '1.5', margin: 0 }}>España registra uno de los parques de vivienda pública más bajos de la OCDE (2.5%), lo que deja al mercado privado como única opción para la mayoría.</p>
+                  <p style={{ fontSize: '17px', lineHeight: '1.5', margin: 0 }}>
+                    La anomalía del mercado español reside en su raquítico parque de vivienda pública, que apenas alcanza el 2.5% frente a la media europea del 15%. Esta carestía estructural arrastra a la práctica totalidad de la demanda hacia un mercado privado saturado y sin alternativas de gestión estatal.
+                  </p>
                 </div>
                 <div style={{ display: 'flex', gap: '24px' }}>
                   <Plus /> 
-                  <p style={{ fontSize: '17px', lineHeight: '1.5', margin: 0 }}>En los últimos 12 meses, el precio del alquiler en capitales como Madrid o Málaga ha subido un 14.5%, tres veces más que el salario medio.</p>
+                  <p style={{ fontSize: '17px', lineHeight: '1.5', margin: 0 }}>
+                    Durante el último ciclo anual, la divergencia entre salarios y vivienda se ha agudizado de forma crítica. Mientras los sueldos medios han navegado en un estancamiento relativo, las rentas en nodos logísticos y turísticos como Madrid o Málaga han escalado un 14.5%, forzando el desplazamiento de miles de residentes hacia las periferias.
+                  </p>
                 </div>
               </div>
             </section>
@@ -164,11 +173,15 @@ const StoryReader = ({ article, onBack }) => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
                 <div style={{ padding: '24px', border: '1px solid black', borderRadius: '12px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '16px' }}>PARA EL INQUILINO</h3>
-                  <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.4' }}>Mayor seguridad contractual y previsibilidad de gastos. Se eliminan las subidas sorpresa ligadas al IPC sin tope previo.</p>
+                  <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.5' }}>
+                    Se instaura una era de predictibilidad financiera. La desvinculación total del IPC elimina el riesgo de incrementos sorpresa en las renovaciones, permitiendo a los hogares planificar sus gastos a largo plazo bajo un horizonte de rentas estabilizadas por ley.
+                  </p>
                 </div>
                 <div style={{ padding: '24px', border: '1px solid black', borderRadius: '12px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '16px' }}>PARA EL PROPIETARIO</h3>
-                  <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.4' }}>Reducción del margen de beneficio neto en zonas tensionadas; acceso a bonificaciones fiscales si reduce la renta voluntariamente.</p>
+                  <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.5' }}>
+                    El sector privado afronta una compresión de márgenes operativos. Como contrapartida a la limitación de precios, el decreto habilita un nuevo catálogo de bonificaciones fiscales que entrarán en juego únicamente para aquellos arrendadores que acepten reducciones voluntarias de la renta.
+                  </p>
                 </div>
               </div>
             </section>
@@ -178,11 +191,11 @@ const StoryReader = ({ article, onBack }) => {
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <li style={{ fontSize: '18px', fontWeight: 700, display: 'flex', gap: '16px' }}>
                    <span style={{ minWidth: '8px', height: '8px', background: 'black', borderRadius: '50%', marginTop: '10px' }} />
-                   El tope del 3% se aplicará de forma indefinida hasta 2026 en regiones autorizadas.
+                   "El tope del 3% no es una tregua temporal, sino un pilar de la nueva arquitectura del mercado residencial que perdurará hasta 2026."
                 </li>
                 <li style={{ fontSize: '18px', fontWeight: 700, display: 'flex', gap: '16px' }}>
                    <span style={{ minWidth: '8px', height: '8px', background: 'black', borderRadius: '50%', marginTop: '10px' }} />
-                   Se estima un ahorro directo de 1.400€ anuales para una familia tipo en Barcelona.
+                   El impacto estimado se cuantifica en una inyección indirecta de 1.400€ anuales de liquidez para las familias ubicadas en zonas de alta tensión.
                 </li>
               </ul>
             </section>
@@ -190,10 +203,17 @@ const StoryReader = ({ article, onBack }) => {
             {/* PUNTO CIEGO DETECTADO */}
             <section style={{ padding: '40px', background: 'black', color: 'white', borderRadius: '24px' }}>
               <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.5, marginBottom: '16px', letterSpacing: '2px' }}>INTELIGENCIA TNE • PUNTO CIEGO</div>
-              <h3 style={{ fontSize: '24px', fontWeight: 800, lineHeight: '1.3', marginBottom: '16px' }}>La cobertura de {article.source} omite el impacto en las pymes de gestión inmobiliaria.</h3>
-              <p style={{ fontSize: '16px', opacity: 0.7, lineHeight: '1.5', margin: 0 }}>
-                Mientras el reportaje se centra en los grandes tenedores y fondos buitre, no analiza cómo la reducción de márgenes afectará a los administradores de fincas locales, que representan el 65% del sector servicios inmobiliarios en España.
-              </p>
+              <h3 style={{ fontSize: '24px', fontWeight: 800, lineHeight: '1.3', marginBottom: '20px' }}>
+                La cobertura de {article.source} omite el impacto en las pymes de gestión inmobiliaria y el mercado de proximidad.
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ fontSize: '16px', opacity: 0.7, lineHeight: '1.6', margin: 0 }}>
+                  Mientras el reportaje principal de {article.source} focaliza su atención en los "fondos buitre" y los grandes tenedores institucionales, el análisis de TNE detecta un vacío crítico: la omisión sistemática del impacto en los administradores de fincas locales y las micro-pymes del sector.
+                </p>
+                <p style={{ fontSize: '16px', opacity: 0.7, lineHeight: '1.6', margin: 0 }}>
+                  Este segmento, que representa el 65% del ecosistema de servicios inmobiliarios en España, verá reducidos sus márgenes operativos sin acceso a las economías de escala de los grandes grupos. La narrativa del medio no contempla cómo esta asfixia regulatoria podría derivar en una degradación del mantenimiento del parque de vivienda antiguo, tradicionalmente gestionado por estos actores locales.
+                </p>
+              </div>
             </section>
           </div>
 
