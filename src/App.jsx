@@ -22,6 +22,7 @@ const App = () => {
   const [selectedStory, setSelectedStory] = useState(null);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [scrollPos, setScrollPos] = useState(0);
+  const [forYouMode, setForYouMode] = useState(false);
 
   const [activeCategory, setActiveCategory] = useState('TODO');
   const [activeStoryFilter, setActiveStoryFilter] = useState('TODO');
@@ -47,9 +48,11 @@ const App = () => {
     category: ['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'][i % 8]
   }));
 
-  const displayStoriesFull = activeCategory === 'TODO' 
-    ? categorizedStories 
-    : categorizedStories.filter(s => s.category === activeCategory);
+  const displayStoriesFull = forYouMode 
+    ? categorizedStories.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))
+    : (activeCategory === 'TODO' 
+        ? categorizedStories 
+        : categorizedStories.filter(s => s.category === activeCategory));
 
   const displayStories = displayStoriesFull.slice(0, visibleStories);
 
@@ -58,7 +61,15 @@ const App = () => {
       <div className="navbar__inner">
         <div className="navbar__logo" onClick={() => { navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }} style={{ cursor: 'pointer' }}>TNE.</div>
         <div className="navbar__links" style={{ display: 'flex', alignItems: 'center' }}>
-          <a href="/" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }}>INICIO</a>
+          <a href="/" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/'); setActiveCategory('TODO'); setForYouMode(false); setSelectedStory(null); }}>INICIO</a>
+          <a 
+            href="#" 
+            className="navbar__link" 
+            onClick={(e) => { e.preventDefault(); setForYouMode(true); setActiveCategory('TODO'); navigate('/'); }}
+            style={{ fontWeight: forYouMode ? 900 : 400, color: forYouMode ? 'black' : 'inherit' }}
+          >
+            PARA TI
+          </a>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <a 
               href="#" 
@@ -117,6 +128,11 @@ const App = () => {
           15% { opacity: 1; transform: translateX(0); }
           85% { opacity: 1; transform: translateX(0); }
           100% { opacity: 0; transform: translateX(-5px); }
+        }
+        @keyframes heartPulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.3); }
+          100% { transform: scale(1); }
         }
       `}</style>
       <Navbar />
