@@ -111,6 +111,14 @@ const App = () => {
 
   return (
     <div className="app">
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateX(10px); }
+          15% { opacity: 1; transform: translateX(0); }
+          85% { opacity: 1; transform: translateX(0); }
+          100% { opacity: 0; transform: translateX(-5px); }
+        }
+      `}</style>
       <Navbar />
       <main style={{ marginTop: '72px', minHeight: '80vh' }}>
         <Routes>
@@ -307,7 +315,11 @@ const App = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
                     {displayStories.map(story => (
                       <div key={story.id} onClick={() => { navigate(`/story/${story.id}`); setSelectedStory(story); }} style={{ cursor: 'pointer' }}>
-                        <StoryCard story={story} />
+                        <StoryCard 
+                          story={story} 
+                          isFavorite={favorites.some(f => f.id === story.id)}
+                          onToggleFavorite={toggleFavorite}
+                        />
                       </div>
                     ))}
                   </div>

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ShareModal from './ShareModal';
 
 const BiasBar = ({ bias }) => {
   const { left, center, right } = bias;
@@ -19,7 +20,17 @@ const BiasBar = ({ bias }) => {
   );
 };
 
-const StoryCard = ({ story }) => {
+const StoryCard = ({ story, onToggleFavorite, isFavorite }) => {
+  const [copied, setCopied] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(`${window.location.origin}/story/${story.id}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <article className="story-card" style={{ 
       padding: '48px', 
@@ -77,6 +88,53 @@ const StoryCard = ({ story }) => {
         </div>
         <BiasBar bias={story.bias} />
       </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', alignItems: 'center', paddingTop: '12px' }}>
+        {copied && (
+          <span style={{ 
+            fontSize: '10px', 
+            fontWeight: 800, 
+            fontFamily: 'var(--font-mono)', 
+            animation: 'fadeInOut 2s forwards',
+            letterSpacing: '1px'
+          }}>
+            COPIADO
+          </span>
+        )}
+        <div 
+          onClick={handleCopy}
+          style={{ cursor: 'pointer', opacity: 0.7, padding: '4px' }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        
+        <div 
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite && onToggleFavorite(story); }}
+          style={{ cursor: 'pointer', opacity: isFavorite ? 1 : 0.7, padding: '4px', color: isFavorite ? 'black' : 'inherit' }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = isFavorite ? 1 : 0.7}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+        </div>
+
+        <div 
+          onClick={(e) => { e.stopPropagation(); setIsShareOpen(true); }}
+          style={{ cursor: 'pointer', opacity: 0.7, padding: '4px' }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </div>
+      </div>
+
+      <ShareModal 
+        isOpen={isShareOpen} 
+        onClose={() => setIsShareOpen(false)} 
+        storyTitle={story.title}
+        storyUrl={`${window.location.origin}/story/${story.id}`}
+      />
     </article>
   );
 };
