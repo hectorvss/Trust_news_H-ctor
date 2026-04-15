@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 const Plus = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.2 }}>
@@ -7,8 +8,8 @@ const Plus = () => (
 );
 
 const CorporateLanding = ({ type, onBack }) => {
-  const [searchParams, setSearchParams] = React.useMemo(() => [new URLSearchParams(window.location.search)], []);
-  const initialSectionId = searchParams[0].get('section');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionId = searchParams.get('section');
 
   const companySections = [
     { 
@@ -171,16 +172,26 @@ const CorporateLanding = ({ type, onBack }) => {
 
   const sections = type === 'COMPANY' ? companySections : helpSections;
   
-  const initialIndex = initialSectionId 
-    ? sections.findIndex(s => s.id === initialSectionId) 
+  const initialIndex = sectionId 
+    ? sections.findIndex(s => s.id === sectionId) 
     : 0;
 
   const [activeSection, setActiveSection] = useState(initialIndex !== -1 ? initialIndex : 0);
   const [openFaq, setOpenFaq] = useState(null);
 
-  React.useEffect(() => {
-    if (initialIndex !== -1) setActiveSection(initialIndex);
-  }, [initialSectionId, initialIndex]);
+  // Sync state if URL changes
+  useEffect(() => {
+    const newIndex = sectionId ? sections.findIndex(s => s.id === sectionId) : 0;
+    if (newIndex !== -1) {
+      setActiveSection(newIndex);
+      window.scrollTo(0, 0); // Scroll to top on section change
+    }
+  }, [sectionId, sections]);
+
+  const handleSectionClick = (index) => {
+    setActiveSection(index);
+    setSearchParams({ section: sections[index].id });
+  };
 
   const activeData = sections[activeSection];
 
@@ -205,7 +216,7 @@ const CorporateLanding = ({ type, onBack }) => {
               {sections.map((section, index) => (
                 <div 
                   key={section.id}
-                  onClick={() => setActiveSection(index)}
+                  onClick={() => handleSectionClick(index)}
                   style={{ 
                     padding: '16px 0', 
                     fontSize: '18px', 
