@@ -52,11 +52,11 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <span onClick={onBack} style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '24px' }}>← REGRESAR</span>
           {[
-            { label: 'FACTUALIDAD', val: 'ALTA' },
+            { label: 'FACTUALIDAD', val: story.factuality?.toUpperCase() || 'ALTA' },
             { label: 'COBERTURA', val: 'MIXTA' },
-            { label: 'CONSENSO', val: 'MEDIO' },
-            { label: 'FUENTES', val: '86' },
-            { label: 'IMPACTO', val: 'ALTO' }
+            { label: 'CONSENSO', val: story.consensus || 'MEDIO' },
+            { label: 'FUENTES', val: story.sourceCount || '86' },
+            { label: 'IMPACTO', val: story.impact || 'ALTO' }
           ].map((pill, i) => (
             <div key={i} style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
               <span style={{ opacity: 0.3 }}>{pill.label}:</span>
@@ -315,12 +315,12 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
                 <div>
                   <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '24px' }}>CIFRAS CLAVE</div>
-                  {[
+                  {(story.detailStats || [
                     { k: 'Límite de subida', v: '3.0%' },
                     { k: 'Contratos afectados', v: '2,400,000' },
                     { k: 'Vigencia inicial', v: '31 DIC 2024' },
                     { k: 'Ahorro promedio/mes', v: '142€' }
-                  ].map((d, i) => (
+                  ]).map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eee', fontSize: '14px' }}>
                       <span style={{ fontWeight: 500 }}>{d.k}</span>
                       <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{d.v}</span>
@@ -343,10 +343,10 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
                 <div>
                   <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '24px' }}>MEDIOS ANALIZADOS</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                    {['EL PAÍS', 'ABC', 'EL MUNDO', 'RTVE', 'EL DIARIO', 'LA VANGUARDIA', 'EFE', 'REUTERS'].map(f => (
+                    {(story.sources || ['EL PAÍS', 'ABC', 'EL MUNDO', 'RTVE', 'EL DIARIO', 'LA VANGUARDIA', 'EFE', 'REUTERS']).map(f => (
                       <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 700 }}>
                         <div style={{ width: '8px', height: '8px', background: 'black', borderRadius: '50%' }} />
-                        {f}
+                        {f.toUpperCase()}
                       </div>
                     ))}
                   </div>

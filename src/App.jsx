@@ -13,7 +13,6 @@ import DailySummary from './components/DailySummary';
 import FavoritesView from './components/FavoritesView';
 import Footer from './components/Footer';
 import ShareModal from './components/ShareModal';
-import ForYouView from './components/ForYouView';
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
@@ -48,14 +47,14 @@ const App = () => {
     });
   };
 
-  const categories = ['TODO', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
+  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
 
   const categorizedStories = mockStories.map((s, i) => ({
     ...s,
     category: ['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'][i % 8]
   }));
 
-  const displayStoriesFull = forYouMode 
+  const displayStoriesFull = activeCategory === 'PARA TI'
     ? categorizedStories.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))
     : (activeCategory === 'TODO' 
         ? categorizedStories 
@@ -69,14 +68,6 @@ const App = () => {
         <div className="navbar__logo" onClick={() => { navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }} style={{ cursor: 'pointer' }}>TNE.</div>
         <div className="navbar__links" style={{ display: 'flex', alignItems: 'center' }}>
           <a href="/" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }}>INICIO</a>
-          <a 
-            href="/para-ti" 
-            className="navbar__link" 
-            onClick={(e) => { e.preventDefault(); navigate('/para-ti'); }}
-            style={{ fontWeight: location.pathname === '/para-ti' ? 900 : 400, color: location.pathname === '/para-ti' ? 'black' : 'inherit' }}
-          >
-            PARA TI
-          </a>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <a 
               href="#" 
@@ -188,7 +179,9 @@ const App = () => {
                     {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
                   </div>
                   <h1 style={{ fontSize: '80px', lineHeight: '0.9', letterSpacing: '-4px', margin: 0 }}>
-                    {activeCategory === 'TODO' ? 'Contrasta las \n noticias en España.' : `Contraste: \n ${activeCategory}.`}
+                    {activeCategory === 'TODO' 
+                      ? 'Contrasta las \n noticias en España.' 
+                      : (activeCategory === 'PARA TI' ? 'Tu Selección \n Personal.' : `Contraste: \n ${activeCategory}.`)}
                   </h1>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
                     <Plus /> <Plus />
@@ -470,9 +463,9 @@ const App = () => {
                           <div style={{ display: 'flex', height: '8px', background: '#f5f5f5', borderRadius: '4px', overflow: 'hidden' }}>
                             {section.main.barType === 'bipartisan' ? (
                               <>
-                                <div style={{ width: '40%', background: '#ff3b30' }}></div>
+                                <div style={{ width: '40%', background: 'black' }}></div>
                                 <div style={{ width: '15%', background: '#ccc' }}></div>
-                                <div style={{ width: '45%', background: '#007aff' }}></div>
+                                <div style={{ width: '45%', background: '#666' }}></div>
                               </>
                             ) : (
                               <>
@@ -516,15 +509,6 @@ const App = () => {
             </div>
           } />
           <Route path="/bias" element={<BiasAnalysis onBack={() => navigate('/')} />} />
-          <Route path="/para-ti" element={
-            <ForYouView 
-              stories={categorizedStories.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))} 
-              onBack={() => navigate('/')}
-              onShare={openShare}
-              onToggleFavorite={toggleFavorite}
-              favorites={favorites}
-            />
-          } />
           <Route path="/story/:id" element={
             <div className="container" style={{ padding: '60px 24px' }}>
                 <StoryDetail 
