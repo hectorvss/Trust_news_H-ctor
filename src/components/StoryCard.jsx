@@ -114,7 +114,7 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite }) => {
             cursor: 'pointer', 
             opacity: liked ? 1 : 0.7, 
             padding: '4px', 
-            color: liked ? '#ff3b30' : 'inherit',
+            color: liked ? 'black' : 'inherit',
             animation: liked ? 'heartPulse 0.3s ease-out' : 'none'
           }}
           onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
