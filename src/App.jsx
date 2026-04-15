@@ -12,7 +12,7 @@ import StoryReader from './components/StoryReader';
 import DailySummary from './components/DailySummary';
 import FavoritesView from './components/FavoritesView';
 import Footer from './components/Footer';
-import ShareModal from './ShareModal';
+import ShareModal from './components/ShareModal';
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
