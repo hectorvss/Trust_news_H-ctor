@@ -12,6 +12,7 @@ import StoryReader from './components/StoryReader';
 import DailySummary from './components/DailySummary';
 import FavoritesView from './components/FavoritesView';
 import Footer from './components/Footer';
+import ShareModal from './ShareModal';
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
@@ -31,6 +32,11 @@ const App = () => {
   const [visibleStories, setVisibleStories] = useState(4);
 
   const [favorites, setFavorites] = useState([]);
+  const [shareConfig, setShareConfig] = useState({ isOpen: false, story: null });
+
+  const openShare = (story) => {
+    setShareConfig({ isOpen: true, story });
+  };
 
   const toggleFavorite = (story) => {
     if (!story) return;
@@ -335,6 +341,7 @@ const App = () => {
                           story={story} 
                           isFavorite={favorites.some(f => f.id === story.id)}
                           onToggleFavorite={toggleFavorite}
+                          onShare={() => openShare(story)}
                         />
                       </div>
                     ))}
@@ -514,6 +521,7 @@ const App = () => {
                   story={{ ...(selectedStory || categorizedStories[0]), onSelectArticle: (art) => { setScrollPos(window.scrollY); setSelectedArticle(art); navigate(`/article/${art.id}`); } }} 
                   isFavorite={favorites.some(f => f.id === (selectedStory?.id || categorizedStories[0].id))}
                   onToggleFavorite={() => toggleFavorite(selectedStory || categorizedStories[0])}
+                  onShare={() => openShare(selectedStory || categorizedStories[0])}
                   onBack={() => navigate('/')}
                   activeFilter={activeStoryFilter} setActiveFilter={setActiveStoryFilter}
                   activeTab={activeStoryTab} setActiveTab={setActiveStoryTab}
@@ -530,6 +538,12 @@ const App = () => {
         </Routes>
       </main>
       <Footer />
+      <ShareModal 
+        isOpen={shareConfig.isOpen} 
+        onClose={() => setShareConfig({ isOpen: false, story: null })} 
+        storyTitle={shareConfig.story?.title}
+        storyUrl={shareConfig.story ? `${window.location.origin}/story/${shareConfig.story.id}` : ''}
+      />
     </div>
   );
 };

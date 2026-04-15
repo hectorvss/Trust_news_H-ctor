@@ -4,9 +4,8 @@ import ShareModal from './ShareModal';
 
 const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
 
-const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, setActiveTab, isFavorite, onToggleFavorite }) => {
+const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, setActiveTab, isFavorite, onToggleFavorite, onShare }) => {
   const [copied, setCopied] = useState(false);
-  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -103,7 +102,7 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
             <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
           </svg>
           <svg 
-            onClick={() => setIsShareOpen(true)}
+            onClick={() => onShare && onShare()}
             style={{ opacity: 0.7, cursor: 'pointer', transition: '0.2s' }} 
             onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
             onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
@@ -113,13 +112,6 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
           </svg>
         </div>
       </div>
-
-      <ShareModal 
-        isOpen={isShareOpen} 
-        onClose={() => setIsShareOpen(false)} 
-        storyTitle={story.title}
-        storyUrl={window.location.href}
-      />
 
       <div className="layout-split" style={{ alignItems: 'flex-start', gap: '60px' }}>
         

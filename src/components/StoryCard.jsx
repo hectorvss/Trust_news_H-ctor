@@ -20,9 +20,8 @@ const BiasBar = ({ bias }) => {
   );
 };
 
-const StoryCard = ({ story, onToggleFavorite, isFavorite }) => {
+const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
   const [copied, setCopied] = useState(false);
-  const [isShareOpen, setIsShareOpen] = useState(false);
   const [liked, setLiked] = useState(false);
 
   const handleCopy = (e) => {
@@ -142,7 +141,7 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite }) => {
         </div>
 
         <div 
-          onClick={(e) => { e.stopPropagation(); setIsShareOpen(true); }}
+          onClick={(e) => { e.stopPropagation(); onShare && onShare(); }}
           style={{ cursor: 'pointer', opacity: 0.7, padding: '4px' }}
           onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
           onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
@@ -151,12 +150,6 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite }) => {
         </div>
       </div>
 
-      <ShareModal 
-        isOpen={isShareOpen} 
-        onClose={() => setIsShareOpen(false)} 
-        storyTitle={story.title}
-        storyUrl={`${window.location.origin}/story/${story.id}`}
-      />
     </article>
   );
 };
