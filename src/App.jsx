@@ -13,6 +13,7 @@ import DailySummary from './components/DailySummary';
 import FavoritesView from './components/FavoritesView';
 import Footer from './components/Footer';
 import ShareModal from './components/ShareModal';
+import ForYouView from './components/ForYouView';
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
@@ -67,12 +68,12 @@ const App = () => {
       <div className="navbar__inner">
         <div className="navbar__logo" onClick={() => { navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }} style={{ cursor: 'pointer' }}>TNE.</div>
         <div className="navbar__links" style={{ display: 'flex', alignItems: 'center' }}>
-          <a href="/" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/'); setActiveCategory('TODO'); setForYouMode(false); setSelectedStory(null); }}>INICIO</a>
+          <a href="/" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }}>INICIO</a>
           <a 
-            href="#" 
+            href="/para-ti" 
             className="navbar__link" 
-            onClick={(e) => { e.preventDefault(); setForYouMode(true); setActiveCategory('TODO'); navigate('/'); }}
-            style={{ fontWeight: forYouMode ? 900 : 400, color: forYouMode ? 'black' : 'inherit' }}
+            onClick={(e) => { e.preventDefault(); navigate('/para-ti'); }}
+            style={{ fontWeight: location.pathname === '/para-ti' ? 900 : 400, color: location.pathname === '/para-ti' ? 'black' : 'inherit' }}
           >
             PARA TI
           </a>
@@ -515,6 +516,15 @@ const App = () => {
             </div>
           } />
           <Route path="/bias" element={<BiasAnalysis onBack={() => navigate('/')} />} />
+          <Route path="/para-ti" element={
+            <ForYouView 
+              stories={categorizedStories.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))} 
+              onBack={() => navigate('/')}
+              onShare={openShare}
+              onToggleFavorite={toggleFavorite}
+              favorites={favorites}
+            />
+          } />
           <Route path="/story/:id" element={
             <div className="container" style={{ padding: '60px 24px' }}>
                 <StoryDetail 

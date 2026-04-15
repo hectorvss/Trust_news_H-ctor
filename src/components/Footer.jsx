@@ -83,7 +83,9 @@ const Footer = () => {
             <div style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '2px', marginTop: '4px' }}>TRUST NEWS ESPAÑA</div>
           </div>
           <div>
-            <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>Compañía</h4>
+            <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>
+              <Link to="/company" style={{ color: 'inherit', textDecoration: 'none' }}>Compañía</Link>
+            </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
               <li key="c1"><Link to="/company?section=sobre-nosotros" style={{ color: 'inherit', textDecoration: 'none' }}>Sobre nosotros</Link></li>
               <li key="c2"><Link to="/company?section=mision" style={{ color: 'inherit', textDecoration: 'none' }}>Misión</Link></li>
@@ -93,7 +95,9 @@ const Footer = () => {
             </ul>
           </div>
           <div>
-            <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>Ayuda</h4>
+            <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>
+              <Link to="/help" style={{ color: 'inherit', textDecoration: 'none' }}>Ayuda</Link>
+            </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
               <li key="a1"><Link to="/help?section=centro-ayuda" style={{ color: 'inherit', textDecoration: 'none' }}>Centro de ayuda</Link></li>
               <li key="a2"><Link to="/help?section=faq" style={{ color: 'inherit', textDecoration: 'none' }}>FAQ</Link></li>
