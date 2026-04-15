@@ -66,7 +66,7 @@ const StoryCard = ({ story }) => {
         lineHeight: '1.4',
         fontWeight: 600
       }}>
-        <span style={{ opacity: 0.4, marginRight: '8px', fontSize: '10px', fontWeight: 800 }}>ANALÍTICA GNE:</span>
+        <span style={{ opacity: 0.4, marginRight: '8px', fontSize: '10px', fontWeight: 800 }}>ANALÍTICA TNE:</span>
         La cobertura nacional se divide entre el impacto regulatorio ({story.bias.center}%) y el riesgo de mercado ({story.bias.right}%). Se detecta un fuerte interés en el segmento de arrendatarios jóvenes.
       </div>
       

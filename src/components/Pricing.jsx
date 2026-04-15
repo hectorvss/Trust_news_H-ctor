@@ -34,7 +34,7 @@ const Pricing = ({ onBack }) => {
       period: isAnnual ? "Al año" : "Al mes",
       features: [
         { text: "[+] Todo lo del plan Premium", include: true },
-        { text: "[+] Acceso a API de datos GNE", include: true },
+        { text: "[+] Acceso a API de datos TNE", include: true },
         { text: "[+] Reportes semanales de sesgo", include: true },
         { text: "[+] Soporte prioritario 24/7", include: true },
         { text: "[+] Exportación de datos analíticos", include: true },

@@ -145,7 +145,7 @@ const Auth = ({ onBack }) => {
                   marginTop: '20px' 
                 }}
               >
-                {isLogin ? 'ACCEDER A GNE' : 'CREAR MI CUENTA'}
+                {isLogin ? 'ACCEDER A TNE' : 'CREAR MI CUENTA'}
               </button>
             </form>
           </div>

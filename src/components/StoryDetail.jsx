@@ -3,7 +3,7 @@ import BiasBar from './BiasBar';
 
 const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
 
-const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, setActiveTab }) => {
+const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, setActiveTab, isFavorite, onToggleFavorite }) => {
   if (!story) return null;
   const [perspective, setPerspective] = useState('CENTER');
 
@@ -11,47 +11,25 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
   // Unified metadata for the story
   const metadata = {
     status: "CONFIRMADA",
-    published: "HACE 2 HORAS",
+    published: story.time.toUpperCase(),
     updated: "HACE 14 MIN",
-    region: "ESPAÑA / UE",
-    theme: "VIVIENDA / ECONOMÍA",
-    type: "ANÁLISIS GNE",
-    factualidad: "ALTA",
+    region: story.location.toUpperCase() || "ESPAÑA / UE",
+    theme: story.category || "GENERAL",
+    type: "ANÁLISIS TNE",
+    factualidad: story.factuality?.toUpperCase() || "ALTA",
     consenso: "MEDIO",
     impacto: "ALTO",
-    fuentes: 86
+    fuentes: story.sourceCount || 86
   };
 
-  const allArticles = [
-    { 
-      source: "EL PAÍS", bias: "CENTER", fact: "ALTA", time: "Hace 2h", origin: "Nacional", 
-      type: "Análisis", tone: "Neutro", angle: "Económico", author: "M. Jiménez",
-      summary: "Explica cómo el decreto intenta desvincular el IPC del precio del alquiler sin mermar la inversión.",
-      whyOpened: "Aporta la visión técnica y regulatoria más completa.",
-      diff: "Aporta contexto macroeconómico y regulatorio." 
-    },
-    { 
-      source: "ABC", bias: "RIGHT", fact: "ALTA", time: "Hace 4h", origin: "Nacional", 
-      type: "Noticia", tone: "Crítico", angle: "Jurídico", author: "L. Fernández",
-      summary: "Critica la falta de blindaje para el pequeño propietario y el riesgo de retirada de oferta.",
-      whyOpened: "Enfoque crítico desde la seguridad jurídica y el derecho a la propiedad.",
-      diff: "Enfatiza la inseguridad jurídica del propietario." 
-    },
-    { 
-      source: "EL DIARIO", bias: "LEFT", fact: "ALTA", time: "Hace 5h", origin: "Nacional", 
-      type: "Reportaje", tone: "Interpretativo", angle: "Social", author: "I. Blanco",
-      summary: "Centrado en el alivio que supone la medida para barrios con gentrificación acelerada.",
-      whyOpened: "Ideal para entender el impacto social en el inquilino vulnerable.",
-      diff: "Prioriza el acceso y derechos del inquilino." 
-    },
-    { 
-      source: "EL MUNDO", bias: "RIGHT", fact: "ALTA", time: "Hace 7h", origin: "Nacional", 
-      type: "Análisis", tone: "Crítico", angle: "Mercado", author: "J. Sánchez",
-      summary: "Advierte de una posible contracción del 15% en la oferta de alquiler a corto plazo.",
-      whyOpened: "Análisis de impacto directo en el mercado y la oferta inmobiliaria.",
-      diff: "Analiza la posible contracción de la oferta." 
-    },
-  ];
+  const allArticles = (story.articles || []).map(art => ({
+    ...art,
+    readerContent: art.readerContent,
+    title: story.title
+  }));
+
+
+  const [infoSubTab, setInfoSubTab] = useState('GENERAL');
 
   const filteredArticles = activeFilter === 'TODO' 
     ? allArticles 
@@ -63,7 +41,7 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
       {/* 1. PRIMARY INTELLIGENCE INDICATORS (TOP HEADER) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', borderBottom: 'var(--border-thin)', paddingBottom: '16px' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span onClick={onBack} style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', marginRight: '12px' }}>← REGRESAR</span>
+          <span onClick={onBack} style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '24px' }}>← REGRESAR</span>
           {[
             { label: 'FACTUALIDAD', val: 'ALTA' },
             { label: 'COBERTURA', val: 'MIXTA' },
@@ -71,17 +49,29 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
             { label: 'FUENTES', val: '86' },
             { label: 'IMPACTO', val: 'ALTO' }
           ].map((pill, i) => (
-            <div key={i} style={{ padding: '4px 12px', background: '#f5f5f5', borderRadius: '4px', fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-mono)', display: 'flex', gap: '6px' }}>
+            <div key={i} style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
               <span style={{ opacity: 0.3 }}>{pill.label}:</span>
               <span>{pill.val}</span>
             </div>
           ))}
+
         </div>
         
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <svg style={{ opacity: 0.4, cursor: 'pointer' }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <svg style={{ opacity: 0.4, cursor: 'pointer' }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-          <svg style={{ opacity: 0.4, cursor: 'pointer' }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        <div style={{ display: 'flex', gap: '24px' }}>
+          <svg style={{ opacity: 0.7, cursor: 'pointer' }} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <svg 
+            onClick={onToggleFavorite}
+            style={{ 
+              opacity: isFavorite ? 1 : 0.7, 
+              cursor: 'pointer',
+              color: isFavorite ? 'black' : 'inherit',
+              transition: 'all 0.2s ease'
+            }} 
+            width="28" height="28" viewBox="0 0 24 24" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
+          </svg>
+          <svg style={{ opacity: 0.7, cursor: 'pointer' }} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
         </div>
       </div>
 
@@ -95,7 +85,7 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
 
           {/* MINIMAL TABS navigation (identical to original structure) */}
           <div style={{ display: 'flex', gap: '24px', borderBottom: 'var(--border-thin)', marginBottom: '40px' }}>
-            {['RESUMEN', '+ INFO', 'CONTEXTO', 'IMPACTO', 'COBERTURA', 'DATOS', 'CRONOLOGÍA', 'FUENTES', 'CLAVES'].map(t => (
+            {['RESUMEN', '+ INFO', 'CONTEXTO', 'IMPACTO', 'COBERTURA', 'DATOS', 'FUENTES', 'CLAVES'].map(t => (
               <div 
                 key={t}
                 onClick={() => setActiveTab(t)}
@@ -120,21 +110,23 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
             {activeTab === 'RESUMEN' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
                 <div>
-                  <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>QUÉ HA PASADO</div>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '19px', lineHeight: '1.5' }}>
-                    <Plus /> <p style={{ margin: 0 }}>El Gobierno aprueba el decreto que limita el incremento de los alquileres al 3% para zonas tensionadas durante 2024.</p>
+                  <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>RESUMEN EJECUTIVO</div>
+                  <div style={{ display: 'flex', gap: '24px', fontSize: '22px', lineHeight: '1.4', fontWeight: 600 }}>
+                    <Plus /> <p style={{ margin: 0 }}>{story.summary}</p>
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>QUÉ CAMBIA</div>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '19px', lineHeight: '1.5' }}>
-                    <Plus /> <p style={{ margin: 0 }}>Se elimina la vinculación directa al IPC, afectando a más de 2 millones de contratos vigentes en España.</p>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>QUÉ NO ESTÁ CLARO SIN EMBARGO</div>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '19px', lineHeight: '1.5' }}>
-                    <Plus /> <p style={{ margin: 0 }}>La implementación en regiones que no han declarado zonas tensionadas y las sanciones por incumplimiento.</p>
+                  <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>DESGLOSE DE INTELIGENCIA</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {(story.desglose || [
+                      "Análisis técnico de la narrativa mediática actual.",
+                      "Seguimiento coordinado de fuentes nacionales e internacionales.",
+                      "Detección de puntos ciegos ideológicos en tiempo real."
+                    ]).map((item, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '24px', fontSize: '18px', lineHeight: '1.5', opacity: 0.8 }}>
+                        <Plus /> <p style={{ margin: 0 }}>{item}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -142,120 +134,142 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
 
             {activeTab === '+ INFO' && (
               <div>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '40px' }}>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '60px' }}>
                   <div style={{ display: 'flex', border: '1px solid black', borderRadius: '100px', overflow: 'hidden' }}>
-                    {['LEFT', 'CENTER', 'RIGHT'].map(p => (
+                    {['GENERAL', 'PERSPECTIVAS'].map(p => (
                       <div 
                         key={p} 
-                        onClick={() => setPerspective(p)}
+                        onClick={() => setInfoSubTab(p)}
                         style={{ 
                           padding: '8px 24px', 
                           fontSize: '11px', 
-                          fontWeight: 800, 
+                          fontWeight: 900, 
                           fontFamily: 'var(--font-mono)', 
                           cursor: 'pointer',
-                          background: perspective === p ? 'black' : 'transparent',
-                          color: perspective === p ? 'white' : 'black',
-                          borderRight: p !== 'RIGHT' ? '1px solid black' : 'none'
+                          background: infoSubTab === p ? 'black' : 'transparent',
+                          color: infoSubTab === p ? 'white' : 'black',
+                          borderRight: p !== 'PERSPECTIVAS' ? '1px solid black' : 'none'
                         }}
                       >
                         {p}
                       </div>
                     ))}
                   </div>
-                  <div style={{ padding: '8px 24px', border: '1px solid black', borderRadius: '100px', fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}>
-                    COMPARAR COBERTURA
-                  </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', fontSize: '17px', lineHeight: '1.7', fontWeight: 400 }}>
-                  <div style={{ display: 'flex', gap: '24px' }}>
-                    <div style={{ minWidth: '8px', height: '8px', background: 'black', borderRadius: '50%', marginTop: '10px' }} />
-                    <p style={{ margin: 0 }}>El Consejo de Ministros ha dado luz verde final a la Ley por el Derecho a la Vivienda, una de las normativas más complejas y debatidas de la actual legislatura. Tras meses de negociaciones internas en la coalición de Gobierno y un intenso trámite parlamentario, la ley introduce instrumentos jurídicos sin precedentes en España para tratar de contener los precios del mercado inmobiliario.</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '24px' }}>
-                    <div style={{ minWidth: '8px', height: '8px', background: 'black', borderRadius: '50%', marginTop: '10px' }} />
-                    <p style={{ margin: 0 }}>El núcleo de la ley es la capacidad otorgada a las comunidades autónomas para declarar "zonas tensionadas". En estas áreas, donde el coste de la vivienda supere el 30% del presupuesto medio de los hogares, se aplicarán sistemas de control de precios. Para los nuevos contratos en estas zonas, la renta no podrá exceder el precio del contrato anterior, más un pequeño incremento permitido por ley.</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '24px' }}>
-                    <div style={{ minWidth: '8px', height: '8px', background: 'black', borderRadius: '50%', marginTop: '10px' }} />
-                    <p style={{ margin: 0 }}>La normativa establece una distinción fundamental entre "pequeños tenedores" y "grandes tenedores". Estos últimos, definidos como aquellos propietarios con más de cinco o diez viviendas (según decida cada comunidad), tendrán restricciones adicionales basadas en un índice de precios de referencia. El objetivo declarado por el Ministerio de Agenda Urbana es "terminar con la burbuja del alquiler que expulsa a los jóvenes de las ciudades".</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '24px' }}>
-                    <div style={{ minWidth: '8px', height: '8px', background: 'black', borderRadius: '50%', marginTop: '10px' }} />
-                    <p style={{ margin: 0 }}>En cuanto a los incentivos, la ley contempla una serie de bonificaciones fiscales en el IRPF para aquellos propietarios que rebajen el precio del alquiler en zonas tensionadas, busquen alquilar a jóvenes de entre 18 y 35 años o pongan su vivienda en alquiler social. Se estima que estas rebajas fiscales podrían llegar hasta el 90% en casos específicos.</p>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', fontSize: '19px', lineHeight: '1.8', fontWeight: 400, maxWidth: '900px' }}>
+                  {((infoSubTab === 'GENERAL' ? story.fullContent : (infoSubTab === 'PERSPECTIVAS' ? story.perspectivasInfo : story.cronologiaInfo)) || "Cargando información adicional...").split('\n\n').map((para, idx) => (
+                    para.trim() && (
+                      <div key={idx} style={{ display: 'flex', gap: '32px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 900, opacity: 0.2, fontFamily: 'var(--font-mono)', marginTop: '8px' }}>{String(idx + 1).padStart(2, '0')}</div>
+                        <p style={{ margin: 0, textAlign: 'justify' }}>{para.trim()}</p>
+                      </div>
+                    )
+                  ))}
                 </div>
               </div>
             )}
 
+
             {activeTab === 'CONTEXTO' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
                 <div>
-                  <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>EL ORIGEN DEL PROBLEMA</div>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '17px', lineHeight: '1.6', fontWeight: 500 }}>
-                    <Plus /> 
-                    <p style={{ margin: 0 }}>Desde 2018, los precios del alquiler en las grandes capitales españolas han crecido un 45% más que el SMI promedio, creando una brecha de accesibilidad histórica.</p>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>PRECEDENTES LEGISLATIVOS</div>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '17px', lineHeight: '1.6', fontWeight: 500 }}>
-                    <Plus /> 
-                    <p style={{ margin: 0 }}>La Ley de Vivienda de 2023 sentó las bases, pero la inflación descontrolada de finales de año forzó al ejecutivo a buscar un mecanismo de control más agresivo y directo.</p>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>SITUACIÓN ACTUAL</div>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '17px', lineHeight: '1.6', fontWeight: 500 }}>
-                    <Plus /> 
-                    <p style={{ margin: 0 }}>España se sitúa como uno de los países de la UE con menor parque de vivienda pública (menos del 3%), lo que traslada toda la presión del mercado al sector privado.</p>
+                  <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>ANÁLISIS DE CONTEXTO ESTRUCTURAL</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', fontSize: '18px', lineHeight: '1.7', maxWidth: '850px' }}>
+                    {(story.contexto || "Cargando análisis de contexto global...").split('\n\n').map((p, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '24px' }}>
+                        <Plus />
+                        <p style={{ margin: 0 }}>{p}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'IMPACTO' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '60px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>IMPACTO SOCIAL DIRECTO</div>
-                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      <li style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}><Plus /> Alivio inmediato para familias con rentas medias-bajas en Madrid, Barcelona y Málaga.</li>
-                      <li style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}><Plus /> Aumento de la tasa de emancipación juvenil al reducirse la incertidumbre sobre renovaciones.</li>
-                    </ul>
+                    <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px', color: 'black' }}>PROYECCIÓN SOCIAL</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                      {(story.impactoSocial || [story.impacto]).map((item, i) => (
+                        <div key={i} style={{ fontSize: '17px', lineHeight: '1.6', fontWeight: 600 }}>
+                          <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, opacity: 0.4, marginBottom: '8px' }}>EJE {i + 1}</span>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, marginBottom: '16px', letterSpacing: '1px' }}>RIESGOS DE MERCADO</div>
-                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      <li style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}><Plus /> Posible fuga de capital inversor hacia el mercado de alquiler de temporada o locales.</li>
-                      <li style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}><Plus /> Menor mantenimiento de inmuebles al reducirse el margen de beneficio de los propietarios.</li>
-                    </ul>
+                    <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>IMPLICACIONES SISTÉMICAS</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                      {(story.impactoSistemico || ["Análisis de impacto en curso..."]).map((item, i) => (
+                        <div key={i} style={{ fontSize: '17px', lineHeight: '1.6', fontWeight: 600, borderLeft: '3px solid black', paddingLeft: '24px' }}>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'COBERTURA' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '40px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '60px' }}>
                   {[
-                    { label: 'IZQUIERDA', desc: 'Enfoque centrado en la protección del inquilino y el derecho a la vivienda como bien social.' },
+                    { label: 'IZQUIERDA', desc: story.perspectives?.left?.title || 'Enfoque centrado en la protección del inquilino y el derecho a la vivienda como bien social.' },
                     { label: 'CENTRO', desc: 'Análisis de la estabilidad del mercado y el impacto en la inflación general.' },
-                    { label: 'DERECHA', desc: 'Foco en el derecho a la propiedad y la posible contracción de la oferta de alquiler.' }
+                    { label: 'DERECHA', desc: story.perspectives?.right?.title || 'Foco en el derecho a la propiedad y la posible contracción de la oferta de alquiler.' }
                   ].map((block, i) => (
                     <div key={i}>
-                      <div style={{ fontSize: '10px', fontWeight: 800, marginBottom: '16px', opacity: 0.3 }}>{block.label}</div>
-                      <div style={{ fontSize: '15px', lineHeight: '1.5', fontWeight: 500 }}>{block.desc}</div>
+                      <div style={{ fontSize: '10px', fontWeight: 900, marginBottom: '16px', opacity: 0.3, letterSpacing: '1px' }}>NARRATIVA {block.label}</div>
+                      <div style={{ fontSize: '17px', lineHeight: '1.5', fontWeight: 600 }}>{block.desc}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ padding: '24px', border: '1px solid black', borderRadius: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, marginBottom: '12px', opacity: 0.3 }}>CONSENSO NARRATIVO</div>
-                  <div style={{ fontSize: '16px', fontWeight: 600 }}>Toda la prensa coincide en que la medida es de carácter urgente y electoralista, independientemente del juicio sobre su eficacia técnica.</div>
+                <div style={{ padding: '40px', border: '1px solid black', borderRadius: '4px', background: '#f9f9f9' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 900, marginBottom: '16px', opacity: 0.3, letterSpacing: '1px' }}>SÍNTESIS DE TNE INTELLIGENCE</div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.5px' }}>{story.consensoNarrativo || "Se detecta una fragmentación total de la narrativa, con una correlación del 0.85 entre la ideología editorial y el encuadre de la noticia."}</div>
                 </div>
+              </div>
+            )}
+
+
+
+            {activeTab === 'FUENTES' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '40px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px' }}>ORIGEN DE LA INFORMACIÓN</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {["Agencia EFE", "Reuters", "Europa Press", "Gabinete de Prensa Ministerial"].map((f, i) => (
+                      <div key={i} style={{ padding: '16px', border: '1px solid #eee', borderRadius: '4px', fontSize: '14px', fontWeight: 600 }}>
+                        {f} <span style={{ float: 'right', opacity: 0.3 }}>✓ VERIFICADO</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px' }}>DISTRIBUCIÓN DE SESGO</div>
+                  <div style={{ padding: '32px', background: '#000', color: '#fff', borderRadius: '4px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 900, marginBottom: '20px' }}>ANÁLISIS DE NEUTRALIDAD</div>
+                    <p style={{ fontSize: '14px', lineHeight: '1.6', opacity: 0.8 }}>Se han analizado {story.sourceCount} fuentes únicas. El {story.bias.left}% del volumen informativo proviene de medios con tendencia progresista, frente al {story.bias.right}% de tendencia conservadora.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'CLAVES' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
+                {(story.desglose || ["Analizando claves de la noticia..."]).map((item, i) => (
+                  <div key={i} style={{ padding: '32px', border: '1px solid black', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: '-10px', left: '20px', background: '#fff', padding: '0 8px', fontSize: '10px', fontWeight: 900 }}>CLAVE {i + 1}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, lineHeight: '1.4' }}>{item}</div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -285,23 +299,6 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
               </div>
             )}
 
-            {activeTab === 'CRONOLOGÍA' && (
-              <div style={{ paddingLeft: '20px', borderLeft: '2px solid black' }}>
-                {[
-                  { date: '12 ENE', title: 'Propuesta en el Consejo', desc: 'El Ministerio presenta el borrador inicial ante los socios de coalición.' },
-                  { date: '24 FEB', title: 'Acuerdo Técnico', desc: 'Se cierran las excepciones para pequeños propietarios.' },
-                  { date: '15 MAR', title: 'Aprobación Decreto', desc: 'Luz verde oficial en el Consejo de Ministros.' },
-                  { date: '16 MAR', title: 'Entrada en Vigor', desc: 'Publicación en el BOE.' }
-                ].map((e, i) => (
-                  <div key={i} style={{ marginBottom: '40px', position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: '-27px', top: '0', width: '12px', height: '12px', background: 'black', borderRadius: '50%' }} />
-                    <div style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.3, marginBottom: '8px' }}>{e.date}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, marginBottom: '4px' }}>{e.title}</div>
-                    <div style={{ fontSize: '15px', opacity: 0.6, lineHeight: '1.4' }}>{e.desc}</div>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {activeTab === 'FUENTES' && (
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '60px' }}>
@@ -457,19 +454,19 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
             </div>
           </div>
 
-          {/* CONSENSO (Enriched internally) */}
+          {/* CONSENSO (Dynamic) */}
           <div style={{ marginBottom: '56px', padding: '24px', border: 'var(--border-thin)', borderRadius: '12px' }}>
             <h4 style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', marginBottom: '16px', fontFamily: 'var(--font-mono)', opacity: 0.3 }}>CONSENSO NARRATIVO</h4>
-            <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>CONSENSO {metadata.consenso}</div>
-            <div style={{ fontSize: '14px', opacity: 0.5, lineHeight: '1.4' }}>Fuerte consenso sobre el límite porcentual; desacuerdo alto en la definición de zonas tensionadas.</div>
-            <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: 800 }}>ÁNGULO: ECONÓMICO</div>
+            <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>CONSENSO {story.consenso || 'MEDIO'}</div>
+            <div style={{ fontSize: '14px', opacity: 0.5, lineHeight: '1.4' }}>{story.consensoNarrativo}</div>
+            <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: 800 }}>ÁNGULO: {story.angle || 'GENERAL'}</div>
           </div>
 
-          {/* PUNTO CIEGO (Kept minimal as requested) */}
+          {/* PUNTO CIEGO (Dynamic) */}
           <div style={{ marginBottom: '56px', padding: '24px', background: 'black', color: 'white', borderRadius: '12px' }}>
             <h4 style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '2px', marginBottom: '12px', opacity: 0.4 }}>PUNTO CIEGO</h4>
             <p style={{ fontSize: '16px', fontWeight: 700, lineHeight: '1.4', margin: 0 }}>
-              Escasa cobertura sobre el impacto de la ley en el mercado de herencias inmobiliarias.
+              {story.blindSpot || "Identificando omisiones narrativas en la cobertura mediática..."}
             </p>
           </div>
 
@@ -481,6 +478,26 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
               El sesgo describe el enfoque de cobertura preponderante, no la veracidad de los hechos reportados.
             </p>
           </div>
+
+          {/* CONCEPTOS (Dynamic) */}
+          <div style={{ marginBottom: '56px' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 900, letterSpacing: '2px', marginBottom: '24px', opacity: 0.3 }}>CONCEPTOS EN TENDENCIA</h4>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {(story.tags || ['Análisis', 'Actualidad', 'Sociedad']).map(tag => (
+                <span key={tag} style={{ padding: '6px 12px', border: '1px solid #eee', fontSize: '11px', fontWeight: 800, borderRadius: '4px' }}>{tag}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* FACT CHECK (Dynamic) */}
+          <div style={{ marginBottom: '56px', padding: '24px', background: '#f5f5f5', borderRadius: '4px' }}>
+            <h4 style={{ fontSize: '10px', fontWeight: 900, letterSpacing: '1px', marginBottom: '16px', color: '#666' }}>VERIFICACIÓN TNE Intelligence</h4>
+            <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '8px' }}>[✓] Verificación de Datos</div>
+            <p style={{ fontSize: '12px', opacity: 0.6, margin: 0, textAlign: 'justify', lineHeight: '1.4' }}>
+              {story.factCheck || "Nuestros analistas han verificado los datos principales de esta historia con fuentes oficiales y organismos independientes."}
+            </p>
+          </div>
+
 
           {/* ORIGEN DE LAS FUENTES (Simple list with tiny bars) */}
           <div style={{ marginBottom: '40px' }}>
@@ -514,11 +531,11 @@ const StoryDetail = ({ story, onBack, activeFilter, setActiveFilter, activeTab, 
             </div>
           </div>
 
-          {/* TEMAS SIMILARES (Chips) */}
+          {/* TEMAS SIMILARES (Dynamic) */}
           <div style={{ marginBottom: '56px' }}>
             <h4 style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', marginBottom: '24px', fontFamily: 'var(--font-mono)', opacity: 0.3 }}>TEMAS SIMILARES</h4>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {['Vivienda', 'IBEX 35', 'Fiscalidad', 'Regulación UE'].map(topic => (
+              {(story.similarTopics || ['Nacional', 'Política', 'Economía']).map(topic => (
                 <div key={topic} style={{ padding: '6px 14px', border: 'var(--border-thin)', borderRadius: '100px', fontSize: '12px', fontWeight: 800 }}>
                   {topic}
                 </div>
