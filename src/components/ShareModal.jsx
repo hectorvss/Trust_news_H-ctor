@@ -7,13 +7,20 @@ const Bullet = () => (
 const ShareModal = ({ isOpen, onClose, storyTitle, storyUrl }) => {
   if (!isOpen) return null;
 
+  const encodedUrl = encodeURIComponent(storyUrl);
+  const encodedTitle = encodeURIComponent(storyTitle || 'Interesante noticia en TNE');
+
   const shareOptions = [
-    { name: 'WhatsApp' },
-    { name: 'X / Twitter' },
-    { name: 'LinkedIn' },
-    { name: 'Telegram' },
-    { name: 'Email' },
+    { name: 'WhatsApp', url: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}` },
+    { name: 'X / Twitter', url: `https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}` },
+    { name: 'LinkedIn', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
+    { name: 'Telegram', url: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}` },
+    { name: 'Email', url: `mailto:?subject=${encodedTitle}&body=${encodedUrl}` },
   ];
+
+  const handleShare = (url) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div style={{
@@ -22,8 +29,8 @@ const ShareModal = ({ isOpen, onClose, storyTitle, storyUrl }) => {
       left: 0,
       width: '100vw',
       height: '100vh',
-      backgroundColor: 'rgba(255,255,255,0.8)',
-      backdropFilter: 'blur(8px)',
+      backgroundColor: 'rgba(255,255,255,0.7)',
+      backdropFilter: 'blur(3px)', // Reduced blur as requested
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
@@ -35,10 +42,10 @@ const ShareModal = ({ isOpen, onClose, storyTitle, storyUrl }) => {
           background: 'white',
           width: '100%',
           maxWidth: '500px',
-          borderRadius: '0', // Square corners
+          borderRadius: '0',
           border: '2px solid black',
           padding: '40px',
-          boxShadow: '12px 12px 0px rgba(0,0,0,1)', // Brutalist/Retro shadow
+          boxShadow: '12px 12px 0px rgba(0,0,0,1)',
           position: 'relative'
         }}
         onClick={e => e.stopPropagation()}
@@ -70,8 +77,9 @@ const ShareModal = ({ isOpen, onClose, storyTitle, storyUrl }) => {
           {shareOptions.map((opt, i) => (
             <div 
               key={i} 
+              onClick={() => handleShare(opt.url)}
               style={{ 
-                padding: '24px 0', 
+                padding: '28px 0', 
                 borderBottom: '1px solid black', 
                 display: 'flex', 
                 justifyContent: 'space-between', 
@@ -84,18 +92,22 @@ const ShareModal = ({ isOpen, onClose, storyTitle, storyUrl }) => {
             >
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <Bullet />
-                <span style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '-0.2px' }}>{opt.name.toUpperCase()}</span>
+                <span style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '-0.2px' }}>{opt.name.toUpperCase()}</span>
               </div>
-              <span style={{ fontSize: '12px', fontWeight: 900, opacity: 0.2 }}>SELECT →</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 900, opacity: 0.3 }}>SELECT</span>
+                <span style={{ fontSize: '22px', fontWeight: 900, opacity: 0.3, lineHeight: 1 }}>→</span>
+              </div>
             </div>
           ))}
         </div>
 
-        <div style={{ padding: '24px', background: 'white', border: '1px solid black', borderRadius: '0', boxShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}>
+        <div style={{ padding: '24px', border: '1px solid black', position: 'relative' }}>
           <div style={{ fontSize: '9px', fontWeight: 900, opacity: 0.4, marginBottom: '12px', letterSpacing: '2px' }}>LOCALIZACIÓN DEL RECURSO (URL)</div>
           <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-mono)', wordBreak: 'break-all', color: '#333' }}>
             {storyUrl || 'tne.es/story/7x9k2m4l'}
           </div>
+          <div style={{ position: 'absolute', right: '-4px', bottom: '-4px', width: '100%', height: '100%', background: 'rgba(0,0,0,0.05)', zIndex: -1 }}></div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', opacity: 0.2 }}>
