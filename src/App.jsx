@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import './index.css';
 import { mockStories } from './mockData';
@@ -13,12 +13,15 @@ import DailySummary from './components/DailySummary';
 import FavoritesView from './components/FavoritesView';
 import Footer from './components/Footer';
 import ShareModal from './components/ShareModal';
+import { useAuth } from './context/AuthContext';
+import { getFavorites, addFavorite, removeFavorite, logReading } from './supabaseService';
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
 const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
 
   const [selectedStory, setSelectedStory] = useState(null);
   const [selectedArticle, setSelectedArticle] = useState(null);
@@ -32,19 +35,56 @@ const App = () => {
   const [visibleStories, setVisibleStories] = useState(4);
 
   const [favorites, setFavorites] = useState([]);
+  const [favStoryIds, setFavStoryIds] = useState(new Set());
   const [shareConfig, setShareConfig] = useState({ isOpen: false, story: null });
+
+  // Load favorites from Supabase when user logs in
+  useEffect(() => {
+    if (user) {
+      getFavorites(user.id).then(favs => {
+        setFavorites(favs);
+        setFavStoryIds(new Set(favs.map(f => f.story_id)));
+      });
+    } else {
+      setFavorites([]);
+      setFavStoryIds(new Set());
+    }
+  }, [user]);
 
   const openShare = (story) => {
     setShareConfig({ isOpen: true, story });
   };
 
-  const toggleFavorite = (story) => {
+  const toggleFavorite = async (story) => {
     if (!story) return;
-    setFavorites(prev => {
-      const isFav = prev.some(f => f.id === story.id);
-      if (isFav) return prev.filter(f => f.id !== story.id);
-      return [story, ...prev];
-    });
+    // If not logged in, use local state only
+    if (!user) {
+      setFavorites(prev => {
+        const isFav = prev.some(f => (f.story_id || f.id) === story.id);
+        if (isFav) return prev.filter(f => (f.story_id || f.id) !== story.id);
+        return [{ story_id: story.id, story_title: story.title }, ...prev];
+      });
+      setFavStoryIds(prev => {
+        const next = new Set(prev);
+        if (next.has(story.id)) next.delete(story.id);
+        else next.add(story.id);
+        return next;
+      });
+      return;
+    }
+    // Supabase-backed toggle
+    const isFav = favStoryIds.has(story.id);
+    if (isFav) {
+      await removeFavorite(user.id, story.id);
+      setFavorites(prev => prev.filter(f => f.story_id !== story.id));
+      setFavStoryIds(prev => { const next = new Set(prev); next.delete(story.id); return next; });
+    } else {
+      const newFav = await addFavorite(user.id, story);
+      if (newFav) {
+        setFavorites(prev => [newFav, ...prev]);
+        setFavStoryIds(prev => new Set(prev).add(story.id));
+      }
+    }
   };
 
   const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
@@ -112,7 +152,16 @@ const App = () => {
             )}
           </div>
           <a href="/pricing" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
-          <a href="/auth" className="navbar__link navbar__link--btn" onClick={(e) => { e.preventDefault(); navigate('/auth'); }}>COMENZAR</a>
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)', opacity: 0.5 }}>
+                {profile?.full_name || user.email?.split('@')[0]}
+              </span>
+              <a href="#" className="navbar__link navbar__link--btn" onClick={(e) => { e.preventDefault(); signOut(); navigate('/'); }} style={{ background: '#333' }}>SALIR</a>
+            </div>
+          ) : (
+            <a href="/auth" className="navbar__link navbar__link--btn" onClick={(e) => { e.preventDefault(); navigate('/auth'); }}>COMENZAR</a>
+          )}
         </div>
       </div>
     </nav>
@@ -330,10 +379,10 @@ const App = () => {
                    {/* Main Stories Feed */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
                     {displayStories.map(story => (
-                      <div key={story.id} onClick={() => { navigate(`/story/${story.id}`); setSelectedStory(story); }} style={{ cursor: 'pointer' }}>
+                      <div key={story.id} onClick={() => { navigate(`/story/${story.id}`); setSelectedStory(story); if (user) logReading(user.id, story.id); }} style={{ cursor: 'pointer' }}>
                         <StoryCard 
                           story={story} 
-                          isFavorite={favorites.some(f => f.id === story.id)}
+                          isFavorite={favStoryIds.has(story.id)}
                           onToggleFavorite={toggleFavorite}
                           onShare={() => openShare(story)}
                         />
@@ -513,7 +562,7 @@ const App = () => {
             <div className="container" style={{ padding: '60px 24px' }}>
                 <StoryDetail 
                   story={{ ...(selectedStory || categorizedStories[0]), onSelectArticle: (art) => { setScrollPos(window.scrollY); setSelectedArticle(art); navigate(`/article/${art.id}`); } }} 
-                  isFavorite={favorites.some(f => f.id === (selectedStory?.id || categorizedStories[0].id))}
+                  isFavorite={favStoryIds.has(selectedStory?.id || categorizedStories[0].id)}
                   onToggleFavorite={() => toggleFavorite(selectedStory || categorizedStories[0])}
                   onShare={() => openShare(selectedStory || categorizedStories[0])}
                   onBack={() => navigate('/')}
@@ -524,7 +573,7 @@ const App = () => {
           } />
           <Route path="/article/:id" element={
             <div className="container" style={{ padding: '60px 24px' }}>
-              <StoryReader article={selectedArticle || (categorizedStories[0]?.articles?.[0] || {})} onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} />
+              <StoryReader article={selectedArticle || categorizedStories[0].articles[0]} onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} />
             </div>
           } />
           <Route path="/company" element={<CorporateLanding type="COMPANY" onBack={() => navigate('/')} />} />
