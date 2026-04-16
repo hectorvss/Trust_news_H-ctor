@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ShareModal from './ShareModal';
 
-const BiasBar = ({ bias }) => {
+const BiasBar = ({ bias = { left: 33, center: 34, right: 33 } }) => {
   const { left, center, right } = bias;
   
   return (
@@ -108,18 +108,18 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
         )}
 
         <div 
-          onClick={handleLike}
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite && onToggleFavorite(story); }}
           style={{ 
             cursor: 'pointer', 
-            opacity: liked ? 1 : 0.7, 
+            opacity: isFavorite ? 1 : 0.7, 
             padding: '4px', 
-            color: liked ? 'black' : 'inherit',
-            animation: liked ? 'heartPulse 0.3s ease-out' : 'none'
+            color: isFavorite ? 'black' : 'inherit',
+            animation: isFavorite ? 'heartPulse 0.3s ease-out' : 'none'
           }}
           onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = liked ? 1 : 0.7}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = isFavorite ? 1 : 0.7}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         </div>
 
         <div 
@@ -129,15 +129,6 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
           onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        </div>
-        
-        <div 
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite && onToggleFavorite(story); }}
-          style={{ cursor: 'pointer', opacity: isFavorite ? 1 : 0.7, padding: '4px', color: isFavorite ? 'black' : 'inherit' }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = isFavorite ? 1 : 0.7}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
         </div>
 
         <div 

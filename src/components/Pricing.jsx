@@ -166,11 +166,39 @@ const Pricing = ({ onBack }) => {
         <span style={{ fontSize: '14px', fontWeight: isAnnual ? 700 : 400, opacity: isAnnual ? 1 : 0.5 }}>Anual (Ahorra un 17%)</span>
       </div>
 
+
       {/* 3-Column Cards Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1px', background: 'var(--color-primary)', borderBottom: 'var(--border-thin)' }}>
         <Card plan={plans.free} />
         <Card plan={plans.premium} isGrey={true} />
         <Card plan={plans.elite} isDark={true} />
+      </div>
+
+      {/* Minimalist Student Section */}
+      <div style={{ 
+        padding: '32px 40px', 
+        borderBottom: 'var(--border-thin)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'white',
+        gap: '24px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.3px', opacity: 0.8 }}>
+            Si eres estudiante, solicita 3 meses gratuitos y un 20% de descuento permanente verificando tu estado académico.
+          </span>
+        </div>
+        <span style={{ 
+          fontSize: '11px', 
+          fontWeight: 800, 
+          textDecoration: 'underline', 
+          cursor: 'pointer',
+          fontFamily: 'var(--font-mono)',
+          whiteSpace: 'nowrap'
+        }}>
+          VERIFICAR ACCESO ↗
+        </span>
       </div>
 
       <section style={{ padding: '40px var(--page-padding)', opacity: 0.4, fontSize: '13px' }}>

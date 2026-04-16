@@ -57,16 +57,18 @@ html {
   font-size: 16px;
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
+  background-color: var(--color-bg); /* Enforce white baseline */
 }
 
 body {
   font-family: var(--font-heading);
-  background: var(--color-bg);
+  background-color: var(--color-bg); /* Enforce white baseline */
   color: var(--color-primary);
   max-width: var(--page-max-width);
   margin: 0 auto;
   overflow-x: hidden;
   position: relative;
+  min-height: 100vh;
 }
 
 /* Global Vertical Grid Lines */
@@ -218,6 +220,16 @@ section { border-bottom: var(--border-thin); }
 .container {
   max-width: var(--page-max-width);
   margin: 0 auto;
+}
+
+.app {
+  background-color: var(--color-bg);
+  min-height: 100vh;
+}
+
+.route-container {
+  background-color: var(--color-bg);
+  min-height: 80vh;
 }
 
 /* Source Card Refinements */

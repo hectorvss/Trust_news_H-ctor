@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import './index.css';
 import { mockStories } from './mockData';
@@ -7,14 +7,23 @@ import StoryDetail from './components/StoryDetail';
 import Pricing from './components/Pricing';
 import Auth from './components/Auth';
 import CorporateLanding from './components/CorporateLanding';
+import ManagerStudio from './components/ManagerStudio';
 import BiasAnalysis from './components/BiasAnalysis';
 import StoryReader from './components/StoryReader';
 import DailySummary from './components/DailySummary';
 import FavoritesView from './components/FavoritesView';
 import Footer from './components/Footer';
 import ShareModal from './components/ShareModal';
+import Account from './components/Account';
 import { useAuth } from './context/AuthContext';
-import { getFavorites, addFavorite, removeFavorite, logReading } from './supabaseService';
+import { 
+  getFavorites, 
+  addFavorite, 
+  removeFavorite, 
+  logReading, 
+  fetchStories, 
+  fetchAppConfig 
+} from './supabaseService';
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
@@ -35,19 +44,58 @@ const App = () => {
   const [visibleStories, setVisibleStories] = useState(4);
 
   const [favorites, setFavorites] = useState([]);
-  const [favStoryIds, setFavStoryIds] = useState(new Set());
+  const favStoryIds = useMemo(() => new Set(favorites.map(f => String(f.story_id || f.id))), [favorites]);
   const [shareConfig, setShareConfig] = useState({ isOpen: false, story: null });
+
+  // Dynamic Data State
+  const [stories, setStories] = useState([]);
+  const [appConfig, setAppConfig] = useState({ trending_topics: [], global_headlines: [] });
+  const [storiesLoading, setStoriesLoading] = useState(true);
+
+  // Load Initial App Config
+  useEffect(() => {
+    fetchAppConfig().then(config => {
+      if (config) setAppConfig(config);
+    });
+  }, []);
+
+  // Load Stories whenever category changes
+  const refreshStories = () => {
+    setStoriesLoading(true);
+    fetchStories(activeCategory).then(data => {
+      // Fallback to mock data if DB is empty
+      if (!data || data.length === 0) {
+        import('./mockData').then(({ mockStories }) => {
+          const filteredMock = activeCategory === 'TODO' || activeCategory === 'PARA TI'
+            ? mockStories 
+            : mockStories.filter(s => s.category === activeCategory);
+          setStories(filteredMock);
+          setStoriesLoading(false);
+        });
+      } else {
+        setStories(data);
+        setStoriesLoading(false);
+      }
+    });
+  };
+
+  useEffect(() => {
+    refreshStories();
+  }, [activeCategory]);
 
   // Load favorites from Supabase when user logs in
   useEffect(() => {
     if (user) {
       getFavorites(user.id).then(favs => {
-        setFavorites(favs);
-        setFavStoryIds(new Set(favs.map(f => f.story_id)));
+        // Hydrate favorites with rich mock data if they do not exist fully in DB
+        const hydratedFavs = favs.map(fav => {
+          const mock = mockStories.find(m => String(m.id) === String(fav.story_id));
+          return mock ? { ...mock, ...fav } : fav;
+        });
+        setFavorites(hydratedFavs);
       });
     } else {
       setFavorites([]);
-      setFavStoryIds(new Set());
     }
   }, [user]);
 
@@ -60,47 +108,84 @@ const App = () => {
     // If not logged in, use local state only
     if (!user) {
       setFavorites(prev => {
-        const isFav = prev.some(f => (f.story_id || f.id) === story.id);
-        if (isFav) return prev.filter(f => (f.story_id || f.id) !== story.id);
-        return [{ story_id: story.id, story_title: story.title }, ...prev];
+        const isFav = prev.some(f => String(f.story_id || f.id) === String(story.id));
+        if (isFav) return prev.filter(f => String(f.story_id || f.id) !== String(story.id));
+        return [{ story_id: story.id, story_title: story.title, story_image: story.image, ...story }, ...prev];
       });
       setFavStoryIds(prev => {
         const next = new Set(prev);
-        if (next.has(story.id)) next.delete(story.id);
-        else next.add(story.id);
+        if (next.has(String(story.id))) next.delete(String(story.id));
+        else next.add(String(story.id));
         return next;
       });
       return;
     }
     // Supabase-backed toggle
-    const isFav = favStoryIds.has(story.id);
+    const isFav = favStoryIds.has(String(story.id));
     if (isFav) {
       await removeFavorite(user.id, story.id);
-      setFavorites(prev => prev.filter(f => f.story_id !== story.id));
-      setFavStoryIds(prev => { const next = new Set(prev); next.delete(story.id); return next; });
+      setFavorites(prev => prev.filter(f => String(f.story_id || f.id) !== String(story.id)));
     } else {
       const newFav = await addFavorite(user.id, story);
       if (newFav) {
-        setFavorites(prev => [newFav, ...prev]);
-        setFavStoryIds(prev => new Set(prev).add(story.id));
+        // Hydrate immediately upon saving
+        const mock = mockStories.find(m => String(m.id) === String(story.id));
+        const hydratedFav = mock ? { ...mock, ...newFav, id: newFav.story_id } : { ...newFav, id: newFav.story_id };
+        setFavorites(prev => [hydratedFav, ...prev]);
       }
     }
   };
 
+  const onSelectStory = async (story) => {
+    // Determine the source to search in (use rawSource which handles the mock fallback)
+    const sourcePool = stories.length > 0 ? stories : mockStories;
+    
+    if (!story.fullContent) {
+      // Find in current stories list first
+      const existing = sourcePool.find(s => String(s.id) === String(story.id || story.story_id));
+      if (existing && existing.fullContent) {
+        setSelectedStory(existing);
+      } else {
+        // Fetch full details if it's just a favorite stub or deep link
+        const full = await fetchStoryById(story.id || story.story_id);
+        setSelectedStory(full || existing || story);
+      }
+    } else {
+      setSelectedStory(story);
+    }
+    navigate(`/story/${story.id || story.story_id}`);
+  };
+
   const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
 
-  const categorizedStories = mockStories.map((s, i) => ({
-    ...s,
-    category: ['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'][i % 8]
-  }));
+  // Use Dynamic Stories with Mock Fallback & Filtering
+  const rawSource = stories.length > 0 ? stories : mockStories;
+  const finalStories = activeCategory === 'TODO' 
+    ? rawSource 
+    : (activeCategory === 'PARA TI' 
+        ? rawSource.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))
+        : rawSource.filter(s => s.category === activeCategory));
+        
+  const displayStories = finalStories.slice(0, visibleStories);
+  
+  // Robust Defaults for Trending
+  const trendingTopics = (appConfig.trending_topics || []).length > 5 
+    ? appConfig.trending_topics 
+    : ["Ley de Vivienda", "FMI España", "Crisis Alquiler", "Reforma Mordaza", "Elecciones Hungría", "Inteligencia Artificial", "Energía Solar", "BCE", "Sánchez", "Mercado"];
+    
+  const globalHeadlines = (appConfig.global_headlines || []).length > 0 
+    ? appConfig.global_headlines 
+    : [
+        { t: "España aprueba la nueva ley de paridad en órganos constitucionales.", w: "70%" },
+        { t: "La inflación en la eurozona cae al 2.4%, abriendo puerta a bajada de tipos.", w: "35%" }
+      ];
 
-  const displayStoriesFull = activeCategory === 'PARA TI'
-    ? categorizedStories.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))
-    : (activeCategory === 'TODO' 
-        ? categorizedStories 
-        : categorizedStories.filter(s => s.category === activeCategory));
-
-  const displayStories = displayStoriesFull.slice(0, visibleStories);
+  const blindSpotsData = (appConfig.blind_spots || []).length > 0 
+    ? appConfig.blind_spots 
+    : [
+        { type: 'LEFT', text: 'El aumento de los costes sanitarios en las zonas rurales suele ser ignorado por los medios de comunicación progresistas.' },
+        { type: 'RIGHT', text: 'Los indicadores económicos positivos de las reformas laborales no suelen aparecer en los medios conservadores.' }
+      ];
 
   const Navbar = () => (
     <nav className="navbar">
@@ -154,9 +239,24 @@ const App = () => {
           <a href="/pricing" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)', opacity: 0.5 }}>
-                {profile?.full_name || user.email?.split('@')[0]}
-              </span>
+              {user?.email === 'hectorvidal0411@gmail.com' || profile?.role === 'manager' ? (
+                <a 
+                  href="/manager" 
+                  className="navbar__link" 
+                  onClick={(e) => { e.preventDefault(); navigate('/manager'); }}
+                  style={{ fontWeight: 900, color: '#ff3333', fontFamily: 'var(--font-mono)' }}
+                >
+                  MANAGER
+                </a>
+              ) : null}
+              <a 
+                href="/account" 
+                className="navbar__link" 
+                onClick={(e) => { e.preventDefault(); navigate('/account'); }}
+                style={{ fontWeight: 800, color: 'black' }}
+              >
+                MI CUENTA
+              </a>
               <a href="#" className="navbar__link navbar__link--btn" onClick={(e) => { e.preventDefault(); signOut(); navigate('/'); }} style={{ background: '#333' }}>SALIR</a>
             </div>
           ) : (
@@ -166,6 +266,8 @@ const App = () => {
       </div>
     </nav>
   );
+
+  if (authLoading) return <div className="loading-overlay" style={{ background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '2px' }}>CONECTANDO CON TNE CLOUD...</div>;
 
   return (
     <div className="app">
@@ -183,7 +285,7 @@ const App = () => {
         }
       `}</style>
       <Navbar />
-      <main style={{ marginTop: '72px', minHeight: '80vh' }}>
+      <main style={{ marginTop: '72px', minHeight: '100vh', background: 'white' }}>
         <Routes>
           <Route path="/" element={
             <>
@@ -200,13 +302,53 @@ const App = () => {
                 </div>
               )}
 
-              {/* Trending Topics Bar */}
-              <div style={{ borderBottom: 'var(--border-thin)', padding: '12px var(--page-padding)', display: 'flex', alignItems: 'center', gap: '16px', overflowX: 'auto', whiteSpace: 'nowrap', background: 'white' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700 }}>
+              {/* Trending Topics Bar - Grab & Slide */}
+              <div 
+                id="trending-bar"
+                style={{ 
+                  borderBottom: 'var(--border-thin)', 
+                  padding: '12px var(--page-padding)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '16px', 
+                  overflowX: 'auto', 
+                  whiteSpace: 'nowrap', 
+                  background: 'white',
+                  cursor: 'grab',
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none', // Firefox
+                  msOverflowStyle: 'none' // IE/Edge
+                }}
+                onMouseDown={(e) => {
+                  const el = e.currentTarget;
+                  el.style.cursor = 'grabbing';
+                  const startX = e.pageX - el.offsetLeft;
+                  const scrollLeft = el.scrollLeft;
+                  
+                  const handleMouseMove = (em) => {
+                    const x = em.pageX - el.offsetLeft;
+                    const walk = (x - startX) * 2;
+                    el.scrollLeft = scrollLeft - walk;
+                  };
+                  
+                  const handleMouseUp = () => {
+                    el.style.cursor = 'grab';
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                  };
+                  
+                  window.addEventListener('mousemove', handleMouseMove);
+                  window.addEventListener('mouseup', handleMouseUp);
+                }}
+              >
+                <style>{`
+                  #trending-bar::-webkit-scrollbar { display: none; }
+                `}</style>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, pointerEvents: 'none' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
                   TRENDING
                 </span>
-                {['Ley de Vivienda', 'FMI España', 'Crisis Alquiler', 'Reforma Mordaza', 'Elecciones Hungría', 'Inteligencia Artificial', 'Energía Solar'].map(topic => (
+                {trendingTopics.map(topic => (
                   <span key={topic} style={{ backgroundColor: 'white', padding: '8px 16px', borderRadius: '100px', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '1px solid black', transition: '0.2s' }}>
                     {topic} <Plus />
                   </span>
@@ -254,8 +396,9 @@ const App = () => {
                       12 HISTORIAS • 342 ARTÍCULOS • 8M LECTURA
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '30px' }}>
-                      <p style={{ fontSize: '14px', fontWeight: 700, lineHeight: '1.4', margin: 0 }}>España aprueba la nueva ley de paridad en órganos constitucionales.</p>
-                      <p style={{ fontSize: '14px', fontWeight: 700, lineHeight: '1.4', margin: 0 }}>La inflación en la eurozona cae al 2.4%, abriendo puerta a bajada de tipos.</p>
+                      {globalHeadlines.map((h, i) => (
+                        <p key={i} style={{ fontSize: '14px', fontWeight: 700, lineHeight: '1.4', margin: 0 }}>{h.t}</p>
+                      ))}
                     </div>
                     <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.4 }}>
                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -339,19 +482,18 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Puntos Ciegos - Exact Restoration */}
+                  {/* Puntos Ciegos */}
                   <div style={{ marginBottom: '60px' }}>
                     <h2 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 40px 0', letterSpacing: '-1.5px', lineHeight: '1' }}>Puntos Ciegos —<br/>Destacados</h2>
                     
-                    <div style={{ marginBottom: '40px', borderBottom: '1px solid black', paddingBottom: '40px' }}>
-                      <span style={{ background: 'black', color: 'white', fontSize: '10px', fontWeight: 900, padding: '4px 10px', borderRadius: '100px', fontFamily: 'var(--font-mono)' }}>PUNTO CIEGO DE IZQUIERDA</span>
-                      <p style={{ fontSize: '19px', fontWeight: 600, marginTop: '20px', lineHeight: '1.2' }}>El aumento de los costes sanitarios en las zonas rurales suele ser ignorado por los medios de comunicación progresistas.</p>
-                    </div>
-
-                    <div>
-                      <span style={{ background: '#888', color: 'white', fontSize: '10px', fontWeight: 900, padding: '4px 10px', borderRadius: '100px', fontFamily: 'var(--font-mono)' }}>PUNTO CIEGO DE DERECHA</span>
-                      <p style={{ fontSize: '19px', fontWeight: 600, marginTop: '20px', lineHeight: '1.2' }}>Los indicadores económicos positivos de las reformas laborales no suelen aparecer en los medios conservadores.</p>
-                    </div>
+                    {blindSpotsData.map((spot, i) => (
+                      <div key={i} style={{ marginBottom: i === blindSpotsData.length - 1 ? '0' : '40px', borderBottom: i === blindSpotsData.length - 1 ? 'none' : '1px solid black', paddingBottom: i === blindSpotsData.length - 1 ? '0' : '40px' }}>
+                        <span style={{ background: spot.type === 'LEFT' ? 'black' : '#888', color: 'white', fontSize: '10px', fontWeight: 900, padding: '4px 10px', borderRadius: '100px', fontFamily: 'var(--font-mono)' }}>
+                           PUNTO CIEGO DE {spot.type === 'LEFT' ? 'IZQUIERDA' : 'DERECHA'}
+                        </span>
+                        <p style={{ fontSize: '19px', fontWeight: 600, marginTop: '20px', lineHeight: '1.2' }}>{spot.text}</p>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Related Topics - Exact Restoration */}
@@ -382,7 +524,7 @@ const App = () => {
                       <div key={story.id} onClick={() => { navigate(`/story/${story.id}`); setSelectedStory(story); if (user) logReading(user.id, story.id); }} style={{ cursor: 'pointer' }}>
                         <StoryCard 
                           story={story} 
-                          isFavorite={favStoryIds.has(story.id)}
+                          isFavorite={favStoryIds.has(String(story.id))}
                           onToggleFavorite={toggleFavorite}
                           onShare={() => openShare(story)}
                         />
@@ -390,7 +532,7 @@ const App = () => {
                     ))}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: '60px', marginBottom: '40px' }}>
-                    {visibleStories < displayStoriesFull.length ? (
+                    {visibleStories < finalStories.length ? (
                       <button 
                         onClick={() => setVisibleStories(prev => prev + 4)}
                         style={{ padding: '18px 40px', border: '1.5px solid black', borderBottomWidth: '3px', background: 'none', borderRadius: '100px', fontSize: '12px', fontWeight: 900, cursor: 'pointer', transition: '0.2s', letterSpacing: '1px' }}
@@ -553,29 +695,92 @@ const App = () => {
               <FavoritesView 
                 favorites={favorites} 
                 onBack={() => navigate('/')} 
-                onSelectStory={(story) => { setSelectedStory(story); navigate(`/story/${story.id}`); }}
+                onSelectStory={onSelectStory}
               />
             </div>
           } />
           <Route path="/bias" element={<BiasAnalysis onBack={() => navigate('/')} />} />
           <Route path="/story/:id" element={
-            <div className="container" style={{ padding: '60px 24px' }}>
-                <StoryDetail 
-                  story={{ ...(selectedStory || categorizedStories[0]), onSelectArticle: (art) => { setScrollPos(window.scrollY); setSelectedArticle(art); navigate(`/article/${art.id}`); } }} 
-                  isFavorite={favStoryIds.has(selectedStory?.id || categorizedStories[0].id)}
-                  onToggleFavorite={() => toggleFavorite(selectedStory || categorizedStories[0])}
-                  onShare={() => openShare(selectedStory || categorizedStories[0])}
-                  onBack={() => navigate('/')}
-                  activeFilter={activeStoryFilter} setActiveFilter={setActiveStoryFilter}
-                  activeTab={activeStoryTab} setActiveTab={setActiveStoryTab}
-                />
+            <div className="container route-container" style={{ padding: '60px 24px', background: 'white' }}>
+                {(() => {
+                  const storyId = location.pathname.split('/').pop();
+                  let currentStory = selectedStory || rawSource.find(s => String(s.id) === storyId);
+                  
+                  // CRITICAL HYDRATION: If we have a story from DB but it's partially "empty", 
+                  // aggressively merge it with the corresponding mock data to ensure a premium experience.
+                  if (currentStory) {
+                    const mock = mockStories.find(m => String(m.id) === String(currentStory.id));
+                    if (mock) {
+                      currentStory = { 
+                        ...mock, 
+                        ...currentStory, 
+                        articles: (currentStory.articles && currentStory.articles.length > 0) ? currentStory.articles : mock.articles,
+                        fullContent: currentStory.fullContent || mock.fullContent,
+                        perspectivasInfo: currentStory.perspectivasInfo || mock.perspectivasInfo,
+                        desglose: (currentStory.desglose && currentStory.desglose.length > 0) ? currentStory.desglose : mock.desglose,
+                        cifrasClave: (currentStory.cifrasClave && currentStory.cifrasClave.length > 0) ? currentStory.cifrasClave : mock.cifrasClave,
+                        impactoSocial: currentStory.impactoSocial || mock.impactoSocial,
+                        impactoSistemico: currentStory.impactoSistemico || mock.impactoSistemico,
+                        contexto: currentStory.contexto || mock.contexto,
+                        biasInfo: currentStory.biasInfo || mock.biasInfo,
+                        blindSpot: currentStory.blindSpot || mock.blindSpot,
+                        analyticalSnippet: currentStory.analyticalSnippet || mock.analyticalSnippet,
+                        consensoNarrativo: currentStory.consensoNarrativo || mock.consensoNarrativo
+                      };
+                    }
+                  }
+                  
+                  if (!currentStory || (storiesLoading && !currentStory.fullContent)) {
+                    return (
+                      <div style={{ padding: '20vh 0', textAlign: 'center', fontFamily: 'var(--font-mono)', background: 'white', minHeight: '80vh' }}>
+                         <h2 style={{ fontSize: '12px', opacity: 0.3 }}>IDENTIFICANDO NOTICIA...</h2>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <StoryDetail 
+                      story={location.pathname === '/story/new' ? { category: 'POLÍTICA', bias: { left: 33, center: 34, right: 33 }, articles: [] } : currentStory} 
+                      isFavorite={favStoryIds.has(String(currentStory.id))}
+                      onToggleFavorite={() => toggleFavorite(currentStory)}
+                      onShare={() => openShare(currentStory)}
+                      onBack={() => navigate('/')}
+                      onRefresh={refreshStories}
+                      setSelectedStory={setSelectedStory}
+                      onSelectArticle={setSelectedArticle}
+                      activeFilter={activeStoryFilter} setActiveFilter={setActiveStoryFilter}
+                      activeTab={activeStoryTab} setActiveTab={setActiveStoryTab}
+                      userRole={profile?.role || (user?.email === 'hectorvidal0411@gmail.com' ? 'manager' : 'reader')}
+                    />
+                  );
+                })()}
             </div>
           } />
           <Route path="/article/:id" element={
             <div className="container" style={{ padding: '60px 24px' }}>
-              <StoryReader article={selectedArticle || categorizedStories[0].articles[0]} onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} />
+              {(() => {
+                const articleId = location.pathname.split('/').pop();
+                const currentArticle = selectedArticle || (selectedStory?.articles?.[articleId]) || null;
+                
+                if (!currentArticle) {
+                  return (
+                    <div style={{ padding: '100px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                      <h2 style={{ fontSize: '12px', opacity: 0.3 }}>CARGANDO ARTÍCULO...</h2>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <StoryReader 
+                    article={currentArticle} 
+                    onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} 
+                  />
+                );
+              })()}
             </div>
           } />
+          <Route path="/account" element={<Account user={user} profile={profile} onBack={() => navigate('/')} />} />
+          <Route path="/manager" element={<ManagerStudio user={user} profile={profile} stories={finalStories} onBack={() => navigate('/')} />} />
           <Route path="/company" element={<CorporateLanding type="COMPANY" onBack={() => navigate('/')} />} />
           <Route path="/help" element={<CorporateLanding type="HELP" onBack={() => navigate('/')} />} />
         </Routes>

@@ -102,7 +102,7 @@ const FavoritesView = ({ favorites, onBack, onSelectStory }) => {
                 {favorites.map((story) => (
                   <div key={story.id}>
                     <div onClick={() => onSelectStory(story)} style={{ cursor: 'pointer' }}>
-                      <StoryCard story={story} />
+                      <StoryCard story={story} isFavorite={true} />
                     </div>
                   </div>
                 ))}
