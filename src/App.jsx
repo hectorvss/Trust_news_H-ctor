@@ -524,7 +524,7 @@ const App = () => {
           } />
           <Route path="/article/:id" element={
             <div className="container" style={{ padding: '60px 24px' }}>
-              <StoryReader article={selectedArticle || categorizedStories[0].articles[0]} onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} />
+              <StoryReader article={selectedArticle || (categorizedStories[0]?.articles?.[0] || {})} onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} />
             </div>
           } />
           <Route path="/company" element={<CorporateLanding type="COMPANY" onBack={() => navigate('/')} />} />
