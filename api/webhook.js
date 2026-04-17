@@ -1,6 +1,8 @@
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 import { buffer } from 'micro';
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const { createClient } = require('@supabase/supabase-js');
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const config = {
   api: {
@@ -31,7 +33,6 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
           .from('profiles')
           .update({
             stripe_customer_id: session.customer,
-            subscription_tier: 'premium', // Default upgrade, refined in subscription update
+            subscription_tier: 'premium',
             subscription_status: 'active'
           })
           .eq('id', userId);

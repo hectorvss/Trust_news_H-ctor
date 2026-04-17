@@ -1,5 +1,7 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const { createClient } = require('@supabase/supabase-js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,7 +14,6 @@ export default async function handler(req, res) {
     if (type === 'checkout') {
       const { plan_slug, user_id, email } = req.body;
       
-      // Mapeo de slugs a IDs de precio reales usando variables de entorno
       const priceMap = {
         'premium_monthly': process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
         'premium_yearly': process.env.STRIPE_PRICE_PREMIUM_YEARLY,
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
       const priceId = priceMap[plan_slug];
 
       if (!priceId) {
-        return res.status(400).json({ error: `Invalid plan slug: ${plan_slug}` });
+        return res.status(400).json({ error: `Invalid plan slug: ${plan_slug}. Check your Vercel Env Vars.` });
       }
 
       const session = await stripe.checkout.sessions.create({
