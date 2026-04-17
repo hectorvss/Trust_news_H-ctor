@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { saveStory, deleteStory, fetchAppConfig, updateAppConfig } from '../supabaseService';
 
 const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
 
-const ManagerStudio = ({ user, profile, stories }) => {
+const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
+  const navigate = useNavigate();
+  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor' || user?.email === 'hectorvidal0411@gmail.com';
   const [activeView, setActiveView] = useState('POSTS'); // POSTS, DESTACADOS
   const [loading, setLoading] = useState(false);
   const [localStories, setLocalStories] = useState(stories || []);
-  const navigate = window.location.pathname.startsWith ? (path) => { window.location.href = path } : (path) => { window.location.href = path }; // Assuming react-router navigate is not passed, use href
   
   // App Config state for Highlights
   const [appConfig, setAppConfig] = useState({ global_headlines: [], blind_spots: [] });
@@ -38,6 +40,7 @@ const ManagerStudio = ({ user, profile, stories }) => {
       const success = await deleteStory(id);
       if (success) {
         setLocalStories(prev => prev.filter(s => s.id !== id));
+        if (onRefresh) onRefresh();
       }
       setLoading(false);
     }
@@ -49,6 +52,17 @@ const ManagerStudio = ({ user, profile, stories }) => {
     setLoading(false);
     alert("Destacados actualizados en Supabase.");
   };
+
+  if (!isManager) {
+    return (
+      <div style={{ padding: '200px 40px', textAlign: 'center', minHeight: '100vh', background: '#fff' }}>
+        <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.3, letterSpacing: '2px', marginBottom: '24px' }}>ACCESO RESTRINGIDO</div>
+        <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '16px' }}>Área de Manager</h2>
+        <p style={{ fontSize: '14px', opacity: 0.5, maxWidth: '400px', margin: '0 auto 40px auto', lineHeight: '1.6' }}>Solo las cuentas con rol de manager autorizado pueden acceder a la dirección editorial.</p>
+        <button onClick={() => navigate('/')} style={{ padding: '16px 32px', background: 'black', color: 'white', border: 'none', borderRadius: '100px', fontWeight: 900, fontSize: '11px', cursor: 'pointer', letterSpacing: '1px' }}>VOLVER A PORTADA</button>
+      </div>
+    );
+  }
 
   return (
     <div className="manager-studio" style={{ padding: '60px 40px', background: '#fff', color: '#000', minHeight: '100vh' }}>

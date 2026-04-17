@@ -86,11 +86,14 @@ export const AuthProvider = ({ children }) => {
     return { error };
   };
 
+  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor' || user?.email === 'hectorvidal0411@gmail.com';
+
   const value = {
     user,
     session,
     profile,
     loading,
+    isManager,
     signUp,
     signIn,
     signOut,

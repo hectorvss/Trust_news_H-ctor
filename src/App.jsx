@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import './index.css';
-import { mockStories } from './mockData';
 import StoryCard from './components/StoryCard';
 import StoryDetail from './components/StoryDetail';
 import Pricing from './components/Pricing';
@@ -22,8 +21,15 @@ import {
   removeFavorite, 
   logReading, 
   fetchStories, 
+  fetchStoryById, 
   fetchAppConfig 
 } from './supabaseService';
+
+// Anonymous favorites persistence (localStorage)
+const ANON_FAVS_KEY = 'tne_anon_favorites';
+const getAnonFavorites = () => { try { return JSON.parse(localStorage.getItem(ANON_FAVS_KEY) || '[]'); } catch { return []; } };
+const saveAnonFavorites = (favs) => localStorage.setItem(ANON_FAVS_KEY, JSON.stringify(favs));
+const clearAnonFavorites = () => localStorage.removeItem(ANON_FAVS_KEY);
 
 const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
@@ -59,43 +65,54 @@ const App = () => {
     });
   }, []);
 
-  // Load Stories whenever category changes
-  const refreshStories = () => {
+  // Load Stories whenever category changes (Supabase only)
+  const refreshStories = useCallback(() => {
     setStoriesLoading(true);
     fetchStories(activeCategory).then(data => {
-      // Fallback to mock data if DB is empty
-      if (!data || data.length === 0) {
-        import('./mockData').then(({ mockStories }) => {
-          const filteredMock = activeCategory === 'TODO' || activeCategory === 'PARA TI'
-            ? mockStories 
-            : mockStories.filter(s => s.category === activeCategory);
-          setStories(filteredMock);
-          setStoriesLoading(false);
-        });
-      } else {
-        setStories(data);
-        setStoriesLoading(false);
-      }
+      setStories(data || []);
+      setStoriesLoading(false);
+    }).catch(err => {
+      console.error('Error loading stories:', err);
+      setStories([]);
+      setStoriesLoading(false);
     });
-  };
+  }, [activeCategory]);
 
   useEffect(() => {
     refreshStories();
-  }, [activeCategory]);
+  }, [refreshStories]);
 
-  // Load favorites from Supabase when user logs in
+  // Deep-link: fetch story by ID when navigating directly to /story/:id
+  useEffect(() => {
+    const match = location.pathname.match(/^\/story\/(.+)$/);
+    if (match && match[1] !== 'new') {
+      const storyId = match[1];
+      if (!selectedStory || String(selectedStory.id) !== storyId) {
+        fetchStoryById(storyId).then(story => {
+          if (story) setSelectedStory(story);
+        });
+      }
+    }
+  }, [location.pathname]);
+
+  // Load favorites: Supabase for authenticated users, localStorage for anonymous
   useEffect(() => {
     if (user) {
-      getFavorites(user.id).then(favs => {
-        // Hydrate favorites with rich mock data if they do not exist fully in DB
-        const hydratedFavs = favs.map(fav => {
-          const mock = mockStories.find(m => String(m.id) === String(fav.story_id));
-          return mock ? { ...mock, ...fav } : fav;
-        });
-        setFavorites(hydratedFavs);
-      });
+      const mergeAndLoad = async () => {
+        // Merge any anonymous favorites into Supabase
+        const anonFavs = getAnonFavorites();
+        if (anonFavs.length > 0) {
+          for (const fav of anonFavs) {
+            await addFavorite(user.id, fav);
+          }
+          clearAnonFavorites();
+        }
+        const favs = await getFavorites(user.id);
+        setFavorites(favs || []);
+      };
+      mergeAndLoad();
     } else {
-      setFavorites([]);
+      setFavorites(getAnonFavorites());
     }
   }, [user]);
 
@@ -105,61 +122,56 @@ const App = () => {
 
   const toggleFavorite = async (story) => {
     if (!story) return;
-    // If not logged in, use local state only
+    const storyId = String(story.id || story.story_id);
+    const isFav = favStoryIds.has(storyId);
+
     if (!user) {
+      // Anonymous: persist to localStorage
       setFavorites(prev => {
-        const isFav = prev.some(f => String(f.story_id || f.id) === String(story.id));
-        if (isFav) return prev.filter(f => String(f.story_id || f.id) !== String(story.id));
-        return [{ story_id: story.id, story_title: story.title, story_image: story.image, ...story }, ...prev];
-      });
-      setFavStoryIds(prev => {
-        const next = new Set(prev);
-        if (next.has(String(story.id))) next.delete(String(story.id));
-        else next.add(String(story.id));
+        let next;
+        if (isFav) {
+          next = prev.filter(f => String(f.story_id || f.id) !== storyId);
+        } else {
+          next = [{ ...story, story_id: storyId, id: storyId, story_title: story.title, story_image: story.image, story_category: story.location || story.category }, ...prev];
+        }
+        saveAnonFavorites(next);
         return next;
       });
       return;
     }
-    // Supabase-backed toggle
-    const isFav = favStoryIds.has(String(story.id));
+
+    // Authenticated: Supabase-backed toggle
     if (isFav) {
-      await removeFavorite(user.id, story.id);
-      setFavorites(prev => prev.filter(f => String(f.story_id || f.id) !== String(story.id)));
+      await removeFavorite(user.id, storyId);
+      setFavorites(prev => prev.filter(f => String(f.story_id || f.id) !== storyId));
     } else {
       const newFav = await addFavorite(user.id, story);
       if (newFav) {
-        // Hydrate immediately upon saving
-        const mock = mockStories.find(m => String(m.id) === String(story.id));
-        const hydratedFav = mock ? { ...mock, ...newFav, id: newFav.story_id } : { ...newFav, id: newFav.story_id };
-        setFavorites(prev => [hydratedFav, ...prev]);
+        setFavorites(prev => [{ ...story, ...newFav, id: newFav.story_id, story_id: newFav.story_id }, ...prev]);
       }
     }
   };
 
   const onSelectStory = async (story) => {
-    // Determine the source to search in (use rawSource which handles the mock fallback)
-    const sourcePool = stories.length > 0 ? stories : mockStories;
-    
+    const storyId = story.id || story.story_id;
     if (!story.fullContent) {
-      // Find in current stories list first
-      const existing = sourcePool.find(s => String(s.id) === String(story.id || story.story_id));
+      const existing = stories.find(s => String(s.id) === String(storyId));
       if (existing && existing.fullContent) {
         setSelectedStory(existing);
       } else {
-        // Fetch full details if it's just a favorite stub or deep link
-        const full = await fetchStoryById(story.id || story.story_id);
+        const full = await fetchStoryById(storyId);
         setSelectedStory(full || existing || story);
       }
     } else {
       setSelectedStory(story);
     }
-    navigate(`/story/${story.id || story.story_id}`);
+    navigate(`/story/${storyId}`);
   };
 
   const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
 
-  // Use Dynamic Stories with Mock Fallback & Filtering
-  const rawSource = stories.length > 0 ? stories : mockStories;
+  // Stories from Supabase (single source of truth)
+  const rawSource = stories;
   const finalStories = activeCategory === 'TODO' 
     ? rawSource 
     : (activeCategory === 'PARA TI' 
@@ -519,6 +531,18 @@ const App = () => {
 
                 <div className="main-content">
                    {/* Main Stories Feed */}
+                  {storiesLoading && displayStories.length === 0 && (
+                    <div style={{ padding: '80px 0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '2px', opacity: 0.4 }}>CARGANDO NOTICIAS...</div>
+                    </div>
+                  )}
+                  {!storiesLoading && displayStories.length === 0 && (
+                    <div style={{ padding: '80px 0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '48px', fontWeight: 800, opacity: 0.05, marginBottom: '16px' }}>—</div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '8px' }}>No hay noticias disponibles</div>
+                      <div style={{ fontSize: '12px', opacity: 0.4, lineHeight: '1.5' }}>Publica tu primera noticia desde el Manager Studio o selecciona otra categoría.</div>
+                    </div>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
                     {displayStories.map(story => (
                       <div key={story.id} onClick={() => { navigate(`/story/${story.id}`); setSelectedStory(story); if (user) logReading(user.id, story.id); }} style={{ cursor: 'pointer' }}>
@@ -704,33 +728,9 @@ const App = () => {
             <div className="container route-container" style={{ padding: '60px 24px', background: 'white' }}>
                 {(() => {
                   const storyId = location.pathname.split('/').pop();
-                  let currentStory = selectedStory || rawSource.find(s => String(s.id) === storyId);
+                  let currentStory = selectedStory || finalStories.find(s => String(s.id) === storyId);
                   
-                  // CRITICAL HYDRATION: If we have a story from DB but it's partially "empty", 
-                  // aggressively merge it with the corresponding mock data to ensure a premium experience.
-                  if (currentStory) {
-                    const mock = mockStories.find(m => String(m.id) === String(currentStory.id));
-                    if (mock) {
-                      currentStory = { 
-                        ...mock, 
-                        ...currentStory, 
-                        articles: (currentStory.articles && currentStory.articles.length > 0) ? currentStory.articles : mock.articles,
-                        fullContent: currentStory.fullContent || mock.fullContent,
-                        perspectivasInfo: currentStory.perspectivasInfo || mock.perspectivasInfo,
-                        desglose: (currentStory.desglose && currentStory.desglose.length > 0) ? currentStory.desglose : mock.desglose,
-                        cifrasClave: (currentStory.cifrasClave && currentStory.cifrasClave.length > 0) ? currentStory.cifrasClave : mock.cifrasClave,
-                        impactoSocial: currentStory.impactoSocial || mock.impactoSocial,
-                        impactoSistemico: currentStory.impactoSistemico || mock.impactoSistemico,
-                        contexto: currentStory.contexto || mock.contexto,
-                        biasInfo: currentStory.biasInfo || mock.biasInfo,
-                        blindSpot: currentStory.blindSpot || mock.blindSpot,
-                        analyticalSnippet: currentStory.analyticalSnippet || mock.analyticalSnippet,
-                        consensoNarrativo: currentStory.consensoNarrativo || mock.consensoNarrativo
-                      };
-                    }
-                  }
-                  
-                  if (!currentStory || (storiesLoading && !currentStory.fullContent)) {
+                  if (!currentStory || (storiesLoading && !currentStory.title)) {
                     return (
                       <div style={{ padding: '20vh 0', textAlign: 'center', fontFamily: 'var(--font-mono)', background: 'white', minHeight: '80vh' }}>
                          <h2 style={{ fontSize: '12px', opacity: 0.3 }}>IDENTIFICANDO NOTICIA...</h2>
@@ -780,7 +780,7 @@ const App = () => {
             </div>
           } />
           <Route path="/account" element={<Account user={user} profile={profile} onBack={() => navigate('/')} />} />
-          <Route path="/manager" element={<ManagerStudio user={user} profile={profile} stories={finalStories} onBack={() => navigate('/')} />} />
+          <Route path="/manager" element={<ManagerStudio user={user} profile={profile} stories={finalStories} onBack={() => navigate('/')} onRefresh={refreshStories} />} />
           <Route path="/company" element={<CorporateLanding type="COMPANY" onBack={() => navigate('/')} />} />
           <Route path="/help" element={<CorporateLanding type="HELP" onBack={() => navigate('/')} />} />
         </Routes>

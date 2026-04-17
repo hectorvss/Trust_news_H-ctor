@@ -79,7 +79,7 @@ export const fetchStories = async (category = 'TODO') => {
     query = query.eq('category', category);
   }
 
-  const { data, error } = query;
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching stories:', error);
@@ -185,9 +185,10 @@ export const saveStory = async (storyData) => {
         .select()
         .single();
     } else {
+      const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
       result = await supabase
         .from('stories')
-        .insert({ ...dbPayload, created_at: new Date().toISOString() })
+        .insert({ ...dbPayload, id: newId, created_at: new Date().toISOString() })
         .select()
         .single();
     }
@@ -256,10 +257,7 @@ export const updateUserSettings = async (userId, settings) => {
 export const getFavorites = async (userId) => {
   const { data, error } = await supabase
     .from('favorites')
-    .select(`
-      *,
-      stories:story_id (*)
-    `)
+    .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -268,21 +266,34 @@ export const getFavorites = async (userId) => {
     return [];
   }
   
-  // Flatten and map to story objects
-  return data.map(f => {
-    const s = f.stories ? mapStory(f.stories) : null;
+  if (!data || data.length === 0) return [];
+  
+  // Batch fetch full story data where available
+  const storyIds = data.map(f => f.story_id);
+  const { data: storiesData } = await supabase
+    .from('stories')
+    .select('*')
+    .in('id', storyIds);
+  
+  const storiesMap = new Map((storiesData || []).map(s => [s.id, mapStory(s)]));
+  
+  return data.map(fav => {
+    const story = storiesMap.get(fav.story_id);
+    if (story) {
+      return { ...story, story_id: fav.story_id };
+    }
+    // Fallback to denormalized data stored in favorite record
     return {
-      id: f.story_id, // Use story_id as the ID for the card
-      story_id: f.story_id,
-      title: s?.title || f.story_title || 'Noticia guardada',
-      time: s?.time || 'Reciente',
-      image: s?.image || f.story_image,
-      location: s?.location || f.story_category || 'España',
-      bias: s?.bias || { left: 33, center: 34, right: 33 },
-      consensus: s?.consensus || 'MEDIO',
-      impact: s?.impact || 'ALTO',
-      sourceCount: s?.sourceCount || 1,
-      ...s
+      id: fav.story_id,
+      story_id: fav.story_id,
+      title: fav.story_title || 'Noticia guardada',
+      time: 'Reciente',
+      image: fav.story_image,
+      location: fav.story_category || 'España',
+      bias: { left: 33, center: 34, right: 33 },
+      consensus: 'MEDIO',
+      impact: 'ALTO',
+      sourceCount: 1
     };
   });
 };
@@ -292,10 +303,10 @@ export const addFavorite = async (userId, story) => {
     .from('favorites')
     .upsert({
       user_id: userId,
-      story_id: String(story.id),
-      story_title: story.title,
-      story_category: story.location || story.category,
-      story_image: story.image
+      story_id: String(story.id || story.story_id),
+      story_title: story.title || story.story_title || 'Guardada',
+      story_category: story.location || story.category || story.story_category || 'España',
+      story_image: story.image || story.story_image || ''
     }, { onConflict: 'user_id, story_id' })
     .select()
     .single();
