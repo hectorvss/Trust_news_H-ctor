@@ -22,8 +22,11 @@ import {
   logReading, 
   fetchStories, 
   fetchStoryById, 
-  fetchAppConfig 
+  fetchAppConfig,
+  getUsageMetrics,
+  pingUsage
 } from './supabaseService';
+import AccessLimitModal from './components/AccessLimitModal';
 
 // Anonymous favorites persistence (localStorage)
 const ANON_FAVS_KEY = 'tne_anon_favorites';
@@ -52,6 +55,58 @@ const App = () => {
   const [favorites, setFavorites] = useState([]);
   const favStoryIds = useMemo(() => new Set(favorites.map(f => String(f.story_id || f.id))), [favorites]);
   const [shareConfig, setShareConfig] = useState({ isOpen: false, story: null });
+
+  // Access & Usage Limits
+  const [usageMetrics, setUsageMetrics] = useState({ articles_read: 0, reading_seconds: 0, read_article_ids: [] });
+  const [accessModal, setAccessModal] = useState({ isOpen: false, mode: 'LIMIT' });
+  const isPremium = profile?.subscription_tier === 'premium' || profile?.role === 'manager' || profile?.role === 'admin_editor';
+  
+  // Track Reading Time
+  useEffect(() => {
+    // Only track if there is a selected story/article and user is NOT premium
+    // Actually, we can track usage for premium too to have data, but let's focus on enforcing free bounds
+    if (!selectedStory && !selectedArticle) return;
+    
+    let activeStoryId = selectedArticle ? selectedArticle.id : (selectedStory ? selectedStory.id : null);
+    
+    // Check limit before tracking
+    if (!isPremium && user && (usageMetrics.articles_read >= 3 || usageMetrics.reading_seconds >= 600)) {
+      setAccessModal({ isOpen: true, mode: 'LIMIT' });
+      return;
+    }
+    
+    // If not authenticated and trying to read, we block tracking entirely since they are blocked
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      // log 10 seconds of reading
+      if (document.visibilityState === 'visible') {
+        pingUsage(user?.id, activeStoryId, 10);
+        setUsageMetrics(prev => ({
+          ...prev,
+          reading_seconds: prev.reading_seconds + 10
+        }));
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [selectedStory, selectedArticle, user, isPremium, usageMetrics]);
+
+  // Sync Usage Metrics and Limits
+  useEffect(() => {
+    getUsageMetrics(user?.id).then(data => {
+      if (data) {
+        setUsageMetrics(data);
+        if (user && !isPremium && (data.articles_read >= 3 || data.reading_seconds >= 600)) {
+          // If already reading something, show modal
+          if (selectedStory || selectedArticle) {
+            setAccessModal({ isOpen: true, mode: 'LIMIT' });
+          }
+        }
+      }
+    });
+  }, [user, isPremium, selectedStory, selectedArticle]);
+
 
   // Dynamic Data State
   const [stories, setStories] = useState([]);
@@ -86,6 +141,12 @@ const App = () => {
   useEffect(() => {
     const match = location.pathname.match(/^\/story\/(.+)$/);
     if (match && match[1] !== 'new') {
+      // If anonymous, block deep link viewing
+      if (!authLoading && !user) {
+        setAccessModal({ isOpen: true, mode: 'AUTH' });
+        return;
+      }
+      
       const storyId = match[1];
       if (!selectedStory || String(selectedStory.id) !== storyId) {
         fetchStoryById(storyId).then(story => {
@@ -93,7 +154,14 @@ const App = () => {
         });
       }
     }
-  }, [location.pathname]);
+    
+    const articleMatch = location.pathname.match(/^\/article\/(.+)$/);
+    if (articleMatch) {
+       if (!authLoading && !user) {
+          setAccessModal({ isOpen: true, mode: 'AUTH' });
+       }
+    }
+  }, [location.pathname, user, authLoading]);
 
   // Load favorites: Supabase for authenticated users, localStorage for anonymous
   useEffect(() => {
@@ -154,6 +222,28 @@ const App = () => {
 
   const onSelectStory = async (story) => {
     const storyId = story.id || story.story_id;
+    
+    // AUTH check for anonymous users
+    if (!user) {
+      setAccessModal({ isOpen: true, mode: 'AUTH' });
+      return; // block navigation completely
+    }
+
+    // Enforce Access Base Check for FREE users
+    if (!isPremium) {
+       // If they click a new story and they are out of limits (and hadn't read this one yet)
+       const hasReadThis = usageMetrics.read_article_ids.includes(String(storyId));
+       if (!hasReadThis && (usageMetrics.articles_read >= 3 || usageMetrics.reading_seconds >= 600)) {
+         setAccessModal({ isOpen: true, mode: 'LIMIT' });
+         return; // block navigation
+       }
+    }
+
+    // Ping usage (if it's new it adds to articles_read)
+    pingUsage(user?.id, storyId, 0).then(() => {
+       getUsageMetrics(user?.id).then(setUsageMetrics);
+    });
+    
     if (!story.fullContent) {
       const existing = stories.find(s => String(s.id) === String(storyId));
       if (existing && existing.fullContent) {
@@ -545,7 +635,7 @@ const App = () => {
                   )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
                     {displayStories.map(story => (
-                      <div key={story.id} onClick={() => { navigate(`/story/${story.id}`); setSelectedStory(story); if (user) logReading(user.id, story.id); }} style={{ cursor: 'pointer' }}>
+                      <div key={story.id} onClick={() => onSelectStory(story)} style={{ cursor: 'pointer' }}>
                         <StoryCard 
                           story={story} 
                           isFavorite={favStoryIds.has(String(story.id))}
@@ -791,6 +881,20 @@ const App = () => {
         onClose={() => setShareConfig({ isOpen: false, story: null })} 
         storyTitle={shareConfig.story?.title}
         storyUrl={shareConfig.story ? `${window.location.origin}/story/${shareConfig.story.id}` : ''}
+      />
+      
+      <AccessLimitModal 
+        isOpen={accessModal.isOpen} 
+        mode={accessModal.mode}
+        onClose={(goHome) => { 
+          setAccessModal((prev) => ({ ...prev, isOpen: false })); 
+          if (goHome) {
+            navigate('/'); 
+            setSelectedStory(null); 
+            setSelectedArticle(null); 
+          }
+        }}
+        currentPlan={profile?.subscription_tier?.toUpperCase() || 'FREE'}
       />
     </div>
   );

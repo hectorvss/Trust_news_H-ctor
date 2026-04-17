@@ -1,7 +1,51 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Pricing = ({ onBack }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubscribe = async (planSlug) => {
+    if (planSlug === 'free') {
+      onBack();
+      return;
+    }
+    
+    if (!user) {
+      alert("Por favor inicia sesión o crea una cuenta primero.");
+      navigate('/auth');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:4242/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan_slug: isAnnual ? `${planSlug}_yearly` : `${planSlug}_monthly`,
+          user_id: user.id,
+          email: user.email,
+          return_url: window.location.origin
+        })
+      });
+      
+      const session = await response.json();
+      if (session.url) {
+        window.location.href = session.url;
+      } else {
+        alert("Error al iniciar suscripción.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al conectar con el servidor de pagos.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const plans = {
     free: {
@@ -14,7 +58,8 @@ const Pricing = ({ onBack }) => {
         { text: "[-] Noticias completas redactadas", include: false },
         { text: "[-] Análisis de blindspots ilimitado", include: false },
       ],
-      buttonText: "SEGUIR GRATIS"
+      buttonText: "SEGUIR GRATIS",
+      slug: "free"
     },
     premium: {
       name: "PREMIUM",
@@ -26,7 +71,8 @@ const Pricing = ({ onBack }) => {
         { text: "[+] Gráficos de sesgo avanzados", include: true },
         { text: "[+] Sin anuncios ni tracking", include: true },
       ],
-      buttonText: "SUSCRIBIRSE AHORA"
+      buttonText: "SUSCRIBIRSE AHORA",
+      slug: "premium"
     },
     elite: {
       name: "ELITE",
@@ -39,7 +85,8 @@ const Pricing = ({ onBack }) => {
         { text: "[+] Soporte prioritario 24/7", include: true },
         { text: "[+] Exportación de datos analíticos", include: true },
       ],
-      buttonText: "EMPEZAR ELITE"
+      buttonText: "EMPEZAR ELITE",
+      slug: "elite"
     }
   };
 
@@ -79,7 +126,11 @@ const Pricing = ({ onBack }) => {
         </ul>
       </div>
       
-      <button className="navbar__link" style={{ 
+      <button 
+        onClick={() => handleSubscribe(plan.slug)}
+        disabled={loading}
+        className="navbar__link" 
+        style={{ 
         width: '100%', 
         marginTop: '60px', 
         background: isDark ? 'white' : isGrey ? 'black' : 'none', 
@@ -88,7 +139,8 @@ const Pricing = ({ onBack }) => {
         padding: '20px', 
         fontSize: '14px',
         fontWeight: 700,
-        cursor: 'pointer'
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.5 : 1
       }}>
         {plan.buttonText}
       </button>

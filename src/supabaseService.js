@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient';
 // ==========================================================
 
 export const logReading = async (userId, storyId) => {
+  // Legacy history log kept for UI display, but now we should also trigger usage tracking separately
   try {
     const { error } = await supabase
       .from('reading_history')
@@ -21,6 +22,56 @@ export const logReading = async (userId, storyId) => {
     // Silent fail
   }
 };
+
+// ==========================================
+// SUBSCRIPTION USAGE TRACKING
+// ==========================================
+
+export const getSessionId = () => {
+  let sessionId = localStorage.getItem('tne_session_id');
+  if (!sessionId) {
+    // Generate UUID v4 format roughly
+    sessionId = 'test-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
+    localStorage.setItem('tne_session_id', sessionId);
+  }
+  return sessionId;
+};
+
+export const pingUsage = async (userId, storyId, readSeconds = 0) => {
+  const sessionId = getSessionId();
+  try {
+    const { error } = await supabase.rpc('log_article_read', {
+      p_session_id: sessionId,
+      p_user_id: userId || null,
+      p_story_id: String(storyId),
+      p_read_seconds: readSeconds
+    });
+
+    if (error) {
+      console.error('Error tracking usage:', error);
+    }
+  } catch (err) {
+    console.error('Error ping usage:', err);
+  }
+};
+
+export const getUsageMetrics = async (userId) => {
+  const sessionId = getSessionId();
+  let query = supabase.from('usage_metrics').select('*');
+  if (userId) {
+    query = query.eq('user_id', userId);
+  } else {
+    query = query.eq('session_id', sessionId);
+  }
+
+  const { data, error } = await query.single();
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching usage metrics:', error);
+    return null;
+  }
+  return data || { articles_read: 0, reading_seconds: 0, read_article_ids: [] };
+};
+
 
 export const getReadingHistory = async (userId) => {
   const { data, error } = await supabase

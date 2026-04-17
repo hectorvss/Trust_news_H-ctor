@@ -320,8 +320,7 @@ const TabSecurity = () => {
                    <div>
                      <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>iPhone 15 Pro</div>
                      <div style={{ fontSize: '12px', opacity: 0.6, fontFamily: 'var(--font-mono)' }}>Barcelona, España • Hace 6 horas</div>
-                   </div>
-                   <Button variant="danger">CERRAR SESIÓN</Button>
+               <Button variant="danger">CERRAR SESIÓN</Button>
                 </div>
              </div>
              <div style={{ marginTop: '24px', textAlign: 'right' }}>
@@ -332,76 +331,93 @@ const TabSecurity = () => {
    );
 };
 
-const TabBilling = ({ onUpgrade }) => {
+const TabBilling = ({ profile, user }) => {
+   const [loading, setLoading] = useState(false);
+
+   const handleManageSubscription = async () => {
+      if (!profile?.stripe_customer_id) {
+         alert("No tienes una suscripción activa vinculada. Ve a Precios para suscribirte.");
+         return;
+      }
+      setLoading(true);
+      try {
+         const response = await fetch('http://localhost:4242/api/create-portal-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               user_id: user.id,
+               return_url: window.location.href
+            })
+         });
+         const data = await response.json();
+         if (data.url) {
+            window.location.href = data.url;
+         } else {
+            alert("Error al abrir el portal de gestión.");
+         }
+      } catch (err) {
+         console.error(err);
+         alert("Error conectando con el servidor de pagos.");
+      } finally {
+         setLoading(false);
+      }
+   };
+
+   const tier = profile?.subscription_tier?.toUpperCase() || 'FREE';
+   const isActive = profile?.subscription_status === 'active';
+   const nextPayment = profile?.current_period_end ? new Date(profile.current_period_end).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'N/A';
+
    return (
       <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
          <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '40px' }}>Mi Suscripción</h2>
 
          <div style={{ background: '#fff', color: '#000', padding: '40px', marginBottom: '60px', border: 'var(--border-thin)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-               <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '1px', marginBottom: '24px' }}>MI PLAN ACTUAL</div>
+               <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '1px', marginBottom: '24px' }}>ESTADO DEL PLAN</div>
                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: '1' }}>Elite</span>
-                  <span style={{ background: '#000', color: '#fff', padding: '6px 12px', fontSize: '10px', fontWeight: 900, letterSpacing: '0.5px' }}>ACTIVO</span>
+                  <span style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: '1' }}>{tier}</span>
+                  <span style={{ 
+                     background: isActive ? '#000' : '#eee', 
+                     color: isActive ? '#fff' : '#888', 
+                     padding: '6px 12px', 
+                     fontSize: '10px', 
+                     fontWeight: 900, 
+                     letterSpacing: '0.5px' 
+                  }}>
+                     {isActive ? 'ACTIVO' : profile?.subscription_status?.toUpperCase() || 'INACTIVO'}
+                  </span>
                </div>
-               <div style={{ fontSize: '13px', opacity: 0.5, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>Precio: 8€ / mes • Siguiente pago: 01 MAY, 2026</div>
+               <div style={{ fontSize: '13px', opacity: 0.5, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+                  {isActive ? `Siguiente renovación: ${nextPayment}` : 'Sujeto a límites de versión gratuita.'}
+               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '180px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '220px' }}>
                <button 
-                 onClick={onUpgrade}
-                 style={{ padding: '12px 24px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', background: 'black', color: 'white', border: 'none', width: '100%' }}
+                 onClick={handleManageSubscription}
+                 disabled={loading}
+                 style={{ padding: '12px 24px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: loading ? 'not-allowed' : 'pointer', background: 'black', color: 'white', border: 'none', width: '100%', opacity: loading ? 0.5 : 1 }}
                >
-                 CAMBIAR PLAN
+                 {loading ? 'CERRANDO SESIÓN...' : 'GESTIONAR SUSCRIPCIÓN / PORTAL ↗'}
                </button>
-               <button style={{ padding: '12px 24px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', background: '#eee', color: '#666', border: 'none', width: '100%' }}>CANCELAR</button>
+               {!isActive && (
+                  <button onClick={() => window.location.href='/pricing'} style={{ padding: '12px 24px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', background: '#333', color: '#fff', border: 'none', width: '100%' }}>
+                     SUBIR A PREMIUM / ELITE
+                  </button>
+               )}
             </div>
          </div>
 
-         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '60px', alignItems: 'stretch' }}>
-             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>MÉTODO DE PAGO</h3>
-                <div style={{ border: 'var(--border-thin)', padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                   <div>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                           <div style={{ background: '#eee', padding: '8px 12px', fontSize: '13px', fontWeight: 900, fontFamily: 'var(--font-mono)', border: '1px solid #ccc' }}>VISA</div>
-                           <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '2px' }}>•••• 4242</div>
-                        </div>
-                        <span style={{ fontSize: '9px', fontWeight: 900, border: '1px solid black', padding: '4px 8px' }}>PRINCIPAL</span>
-                     </div>
-                     <div style={{ fontSize: '13px', opacity: 0.5, marginBottom: '32px', fontFamily: 'var(--font-mono)' }}>Caduca en: 08/2028</div>
-                   </div>
-                   <Button variant="secondary" block>AÑADIR TARJETA</Button>
-                </div>
-             </div>
-             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>DATOS FISCALES</h3>
-                <div style={{ border: 'var(--border-thin)', padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                   <div style={{ gridGap: '16px', display: 'grid', fontSize: '13px', marginBottom: '32px', fontFamily: 'var(--font-mono)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ opacity: 0.5 }}>Nombre</span><span style={{ fontWeight: 800 }}>Héctor Vidal</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ opacity: 0.5 }}>DNI / CIF</span><span style={{ fontWeight: 800 }}>B-12345678</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ opacity: 0.5 }}>Dirección</span><span style={{ fontWeight: 800, textAlign: 'right', whiteSpace: 'pre-line' }}>{`Gran Vía 12\n28013 Madrid, España`}</span></div>
-                   </div>
-                   <Button variant="secondary" block>EDITAR DATOS</Button>
-                </div>
-             </div>
+         <div style={{ padding: '40px', border: '1px solid black', opacity: 0.8, marginBottom: '60px' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '16px' }}>ACERCA DEL PORTAL DE STRIPE</h4>
+            <p style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
+               Al hacer clic en gestionar, serás redirigido de forma segura a la pasarela de Stripe para actualizar tu método de pago, descargar facturas históricas o cancelar tu suscripción corriente. TNE no almacena los datos de tu tarjeta directamente.
+            </p>
          </div>
 
          <div>
-             <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>MIS FACTURAS</h3>
-             <div style={{ border: 'var(--border-thin)' }}>
-                {['01 ABR 2026', '01 MAR 2026', '01 FEB 2026'].map((date, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 32px', background: i % 2 === 0 ? '#fafafa' : 'white', borderBottom: i < 2 ? '1px solid #eee' : 'none' }}>
-                     <div>
-                       <div style={{ fontSize: '15px', fontWeight: 800, marginBottom: '6px' }}>Suscripción Elite</div>
-                       <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', opacity: 0.5 }}>Fecha: {date} • Ref: INV-20260{4-i}</div>
-                     </div>
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-                       <div style={{ fontSize: '18px', fontWeight: 800 }}>8€</div>
-                       <Button variant="ghost"> DESCARGAR </Button>
-                     </div>
-                  </div>
-                ))}
+             <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>ULTIMAS TRANSACCIONES</h3>
+             <div style={{ border: 'var(--border-thin)', padding: '40px', textAlign: 'center' }}>
+                <p style={{ fontSize: '13px', opacity: 0.4, margin: 0, fontFamily: 'var(--font-mono)' }}>Accede al portal de gestión para ver y descargar tus facturas.</p>
              </div>
          </div>
       </div>
@@ -586,7 +602,7 @@ const Account = ({ user, profile, onBack, onSaveSettings, onUpgrade }) => {
       case 'profile': return <TabProfile user={user} profile={profile} />;
       case 'preferences': return <TabPreferences />;
       case 'security': return <TabSecurity />;
-      case 'billing': return <TabBilling onUpgrade={onUpgrade} />;
+      case 'billing': return <TabBilling profile={profile} user={user} />;
       case 'notifications': return <TabNotifications />;
       case 'stats': return <TabStats />;
       case 'privacy': return <TabPrivacy />;
