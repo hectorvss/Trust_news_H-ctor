@@ -150,5 +150,5 @@ INSERT INTO public.stories (
                 ]
             }
         }
-    ]''::jsonb
+    ]'::jsonb
 );
