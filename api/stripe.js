@@ -1,35 +1,48 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { createClient } = require('@supabase/supabase-js');
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { type } = req.query; // Lo usaremos para distinguir entre checkout y portal
+  const { type } = req.query;
 
   try {
     if (type === 'checkout') {
-      const { priceId, user_id, user_email } = req.body;
+      const { plan_slug, user_id, email } = req.body;
+      
+      // Mapeo de slugs a IDs de precio reales usando variables de entorno
+      const priceMap = {
+        'premium_monthly': process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+        'premium_yearly': process.env.STRIPE_PRICE_PREMIUM_YEARLY,
+        'elite_monthly': process.env.STRIPE_PRICE_ELITE_MONTHLY,
+        'elite_yearly': process.env.STRIPE_PRICE_ELITE_YEARLY
+      };
+
+      const priceId = priceMap[plan_slug];
+
+      if (!priceId) {
+        return res.status(400).json({ error: `Invalid plan slug: ${plan_slug}` });
+      }
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         success_url: `${req.headers.origin}/account?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.headers.origin}/pricing`,
-        customer_email: user_email,
+        customer_email: email,
         client_reference_id: user_id,
         metadata: { user_id: user_id },
         subscription_data: { metadata: { user_id: user_id } },
       });
+      
       return res.status(200).json({ id: session.id, url: session.url });
     }
 
     if (type === 'portal') {
       const { user_id, return_url } = req.body;
-      // Primero buscamos el customer_id en Supabase (o lo recibimos del front)
-      // Para simplificar, asumimos que el front podría enviarlo o lo buscamos aquí
-      // Aquí usaremos la lógica de buscarlo vía Supabase
-      const { createClient } = require('@supabase/supabase-js');
       const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
       
       const { data: profile } = await supabase
@@ -51,7 +64,7 @@ export default async function handler(req, res) {
 
     res.status(400).json({ error: 'Invalid type' });
   } catch (error) {
-    console.error(error);
+    console.error('SERVER ERROR:', error);
     res.status(500).json({ error: error.message });
   }
 }
