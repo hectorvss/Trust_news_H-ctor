@@ -224,18 +224,43 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 
         </div>
         
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           {copied && (
-            <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '-12px', animation: 'fadeInOut 2s forwards', letterSpacing: '1px' }}>
-              COPIADO
+            <span style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '-8px', animation: 'fadeInOut 2s forwards', letterSpacing: '1px' }}>
+              ENLACE COPIADO
             </span>
           )}
+          
+          {/* 1. LIKE / FAVORITE ICON */}
+          <svg 
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+            style={{ cursor: 'pointer', transition: '0.2s', fill: isFavorite ? '#000' : 'none', color: isFavorite ? '#000' : 'currentColor', opacity: isFavorite ? 1 : 0.4 }} 
+            onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+            onMouseLeave={(e) => { if(!isFavorite) e.currentTarget.style.opacity = 0.4; }}
+            width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+
+          {/* 2. SEND / SHARE ICON */}
+          <svg 
+            onClick={(e) => { e.stopPropagation(); if(onShare) onShare(); }}
+            style={{ opacity: 0.4, cursor: 'pointer', transition: '0.2s' }} 
+            onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = 0.4}
+            width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+
+          {/* 3. LINK ICON (Manual Copy) */}
           <svg 
             onClick={handleCopy}
-            style={{ opacity: 0.7, cursor: 'pointer', transition: '0.2s' }} 
+            style={{ opacity: 0.4, cursor: 'pointer', transition: '0.2s' }} 
             onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
-            width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            onMouseLeave={(e) => e.currentTarget.style.opacity = 0.4}
+            width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
           >
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
