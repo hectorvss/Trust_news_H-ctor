@@ -643,25 +643,31 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
             )}
 
             {activeTab === 'CLAVES' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-                   {(Array.isArray(editedStory.desglose) ? editedStory.desglose : (editedStory.desglose || '').split('\n').filter(l => l && String(l).trim())).slice(0, 6).map((clave, idx) => (
-                      <div key={idx} style={{ padding: '40px', border: '1px solid black', position: 'relative', minHeight: '180px' }}>
-                         <div style={{ position: 'absolute', left: '24px', top: '-11px', background: 'white', padding: '0 8px', fontSize: '10px', fontWeight: 900, letterSpacing: '1px' }}>CLAVE {idx + 1}</div>
-                         <div style={{ fontSize: '18px', fontWeight: 600, lineHeight: '1.4' }}>
-                            <InlineEdit text={clave} onChange={v => {
-                               const next = [...(editedStory.desglose || [])];
-                               next[idx] = v;
-                               updateStory('desglose', next);
-                            }} isEditing={isEditing} multiline />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {Array.isArray(editedStory.desglose) && editedStory.desglose.length > 0 ? (
+                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '48px' }}>
+                      {editedStory.desglose.slice(0, 6).map((clave, idx) => (
+                         <div key={idx} style={{ padding: '40px', border: '1px solid black', position: 'relative', minHeight: '180px' }}>
+                            <div style={{ position: 'absolute', left: '24px', top: '-11px', background: 'white', padding: '0 8px', fontSize: '10px', fontWeight: 900, letterSpacing: '1px' }}>CLAVE {idx + 1}</div>
+                            <div style={{ fontSize: '18px', fontWeight: 600, lineHeight: '1.4' }}>
+                               <InlineEdit text={clave} onChange={v => {
+                                  const next = [...(editedStory.desglose || [])];
+                                  next[idx] = v;
+                                  updateStory('desglose', next);
+                               }} isEditing={isEditing} multiline />
+                            </div>
                          </div>
-                      </div>
-                   ))}
-                   {isEditing && (
-                      <button onClick={() => updateStory('desglose', [...(editedStory.desglose || []), 'Nueva clave editorial...'])} style={{ padding: '40px', border: '1px dashed #ccc', minHeight: '180px', background: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 900 }}>+ AÑADIR CLAVE</button>
-                   )}
-                </div>
-
+                      ))}
+                      {isEditing && (
+                         <button onClick={() => updateStory('desglose', [...(editedStory.desglose || []), 'Nueva clave editorial...'])} style={{ padding: '40px', border: '1px dashed #ccc', minHeight: '180px', background: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 900 }}>+ AÑADIR CLAVE</button>
+                      )}
+                   </div>
+                ) : (
+                  isEditing && (
+                    <button onClick={() => updateStory('desglose', ['Nueva clave editorial...'])} style={{ padding: '40px', border: '1px dashed #ccc', marginBottom: '48px', background: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 900, width: '100%' }}>+ AÑADIR CLAVES EDITORIALES</button>
+                  )
+                )}
+ 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
                    <div>
                       <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>PROTAGONISTAS</div>
