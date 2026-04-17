@@ -22,7 +22,7 @@ const Pricing = ({ onBack }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:4242/api/create-checkout-session', {
+      const response = await fetch('/api/stripe?type=checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -320,11 +320,12 @@ const TabSecurity = () => {
                    <div>
                      <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>iPhone 15 Pro</div>
                      <div style={{ fontSize: '12px', opacity: 0.6, fontFamily: 'var(--font-mono)' }}>Barcelona, España • Hace 6 horas</div>
-               <Button variant="danger">CERRAR SESIÓN</Button>
+                     <Button variant="danger">CERRAR SESIÓN</Button>
+                   </div>
                 </div>
-             </div>
-             <div style={{ marginTop: '24px', textAlign: 'right' }}>
-                <Button variant="danger">CERRAR TODAS LAS SESIONES</Button>
+                <div style={{ marginTop: '24px', textAlign: 'right' }}>
+                   <Button variant="danger">CERRAR TODAS LAS SESIONES</Button>
+                </div>
              </div>
          </div>
       </div>
@@ -341,12 +342,12 @@ const TabBilling = ({ profile, user }) => {
       }
       setLoading(true);
       try {
-         const response = await fetch('http://localhost:4242/api/create-portal-session', {
+         const response = await fetch('/api/stripe?type=portal', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                user_id: user.id,
-               return_url: window.location.href
+               return_url: window.location.origin + '/account'
             })
          });
          const data = await response.json();
