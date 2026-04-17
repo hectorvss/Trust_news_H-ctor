@@ -143,12 +143,12 @@ INSERT INTO public.stories (
                 "implications": {
                     "owner": "For international readers, this signifies a paradigm shift in how food is sourced and the increasing importance of water-resistent supply chains."
                 },
-                "blindSpot": "The report underplays the specific regional politics and the historical grievances between the 'dry Spain' and 'wet Spain'." ,
+                "blindSpot": "The report underplays the specific regional politics and the historical grievances between the ''dry Spain'' and ''wet Spain''." ,
                 "interstitialNotes": [
-                    {"pos": 1, "text": "TNE Intelligence: This article provides the most 'detached' view, focusing on the systemic risks to the EU internal market."},
-                    {"pos": 2, "text": "Note: The mention of the Mar Menor as a 'legal person' is a detail that international press finds fascinating and significant."}
+                    {"pos": 1, "text": "TNE Intelligence: This article provides the most ''detached'' view, focusing on the systemic risks to the EU internal market."},
+                    {"pos": 2, "text": "Note: The mention of the Mar Menor as a ''legal person'' is a detail that international press finds fascinating and significant."}
                 ]
             }
         }
-    ]'::jsonb
+    ]''::jsonb
 );
