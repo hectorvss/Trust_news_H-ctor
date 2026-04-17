@@ -139,27 +139,23 @@ const App = () => {
 
   // Deep-link: fetch story by ID when navigating directly to /story/:id
   useEffect(() => {
-    const match = location.pathname.match(/^\/story\/(.+)$/);
-    if (match && match[1] !== 'new') {
-      // If anonymous, block deep link viewing
+    const isStoryPath = location.pathname.match(/^\/story\/(.+)$/);
+    const isArticlePath = location.pathname.match(/^\/article\/(.+)$/);
+    
+    if (isStoryPath || isArticlePath) {
       if (!authLoading && !user) {
         setAccessModal({ isOpen: true, mode: 'AUTH' });
-        return;
       }
-      
-      const storyId = match[1];
-      if (!selectedStory || String(selectedStory.id) !== storyId) {
-        fetchStoryById(storyId).then(story => {
-          if (story) setSelectedStory(story);
-        });
+
+      const match = isStoryPath;
+      if (match && match[1] !== 'new') {
+        const storyId = match[1];
+        if (!selectedStory || String(selectedStory.id) !== storyId) {
+          fetchStoryById(storyId).then(story => {
+            if (story) setSelectedStory(story);
+          });
+        }
       }
-    }
-    
-    const articleMatch = location.pathname.match(/^\/article\/(.+)$/);
-    if (articleMatch) {
-       if (!authLoading && !user) {
-          setAccessModal({ isOpen: true, mode: 'AUTH' });
-       }
     }
   }, [location.pathname, user, authLoading]);
 
@@ -828,6 +824,11 @@ const App = () => {
                     );
                   }
 
+                  // PHYSICAL BLOCK: If modal is open for AUTH or LIMIT, do NOT render the story
+                  if (accessModal.isOpen) {
+                    return <div style={{ minHeight: '80vh' }} />;
+                  }
+
                   return (
                     <StoryDetail 
                       story={location.pathname === '/story/new' ? { category: 'POLÍTICA', bias: { left: 33, center: 34, right: 33 }, articles: [] } : currentStory} 
@@ -858,6 +859,10 @@ const App = () => {
                       <h2 style={{ fontSize: '12px', opacity: 0.3 }}>CARGANDO ARTÍCULO...</h2>
                     </div>
                   );
+                }
+
+                if (accessModal.isOpen) {
+                    return <div style={{ minHeight: '80vh' }} />;
                 }
                 
                 return (
