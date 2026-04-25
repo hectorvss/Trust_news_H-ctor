@@ -51,7 +51,7 @@ const App = () => {
   const [activeStoryFilter, setActiveStoryFilter] = useState('TODO');
   const [activeStoryTab, setActiveStoryTab] = useState('RESUMEN');
   const [showForYou, setShowForYou] = useState(false);
-  const [visibleStories, setVisibleStories] = useState(8);
+  const [visibleStories, setVisibleStories] = useState(20);
 
   const [favorites, setFavorites] = useState([]);
   const favStoryIds = useMemo(() => new Set(favorites.map(f => String(f.story_id || f.id))), [favorites]);
@@ -670,7 +670,7 @@ const App = () => {
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: '60px', marginBottom: '40px' }}>
                     {visibleStories < finalStories.length ? (
                       <button 
-                        onClick={() => setVisibleStories(prev => prev + 4)}
+                        onClick={() => setVisibleStories(prev => prev + 8)}
                         style={{ padding: '18px 40px', border: '1.5px solid black', borderBottomWidth: '3px', background: 'none', borderRadius: '100px', fontSize: '12px', fontWeight: 900, cursor: 'pointer', transition: '0.2s', letterSpacing: '1px' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = 'black'; e.currentTarget.style.color = 'white'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'black'; }}
