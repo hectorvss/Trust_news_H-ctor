@@ -37,23 +37,83 @@ export const getSessionId = () => {
   return sessionId;
 };
 
-export const pingUsage = async (userId, storyId, readSeconds = 0) => {
+export const pingUsage = async (userId, storyId, readSeconds = 0, biasCategory = null, sourceName = null) => {
   const sessionId = getSessionId();
   try {
-    const { error } = await supabase.rpc('log_article_read', {
+    // 1. Log generic usage for limits
+    const { error: usageError } = await supabase.rpc('log_article_read', {
       p_session_id: sessionId,
       p_user_id: userId || null,
       p_story_id: String(storyId),
       p_read_seconds: readSeconds
     });
 
-    if (error) {
-      console.error('Error tracking usage:', error);
+    if (usageError) console.error('Error tracking usage:', usageError);
+
+    // 2. Log bias data if provided (real-time analysis)
+    if (biasCategory && readSeconds > 0) {
+      const { error: biasError } = await supabase.rpc('log_bias_read', {
+        p_session_id: sessionId,
+        p_user_id: userId || null,
+        p_story_id: String(storyId),
+        p_bias_category: biasCategory,
+        p_source_name: sourceName || 'Unknown',
+        p_seconds_read: readSeconds
+      });
+      if (biasError) console.error('Error tracking bias:', biasError);
     }
   } catch (err) {
     console.error('Error ping usage:', err);
   }
 };
+
+export const getBiasStats = async (userId) => {
+  const sessionId = getSessionId();
+  try {
+    let query = supabase.from('bias_logs').select('*');
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.eq('session_id', sessionId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    if (!data || data.length === 0) return null;
+
+    // Aggregate stats
+    const totalSeconds = data.reduce((acc, log) => acc + log.seconds_read, 0);
+    const biasCounts = data.reduce((acc, log) => {
+      acc[log.bias_category] = (acc[log.bias_category] || 0) + 1;
+      return acc;
+    }, {});
+    
+    const sourceCounts = data.reduce((acc, log) => {
+      acc[log.source_name] = (acc[log.source_name] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Calculate diversity (mock logic for now: based on how many sources vs total)
+    const uniqueSources = Object.keys(sourceCounts).length;
+    const diversity = Math.min(100, Math.round((uniqueSources / 10) * 100));
+
+    return {
+      total_articles: Object.keys(new Set(data.map(l => l.story_id))).length,
+      bias_distribution: biasCounts,
+      top_sources: Object.entries(sourceCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count, pct: Math.round((count / data.length) * 100) })),
+      diversity_pct: diversity,
+      total_seconds: totalSeconds
+    };
+  } catch (err) {
+    console.error('Error fetching bias stats:', err);
+    return null;
+  }
+};
+
 
 export const getUsageMetrics = async (userId) => {
   const sessionId = getSessionId();
@@ -64,8 +124,8 @@ export const getUsageMetrics = async (userId) => {
     query = query.eq('session_id', sessionId);
   }
 
-  const { data, error } = await query.single();
-  if (error && error.code !== 'PGRST116') {
+  const { data, error } = await query.maybeSingle();
+  if (error) {
     console.error('Error fetching usage metrics:', error);
     return null;
   }
@@ -93,26 +153,32 @@ const mapStory = (s) => {
   if (!s) return null;
   return {
     ...s,
-    time: s.time_label,
-    image: s.image_url,
-    sourceCount: s.source_count,
-    fullContent: s.full_content,
+    id: s.id,
+    title: s.title,
     summary: s.summary,
-    perspectivasInfo: s.perspectivas_info,
-    cronologiaInfo: s.cronologia_info,
-    // Handle jsonb arrays for social/systemic impact if they come as arrays
-    impactoSocial: Array.isArray(s.impacto_social) ? s.impacto_social.join('\n') : (s.impacto_social || ''),
-    impactoSistemico: Array.isArray(s.impacto_sistemico) ? s.impacto_sistemico.join('\n') : (s.impacto_sistemico || ''),
-    consensoNarrativo: s.consenso_narrativo,
-    factCheck: s.fact_check,
-    blindSpot: s.blind_spot,
-    factuality: s.factuality,
-    analyticalSnippet: s.analytical_snippet,
+    category: s.category || 'SOCIAL',
+    image: s.image_url || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800',
+    time: s.time_label || 'recientemente',
+    location: s.location || 'España',
+    sourceCount: s.source_count || 0,
+    bias: s.bias || { left: 33, center: 33, right: 34 },
+    factuality: s.factuality || 'ALTA',
+    consensus: s.consensus || 'MEDIO',
+    impact: s.impact || 'ALTO',
+    analyticalSnippet: s.analytical_snippet || s.summary,
     contexto: s.contexto,
     desglose: Array.isArray(s.desglose) ? s.desglose.join('\n') : (s.desglose || ''),
     cifrasClave: Array.isArray(s.cifras_clave) ? s.cifras_clave : [],
     verificacionInfo: s.verificacion_info || '',
     origenInfo: Array.isArray(s.origen_info) ? s.origen_info : [],
+    fullContent: s.full_content,
+    perspectivasInfo: s.perspectivas_info,
+    cronologiaInfo: s.cronologia_info,
+    impactoSocial: Array.isArray(s.impacto_social) ? s.impacto_social.join('\n') : (s.impacto_social || ''),
+    impactoSistemico: Array.isArray(s.impacto_sistemico) ? s.impacto_sistemico.join('\n') : (s.impacto_sistemico || ''),
+    consensoNarrativo: s.consenso_narrativo,
+    factCheck: s.fact_check,
+    blindSpot: s.blind_spot,
     mediosAnalizados: Array.isArray(s.medios_analizados) ? s.medios_analizados : [],
     documentosInfo: Array.isArray(s.documentos_info) ? s.documentos_info : [],
     protagonistasInfo: s.protagonistas_info || { beneficiados: '', afectados: '' },
@@ -126,11 +192,22 @@ export const fetchStories = async (category = 'TODO') => {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (category !== 'TODO' && category !== 'PARA TI') {
-    query = query.eq('category', category);
+  if (category !== 'TODO' && category !== 'PARA TI' && category) {
+    // Try to match category in a case-insensitive way if possible, or just exact match
+    query = query.ilike('category', category);
   }
 
-  const { data, error } = await query;
+  // Use a safer catch-all order or default to ID
+  let { data, error } = await query;
+  
+  // Sorting manually if DB doesn't have created_at as an indexed or existing field consistently
+  if (!error && data) {
+    data = data.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+      const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+      return dateB - dateA;
+    });
+  }
 
   if (error) {
     console.error('Error fetching stories:', error);
@@ -184,6 +261,53 @@ export const updateAppConfig = async (configData) => {
     return null;
   }
   return data;
+};
+
+// ==========================================
+// SPECIAL SECTIONS (Front-page editorial blocks)
+// ==========================================
+
+export const fetchSpecialSections = async () => {
+  const { data, error } = await supabase
+    .from('special_sections')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching special sections:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const saveSpecialSection = async (section) => {
+  if (section.id) {
+    const { data, error } = await supabase
+      .from('special_sections')
+      .update(section)
+      .eq('id', section.id)
+      .select()
+      .single();
+    if (error) { console.error('Error updating special section:', error); return null; }
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from('special_sections')
+      .insert(section)
+      .select()
+      .single();
+    if (error) { console.error('Error inserting special section:', error); return null; }
+    return data;
+  }
+};
+
+export const deleteSpecialSection = async (id) => {
+  const { error } = await supabase
+    .from('special_sections')
+    .delete()
+    .eq('id', id);
+  if (error) { console.error('Error deleting special section:', error); return false; }
+  return true;
 };
 
 // ==========================================

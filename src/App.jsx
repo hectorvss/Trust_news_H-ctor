@@ -24,7 +24,8 @@ import {
   fetchStoryById, 
   fetchAppConfig,
   getUsageMetrics,
-  pingUsage
+  pingUsage,
+  fetchSpecialSections
 } from './supabaseService';
 import AccessLimitModal from './components/AccessLimitModal';
 
@@ -81,7 +82,10 @@ const App = () => {
     const interval = setInterval(async () => {
       // log 10 seconds of reading
       if (document.visibilityState === 'visible') {
-        pingUsage(user?.id, activeStoryId, 10);
+        const biasCategory = selectedArticle ? selectedArticle.bias : null;
+        const sourceName = selectedArticle ? selectedArticle.source : (selectedStory ? 'TNE Editorial' : null);
+        
+        pingUsage(user?.id, activeStoryId, 10, biasCategory, sourceName);
         setUsageMetrics(prev => ({
           ...prev,
           reading_seconds: prev.reading_seconds + 10
@@ -108,34 +112,46 @@ const App = () => {
   }, [user, isPremium, selectedStory, selectedArticle]);
 
 
-  // Dynamic Data State
-  const [stories, setStories] = useState([]);
+  // Dynamic Data State with robust editorial fallback
+  const [stories, setStories] = useState([
+    {
+      id: "ley-vivienda-2024-fallback",
+      title: "El Gobierno de España aprueba la nueva ley de vivienda para limitar alquileres",
+      image: "https://images.unsplash.com/photo-1582408921715-18e7806365c1?auto=format&fit=crop&q=80&w=800",
+      time: "hace 2 horas",
+      location: "Madrid, España",
+      sourceCount: 42,
+      bias: { left: 45, center: 30, right: 25 },
+      factuality: "ALTA",
+      category: "POLÍTICA",
+      summary: "Se ha aprobado un marco regulatorio para las zonas tensionadas, buscando frenar la escalada de precios."
+    }
+  ]);
   const [appConfig, setAppConfig] = useState({ trending_topics: [], global_headlines: [] });
   const [storiesLoading, setStoriesLoading] = useState(true);
+  const [specialSections, setSpecialSections] = useState([]);
 
-  // Load Initial App Config
+  // Load Initial App Config + Special Sections
   useEffect(() => {
     fetchAppConfig().then(config => {
       if (config) setAppConfig(config);
     });
+    fetchSpecialSections().then(sections => {
+      if (sections && sections.length > 0) setSpecialSections(sections);
+    });
   }, []);
 
-  // Load Stories whenever category changes (Supabase only)
-  const refreshStories = useCallback(() => {
+  // Load Stories from Supabase with safety filter
+  useEffect(() => {
     setStoriesLoading(true);
     fetchStories(activeCategory).then(data => {
       setStories(data || []);
       setStoriesLoading(false);
     }).catch(err => {
-      console.error('Error loading stories:', err);
-      setStories([]);
+      console.error('Error in App fetchStories:', err);
       setStoriesLoading(false);
     });
   }, [activeCategory]);
-
-  useEffect(() => {
-    refreshStories();
-  }, [refreshStories]);
 
   // Deep-link: fetch story by ID when navigating directly to /story/:id
   useEffect(() => {
@@ -257,12 +273,30 @@ const App = () => {
   const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
 
   // Stories from Supabase (single source of truth)
+  const searchParams = new URLSearchParams(location.search);
+  const activeCity = searchParams.get('city');
+  const activeTopic = searchParams.get('topic');
+
   const rawSource = stories;
-  const finalStories = activeCategory === 'TODO' 
+  let finalStories = activeCategory === 'TODO' 
     ? rawSource 
-    : (activeCategory === 'PARA TI' 
-        ? rawSource.filter(s => ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category))
-        : rawSource.filter(s => s.category === activeCategory));
+    : (activeCategory === 'PARA_TI' || activeCategory === 'PARA TI'
+        ? rawSource.filter(s => s.category && ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category.toUpperCase()))
+        : rawSource.filter(s => s.category && s.category.toUpperCase() === activeCategory.toUpperCase()));
+
+  if (activeCity) {
+    const term = activeCity.toLowerCase();
+    finalStories = finalStories.filter(s => (s.location && s.location.toLowerCase().includes(term)) || (s.title && s.title.toLowerCase().includes(term)));
+  }
+  
+  if (activeTopic) {
+    const term = activeTopic.toLowerCase();
+    finalStories = finalStories.filter(s => 
+      (s.title && s.title.toLowerCase().includes(term)) || 
+      (s.summary && s.summary.toLowerCase().includes(term)) ||
+      (s.category && s.category.toLowerCase().includes(term))
+    );
+  }
         
   const displayStories = finalStories.slice(0, visibleStories);
   
@@ -392,11 +426,13 @@ const App = () => {
                 OFERTA DE LANZAMIENTO: 1€ POR SEMANA • <span onClick={() => navigate('/pricing')} style={{ textDecoration: 'underline', cursor: 'pointer' }}>OBTÉN EL DESCUENTO ↗</span>
               </div>
 
-              {/* Active Category Indicator */}
-              {activeCategory !== 'TODO' && (
+              {/* Active Category/Filter Indicator */}
+              {(activeCategory !== 'TODO' || activeCity || activeTopic) && (
                 <div style={{ padding: '20px var(--page-padding)', borderBottom: 'var(--border-thin)', background: 'black', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>PORTAL: {activeCategory}</span>
-                  <span onClick={() => setActiveCategory('TODO')} style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>REINICIAR FILTRO ✕</span>
+                  <span style={{ fontSize: '13px', fontWeight: 800, fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
+                    FILTRO: {activeCategory !== 'TODO' ? activeCategory : ''} {activeCity ? `CIUDAD: ${activeCity}` : ''} {activeTopic ? `TEMA: ${activeTopic}` : ''}
+                  </span>
+                  <span onClick={() => { setActiveCategory('TODO'); navigate('/'); }} style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>REINICIAR FILTRO ✕</span>
                 </div>
               )}
 
@@ -447,7 +483,7 @@ const App = () => {
                   TRENDING
                 </span>
                 {trendingTopics.map(topic => (
-                  <span key={topic} style={{ backgroundColor: 'white', padding: '8px 16px', borderRadius: '100px', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '1px solid black', transition: '0.2s' }}>
+                  <span key={topic} onClick={() => navigate('/?topic=' + encodeURIComponent(topic))} style={{ backgroundColor: activeTopic === topic ? 'black' : 'white', color: activeTopic === topic ? 'white' : 'black', padding: '8px 16px', borderRadius: '100px', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '1px solid black', transition: '0.2s' }}>
                     {topic} <Plus />
                   </span>
                 ))}
@@ -468,9 +504,9 @@ const App = () => {
                     {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
                   </div>
                   <h1 style={{ fontSize: '80px', lineHeight: '0.9', letterSpacing: '-4px', margin: 0 }}>
-                    {activeCategory === 'TODO' 
+                    {activeCategory === 'TODO' && !activeCity && !activeTopic
                       ? 'Contrasta las \n noticias en España.' 
-                      : (activeCategory === 'PARA TI' ? 'Tu Selección \n Personal.' : `Contraste: \n ${activeCategory}.`)}
+                      : (activeCategory === 'PARA TI' ? 'Tu Selección \n Personal.' : `Resultados para: \n ${activeCategory !== 'TODO' ? activeCategory : (activeTopic || activeCity)}.`)}
                   </h1>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
                     <Plus /> <Plus />
@@ -594,23 +630,23 @@ const App = () => {
                     ))}
                   </div>
 
-                  {/* Related Topics - Exact Restoration */}
+                  {/* Related Topics */}
                   <div style={{ marginBottom: '60px' }}>
                     <h3 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px', textTransform: 'uppercase' }}>Temas Relacionados</h3>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO'].map(topic => (
-                        <span key={topic} style={{ background: 'none', border: '1px solid #eee', fontSize: '10px', fontWeight: 800, padding: '8px 16px', borderRadius: '100px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', transition: '0.2s' }}>{topic} <Plus /></span>
+                      {((appConfig.related_topics?.length > 0) ? appConfig.related_topics : ['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO']).map(topic => (
+                        <span key={topic} onClick={() => navigate('/?topic=' + encodeURIComponent(topic))} style={{ background: activeTopic === topic ? 'black' : 'none', color: activeTopic === topic ? 'white' : 'black', border: '1px solid #eee', fontSize: '10px', fontWeight: 800, padding: '8px 16px', borderRadius: '100px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', transition: '0.2s' }}>{topic} <Plus /></span>
                       ))}
                     </div>
                   </div>
 
-                  {/* Local News - Exact Restoration */}
+                  {/* Local News */}
                   <div style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', background: '#fff', marginBottom: '60px', overflow: 'hidden' }}>
                     <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '12px', letterSpacing: '-0.5px' }}>Noticias Locales</h3>
                     <p style={{ fontSize: '13px', opacity: 0.4, marginBottom: '30px', lineHeight: '1.2' }}>Descubre qué está pasando en tu ciudad ahora mismo.</p>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', borderBottom: '1.5px solid #f8f8f8', paddingBottom: '10px' }}>
-                      <input type="text" placeholder="Tu ciudad..." style={{ flex: 1, border: 'none', fontSize: '14px', outline: 'none', fontWeight: 600, width: '100%' }} />
-                      <button style={{ background: 'black', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '100px', fontWeight: 900, fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>FIJAR</button>
+                      <input id="local-city-input" type="text" placeholder="Tu ciudad..." style={{ flex: 1, border: 'none', fontSize: '14px', outline: 'none', fontWeight: 600, width: '100%' }} onKeyDown={(e) => { if(e.key === 'Enter') navigate('/?city=' + e.target.value); }} />
+                      <button onClick={() => navigate('/?city=' + document.getElementById('local-city-input').value)} style={{ background: 'black', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '100px', fontWeight: 900, fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>FIJAR</button>
                     </div>
                   </div>
                 </div>
@@ -658,8 +694,8 @@ const App = () => {
                 </div>
               </section>
 
-              {/* SPECIAL SECTIONS GRID SYSTEM - EXACT REPLICATION */}
-              {[
+              {/* SPECIAL SECTIONS GRID SYSTEM — powered by Supabase special_sections table */}
+              {(specialSections.length > 0 ? specialSections : [
                 {
                   id: 'isr-gaz',
                   label: 'ESPECIAL:',
@@ -744,56 +780,106 @@ const App = () => {
                     { label: 'LEGISLACIÓN', title: 'Nuevas tasas al carbono: el debate sobre el impacto en los precios.', meta: 'PERSPECTIVA ECONÓMICA' }
                   ]
                 }
-              ].map((section, idx) => (
-                <section key={section.id} className="layout-split" style={{ borderTop: section.id === 'isr-gaz' ? 'var(--border-thin)' : '1px solid black', background: '#fff' }}>
-                  <div className="sidebar" style={{ display: 'flex', flexDirection: 'column', padding: '60px 40px', borderRight: 'var(--border-thin)' }}>
-                    <h2 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: '1', margin: '0 0 32px 0' }}>{section.label}<br/>{section.title}</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <button style={{ padding: '14px', background: 'black', color: 'white', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: 900, cursor: 'pointer', letterSpacing: '1px' }}>{section.btn1}</button>
-                      <button style={{ padding: '14px', background: 'none', border: '1px solid #f0f0f0', borderRadius: '4px', fontSize: '10px', fontWeight: 900, cursor: 'pointer', color: '#999', letterSpacing: '1px' }}>{section.btn2}</button>
+              ]).map((section, idx) => {
+                // Normalize: DB uses snake_case jsonb, fallback uses camelCase
+                const main   = section.main   || {};
+                const sides  = section.sides  || [];
+                const label  = section.label  || '';
+                const title  = section.title  || '';
+
+                const handleMainClick = () => {
+                  const sid = main.story_id;
+                  if (!sid) return;
+                  const story = stories.find(s => String(s.id) === String(sid));
+                  if (story) onSelectStory(story);
+                  else navigate(`/story/${sid}`);
+                };
+
+                const handleSideClick = (side) => {
+                  const sid = side.story_id;
+                  if (!sid) return;
+                  const story = stories.find(s => String(s.id) === String(sid));
+                  if (story) onSelectStory(story);
+                  else navigate(`/story/${sid}`);
+                };
+
+                return (
+                  <section key={section.id} className="layout-split" style={{ borderTop: idx === 0 ? 'var(--border-thin)' : '1px solid black', background: '#fff' }}>
+                    <div className="sidebar" style={{ display: 'flex', flexDirection: 'column', padding: '60px 40px', borderRight: 'var(--border-thin)' }}>
+                      <h2 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: '1', margin: '0 0 32px 0' }}>{label}<br/>{title}</h2>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <button onClick={handleMainClick} style={{ padding: '14px', background: 'black', color: 'white', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: 900, cursor: main.story_id ? 'pointer' : 'default', letterSpacing: '1px' }}>
+                          {section.btn1 || 'VER NOTICIA →'}
+                        </button>
+                        <button style={{ padding: '14px', background: 'none', border: '1px solid #f0f0f0', borderRadius: '4px', fontSize: '10px', fontWeight: 900, cursor: 'pointer', color: '#999', letterSpacing: '1px' }}>
+                          {section.btn2 || 'OCULTAR'}
+                        </button>
+                      </div>
+                      <div style={{ marginTop: 'auto', fontSize: '10px', opacity: 0.2, fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{section.trend}</div>
                     </div>
-                    <div style={{ marginTop: 'auto', fontSize: '10px', opacity: 0.2, fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{section.trend}</div>
-                  </div>
-                  <div className="main-content" style={{ padding: 0 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', minHeight: '600px' }}>
-                      <div style={{ padding: '60px', borderRight: 'var(--border-thin)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 900, opacity: 0.25, letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>{section.main.label}</div>
-                        <h3 style={{ fontSize: '48px', fontWeight: 800, lineHeight: '1.05', letterSpacing: '-2px', margin: 0 }}>{section.main.title}</h3>
-                        <p style={{ fontSize: '18px', color: '#666', lineHeight: '1.4', maxWidth: '90%', margin: 0 }}>{section.main.desc}</p>
-                        <div style={{ marginTop: 'auto' }}>
-                          <div style={{ display: 'flex', height: '8px', background: '#f5f5f5', borderRadius: '4px', overflow: 'hidden' }}>
-                            {section.main.barType === 'bipartisan' ? (
-                              <>
-                                <div style={{ width: '40%', background: 'black' }}></div>
-                                <div style={{ width: '15%', background: '#ccc' }}></div>
-                                <div style={{ width: '45%', background: '#666' }}></div>
-                              </>
-                            ) : (
-                              <>
-                                <div style={{ width: '60%', background: 'black' }}></div>
-                                <div style={{ width: '25%', background: '#666' }}></div>
-                              </>
-                            )}
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
-                            <span style={{ opacity: 0.8 }}>{section.main.legendLeft}</span>
-                            <span style={{ opacity: 0.3 }}>{section.main.legendRight}</span>
+                    <div className="main-content" style={{ padding: 0 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', minHeight: '600px' }}>
+                        {/* MAIN STORY CARD */}
+                        <div
+                          onClick={main.story_id ? handleMainClick : undefined}
+                          style={{ padding: '60px', borderRight: 'var(--border-thin)', display: 'flex', flexDirection: 'column', gap: '24px', cursor: main.story_id ? 'pointer' : 'default', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { if (main.story_id) e.currentTarget.style.background = '#fafafa'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <div style={{ fontSize: '11px', fontWeight: 900, opacity: 0.25, letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>{main.label}</div>
+                          <h3 style={{ fontSize: '48px', fontWeight: 800, lineHeight: '1.05', letterSpacing: '-2px', margin: 0 }}>{main.title}</h3>
+                          <p style={{ fontSize: '18px', color: '#666', lineHeight: '1.4', maxWidth: '90%', margin: 0 }}>{main.desc}</p>
+                          {main.story_id && (
+                            <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '1px' }}>
+                              VER ANÁLISIS COMPLETO ↗
+                            </div>
+                          )}
+                          <div style={{ marginTop: 'auto' }}>
+                            <div style={{ display: 'flex', height: '8px', background: '#f5f5f5', borderRadius: '4px', overflow: 'hidden' }}>
+                              {main.barType === 'bipartisan' ? (
+                                <>
+                                  <div style={{ width: '40%', background: 'black' }}></div>
+                                  <div style={{ width: '15%', background: '#ccc' }}></div>
+                                  <div style={{ width: '45%', background: '#666' }}></div>
+                                </>
+                              ) : (
+                                <>
+                                  <div style={{ width: '60%', background: 'black' }}></div>
+                                  <div style={{ width: '25%', background: '#666' }}></div>
+                                </>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
+                              <span style={{ opacity: 0.8 }}>{main.legendLeft}</span>
+                              <span style={{ opacity: 0.3 }}>{main.legendRight}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {section.sides.map((side, sIdx) => (
-                           <div key={sIdx} style={{ padding: '40px', borderBottom: sIdx < 2 ? 'var(--border-thin)' : 'none', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center' }}>
-                             <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, letterSpacing: '0.5px' }}>{side.label}</div>
-                             <h4 style={{ fontSize: '19px', fontWeight: 700, lineHeight: '1.25', margin: 0 }}>{side.title}</h4>
-                             <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.25, fontFamily: 'var(--font-mono)' }}>{side.meta}</div>
-                           </div>
-                        ))}
+                        {/* SIDE STORIES */}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          {sides.map((side, sIdx) => (
+                            <div
+                              key={sIdx}
+                              onClick={() => handleSideClick(side)}
+                              style={{ padding: '40px', borderBottom: sIdx < sides.length - 1 ? 'var(--border-thin)' : 'none', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center', cursor: side.story_id ? 'pointer' : 'default', transition: 'background 0.15s' }}
+                              onMouseEnter={e => { if (side.story_id) e.currentTarget.style.background = '#fafafa'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, letterSpacing: '0.5px' }}>{side.label}</div>
+                              <h4 style={{ fontSize: '19px', fontWeight: 700, lineHeight: '1.25', margin: 0 }}>{side.title}</h4>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.25, fontFamily: 'var(--font-mono)' }}>{side.meta}</div>
+                                {side.story_id && <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, fontFamily: 'var(--font-mono)' }}>↗</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </section>
-              ))}
+                  </section>
+                );
+              })}
+
             </>
           } />
 
@@ -880,7 +966,7 @@ const App = () => {
           <Route path="/help" element={<CorporateLanding type="HELP" onBack={() => navigate('/')} />} />
         </Routes>
       </main>
-      <Footer />
+      <Footer links={appConfig.footer_links} />
       <ShareModal 
         isOpen={shareConfig.isOpen} 
         onClose={() => setShareConfig({ isOpen: false, story: null })} 

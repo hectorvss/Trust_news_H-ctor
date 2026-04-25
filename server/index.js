@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-dotenv.config({ path: '../.env' }); // Load from parent dir if needed
+dotenv.config(); // Load from project root if running from there
 
 const app = express();
 const port = process.env.PORT || 4242;

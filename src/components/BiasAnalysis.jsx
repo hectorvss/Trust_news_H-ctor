@@ -1,18 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getBiasStats } from '../supabaseService';
+import { useAuth } from '../context/AuthContext';
 
 const Plus = () => <span style={{ fontSize: '18px', opacity: 0.2, fontWeight: 700 }}>+</span>;
 
 const BiasAnalysis = ({ onBack }) => {
+  const { user } = useAuth();
   const [period, setPeriod] = useState('30D');
+  const [realStats, setRealStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getBiasStats(user?.id).then(data => {
+      setRealStats(data);
+      setLoading(false);
+    });
+  }, [user]);
 
   const stats = [
-    { label: 'ARTÍCULOS LEÍDOS', value: '342', meta: '+12% vs mes ant.', detail: 'Media 11.4/día' },
-    { label: 'SESGO PROMEDIO', value: 'CENTRO-IZQ', meta: 'ESTABILIDAD ALTA', detail: 'Confianza 94%' },
-    { label: 'FUENTES CONSULTADAS', value: '86', meta: '+5 nuevas', detail: 'Top 3 cubren 42%' },
-    { label: 'DIVERSIDAD MEDIA', value: '72%', meta: '-2% vs histórico', detail: 'Patrón saludable' },
+    { label: 'ARTÍCULOS LEÍDOS', value: realStats ? realStats.total_articles : '342', meta: '+12% vs mes ant.', detail: 'Media 11.4/día' },
+    { label: 'SESGO PROMEDIO', value: realStats ? (realStats.bias_distribution.LEFT > realStats.bias_distribution.RIGHT ? 'CENTRO-IZQ' : 'CENTRO-DER') : 'CENTRO-IZQ', meta: 'ESTABILIDAD ALTA', detail: 'Confianza 94%' },
+    { label: 'FUENTES CONSULTADAS', value: realStats ? realStats.top_sources.length : '86', meta: '+5 nuevas', detail: 'Top 3 cubren 42%' },
+    { label: 'DIVERSIDAD MEDIA', value: realStats ? `${realStats.diversity_pct}%` : '72%', meta: '-2% vs histórico', detail: 'Patrón saludable' },
   ];
 
-  const sourceBreakdown = [
+  const sourceBreakdown = realStats ? realStats.top_sources : [
     { name: 'El País', count: 124, pct: 36, bias: -0.6, trend: '↑' },
     { name: 'El Mundo', count: 82, pct: 24, bias: 0.4, trend: '→' },
     { name: 'ABC', count: 45, pct: 13, bias: 0.8, trend: '↓' },

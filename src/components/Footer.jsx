@@ -1,7 +1,59 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const Footer = () => {
+const Footer = ({ links }) => {
+  const topCols = [
+    links?.col1 || {
+      title: "Noticias",
+      links: [
+        {label: "Página de inicio", url: "/"},
+        {label: "Noticias locales", url: "/?city=locales"},
+        {label: "Feed Blindspot", url: "/bias"},
+        {label: "Internacional", url: "/?cat=INTERNACIONAL"}
+      ]
+    },
+    links?.col2 || {
+      title: "Internacional",
+      links: [
+        {label: "América del Norte", url: "/?cat=INTERNACIONAL"},
+        {label: "América del Sur", url: "/?cat=INTERNACIONAL"},
+        {label: "Europa", url: "/?cat=INTERNACIONAL"},
+        {label: "Asia", url: "/?cat=INTERNACIONAL"},
+        {label: "África", url: "/?cat=INTERNACIONAL"}
+      ]
+    },
+    links?.col3 || {
+      title: "Tendencia Int.",
+      links: [
+        {label: "Coachella", url: "/?topic=Coachella"},
+        {label: "WNBA", url: "/?topic=WNBA"},
+        {label: "Papa Francisco", url: "/?topic=Papa Francisco"},
+        {label: "IA Generativa", url: "/?topic=IA Generativa"},
+        {label: "Guerra en Gaza", url: "/?topic=Guerra en Gaza"}
+      ]
+    },
+    links?.col4 || {
+      title: "Tendencia EE.UU.",
+      links: [
+        {label: "WNBA", url: "/?topic=WNBA"},
+        {label: "Baseball", url: "/?topic=Baseball"},
+        {label: "Donald Trump", url: "/?topic=Donald Trump"},
+        {label: "Joe Biden", url: "/?topic=Joe Biden"},
+        {label: "NASA", url: "/?topic=NASA"}
+      ]
+    },
+    links?.col5 || {
+      title: "Tendencia U.K.",
+      links: [
+        {label: "Premier League", url: "/?topic=Premier League"},
+        {label: "Arsenal FC", url: "/?topic=Arsenal FC"},
+        {label: "Manchester United", url: "/?topic=Manchester United"},
+        {label: "Brexit Update", url: "/?topic=Brexit Update"},
+        {label: "Royal Family", url: "/?topic=Royal Family"}
+      ]
+    }
+  ];
+
   return (
     <footer style={{ 
       background: 'black', 
@@ -18,55 +70,16 @@ const Footer = () => {
           gap: '40px',
           marginBottom: '80px'
         }}>
-          <div>
-            <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px' }}>Noticias</h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>Página de inicio</li>
-              <li>Noticias locales</li>
-              <li>Feed Blindspot</li>
-              <li>Internacional</li>
-            </ul>
-          </div>
-          <div>
-            <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px' }}>Internacional</h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>América del Norte</li>
-              <li>América del Sur</li>
-              <li>Europa</li>
-              <li>Asia</li>
-              <li>África</li>
-            </ul>
-          </div>
-          <div>
-            <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px' }}>Tendencia Int.</h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>Coachella</li>
-              <li>WNBA</li>
-              <li>Papa Francisco</li>
-              <li>IA Generativa</li>
-              <li>Guerra en Gaza</li>
-            </ul>
-          </div>
-          <div>
-            <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px' }}>Tendencia EE.UU.</h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>WNBA</li>
-              <li>Baseball</li>
-              <li>Donald Trump</li>
-              <li>Joe Biden</li>
-              <li>NASA</li>
-            </ul>
-          </div>
-          <div>
-            <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px' }}>Tendencia U.K.</h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>Premier League</li>
-              <li>Arsenal FC</li>
-              <li>Manchester United</li>
-              <li>Brexit Update</li>
-              <li>Royal Family</li>
-            </ul>
-          </div>
+          {topCols.map((col, idx) => (
+            <div key={idx}>
+              <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px' }}>{col.title}</h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
+                {col.links.map((link, j) => (
+                  <li key={j}><Link to={link.url} style={{ color: 'inherit', textDecoration: 'none' }}>{link.label}</Link></li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         <div style={{ width: '100%', height: '1px', background: '#222', marginBottom: '60px' }} />
