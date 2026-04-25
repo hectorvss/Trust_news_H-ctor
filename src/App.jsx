@@ -141,17 +141,20 @@ const App = () => {
     });
   }, []);
 
-  // Load Stories from Supabase with safety filter
-  useEffect(() => {
+  const refreshStories = useCallback(() => {
     setStoriesLoading(true);
     fetchStories(activeCategory).then(data => {
       setStories(data || []);
       setStoriesLoading(false);
     }).catch(err => {
-      console.error('Error in App fetchStories:', err);
+      console.error('Error in App refreshStories:', err);
       setStoriesLoading(false);
     });
   }, [activeCategory]);
+
+  useEffect(() => {
+    refreshStories();
+  }, [refreshStories]);
 
   // Deep-link: fetch story by ID when navigating directly to /story/:id
   useEffect(() => {
