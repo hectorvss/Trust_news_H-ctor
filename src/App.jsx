@@ -112,21 +112,8 @@ const App = () => {
   }, [user, isPremium, selectedStory, selectedArticle]);
 
 
-  // Dynamic Data State with robust editorial fallback
-  const [stories, setStories] = useState([
-    {
-      id: "ley-vivienda-2024-fallback",
-      title: "El Gobierno de España aprueba la nueva ley de vivienda para limitar alquileres",
-      image: "https://images.unsplash.com/photo-1582408921715-18e7806365c1?auto=format&fit=crop&q=80&w=800",
-      time: "hace 2 horas",
-      location: "Madrid, España",
-      sourceCount: 42,
-      bias: { left: 45, center: 30, right: 25 },
-      factuality: "ALTA",
-      category: "POLÍTICA",
-      summary: "Se ha aprobado un marco regulatorio para las zonas tensionadas, buscando frenar la escalada de precios."
-    }
-  ]);
+  // Dynamic Data State - loaded from Supabase only
+  const [stories, setStories] = useState([]);
   const [appConfig, setAppConfig] = useState({ trending_topics: [], global_headlines: [] });
   const [storiesLoading, setStoriesLoading] = useState(true);
   const [specialSections, setSpecialSections] = useState([]);

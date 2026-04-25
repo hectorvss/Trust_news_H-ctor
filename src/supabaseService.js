@@ -190,18 +190,22 @@ export const fetchStories = async (category = 'TODO') => {
   let query = supabase
     .from('stories')
     .select('*')
+    .eq('status', 'published')
     .order('created_at', { ascending: false });
 
-  if (category !== 'TODO' && category !== 'PARA TI' && category) {
-    // Try to match category in a case-insensitive way if possible, or just exact match
+  if (category !== 'TODO' && category !== 'PARA TI' && category !== 'PARA_TI' && category) {
     query = query.ilike('category', category);
   }
 
-  // Use a safer catch-all order or default to ID
   let { data, error } = await query;
-  
-  // Sorting manually if DB doesn't have created_at as an indexed or existing field consistently
-  if (!error && data) {
+
+  if (error) {
+    console.error('Error fetching stories:', error);
+    return [];
+  }
+
+  // Secondary client-side sort as safety measure
+  if (data) {
     data = data.sort((a, b) => {
       const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
       const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
@@ -209,10 +213,6 @@ export const fetchStories = async (category = 'TODO') => {
     });
   }
 
-  if (error) {
-    console.error('Error fetching stories:', error);
-    return [];
-  }
   return (data || []).map(mapStory);
 };
 
