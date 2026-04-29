@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import BiasBar from './BiasBar';
 import ShareModal from './ShareModal';
 import { saveStory } from '../supabaseService';
@@ -155,7 +156,15 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
   const isManager = userRole === 'manager';
 
   return (
-    <div className="story-detail" style={{ background: '#fff', color: '#000', position: 'relative' }}>
+    <div className="story-detail-overlay" style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'white', zIndex: 2000, overflowY: 'auto',
+      animation: 'fadeIn 0.3s ease-out'
+    }}>
+      <Helmet>
+        <title>{editedStory?.title || 'Noticia'} | TNE</title>
+        <meta name="description" content={editedStory?.summary || 'Lee la cobertura completa de esta noticia en Trust News España.'} />
+      </Helmet>
       
       {/* MANAGER FLOATING SAVE BAR */}
       {isManager && showManagerBar && (

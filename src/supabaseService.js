@@ -396,7 +396,7 @@ export const deleteStory = async (storyId) => {
 export const getProfile = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('*, subscription_tier')
     .eq('id', userId)
     .single();
 
@@ -407,11 +407,11 @@ export const getProfile = async (userId) => {
   return data;
 };
 
-export const updateUserSettings = async (userId, settings) => {
+export const updateProfile = async (userId, profileData) => {
   const { data, error } = await supabase
     .from('profiles')
     .update({ 
-      settings: settings, 
+      ...profileData,
       updated_at: new Date().toISOString() 
     })
     .eq('id', userId)
@@ -419,10 +419,14 @@ export const updateUserSettings = async (userId, settings) => {
     .single();
 
   if (error) {
-    console.error('Error updating user settings:', error);
+    console.error('Error updating profile:', error);
     return null;
   }
   return data;
+};
+
+export const updateUserSettings = async (userId, settings) => {
+  return updateProfile(userId, { settings });
 };
 
 // ==========================================

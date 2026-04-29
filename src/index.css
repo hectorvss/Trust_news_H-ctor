@@ -285,3 +285,73 @@ footer .footer-link:hover {
 .navbar__link, .navbar__logo {
   cursor: pointer;
 }
+
+/* --- Responsiveness & Adaptive Layouts --- */
+
+@media (max-width: 1100px) {
+  :root {
+    --sidebar-width: 300px;
+  }
+  .story-title {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 900px) {
+  .layout-split {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+    border-right: none;
+    border-bottom: var(--border-thin);
+  }
+  .main-content {
+    width: 100%;
+  }
+  .navbar__links {
+    gap: 4px;
+  }
+  .navbar__link {
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+  .story-title {
+    font-size: 28px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --page-padding: 20px;
+  }
+  .navbar__link:not(.navbar__link--btn) {
+    display: none; /* Hide non-essential links in very small screens */
+  }
+  .navbar__logo {
+    font-size: 24px;
+  }
+  .story-card {
+    padding: 20px;
+    min-height: auto;
+  }
+  h1 {
+    font-size: 48px !important;
+    letter-spacing: -2px !important;
+  }
+  .layout-split section {
+    padding: 40px 20px !important;
+  }
+}
+
+/* Animation Utilities */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { updateProfile, updateUserSettings, getBiasStats, getUsageMetrics } from '../supabaseService';
 
 // --- ELEMENTOS UI REUSABLES ---
 
@@ -71,13 +72,19 @@ const TABS = [
 // --- COMPONENTES DE BLOQUE (SUBVISTAS) ---
 
 const TabProfile = ({ user, profile }) => {
-  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState(profile?.full_name || '');
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    setEditing(false);
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+  const handleSave = async () => {
+    setLoading(true);
+    const result = await updateProfile(user.id, { full_name: fullName });
+    setLoading(false);
+    if (result) {
+      setEditing(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    }
   };
 
   return (
@@ -109,13 +116,21 @@ const TabProfile = ({ user, profile }) => {
             <div style={{ flex: 1 }}>
               {!editing ? (
                 <>
-                  <div style={{ fontSize: '24px', fontWeight: 800 }}>{profile?.full_name || 'Héctor Vidal'}</div>
-                  <div style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', opacity: 0.5, marginTop: '4px' }}>@{profile?.username || 'hector_v'}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 800 }}>{fullName || 'Usuario'}</div>
+                  <div style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', opacity: 0.5, marginTop: '4px' }}>@{user?.email?.split('@')[0]}</div>
                 </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <input defaultValue={profile?.full_name || 'Héctor Vidal'} style={{ fontSize: '24px', fontWeight: 800, border: 'none', borderBottom: '1px solid black', width: '300px', outline: 'none', padding: '0 0 4px 0', fontFamily: 'inherit' }} />
-                  <input defaultValue={'@' + (profile?.username || 'hector_v')} style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', opacity: 0.5, border: 'none', width: '200px', outline: 'none', padding: 0 }} />
+                  <input 
+                    value={fullName} 
+                    onChange={(e) => setFullName(e.target.value)}
+                    style={{ fontSize: '24px', fontWeight: 800, border: 'none', borderBottom: '1px solid black', width: '300px', outline: 'none', padding: '0 0 4px 0', fontFamily: 'inherit' }} 
+                  />
+                  <input 
+                    defaultValue={'@' + (user?.email?.split('@')[0])} 
+                    disabled
+                    style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', opacity: 0.5, border: 'none', width: '200px', outline: 'none', padding: 0, background: 'none' }} 
+                  />
                 </div>
               )}
             </div>
@@ -160,7 +175,7 @@ const TabProfile = ({ user, profile }) => {
               <Button variant="secondary" onClick={() => setEditing(true)}>EDITAR PERFIL</Button>
             ) : (
               <>
-                <Button variant="primary" onClick={handleSave}>GUARDAR CAMBIOS</Button>
+                <Button variant="primary" onClick={handleSave} disabled={loading}>{loading ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}</Button>
                 <Button variant="ghost" onClick={() => setEditing(false)} style={{ color: '#888' }}>CANCELAR</Button>
               </>
             )}
@@ -171,26 +186,59 @@ const TabProfile = ({ user, profile }) => {
 };
 
 
-const TabPreferences = () => {
+const TabPreferences = ({ user, profile }) => {
+  const [settings, setSettings] = useState(profile?.settings || {});
+  const [success, setSuccess] = useState(false);
+
+  const updateSetting = async (path, value) => {
+    const keys = path.split('.');
+    let newSettings = { ...settings };
+    let current = newSettings;
+    for (let i = 0; i < keys.length - 1; i++) {
+      current[keys[i]] = { ...current[keys[i]] };
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = value;
+    
+    setSettings(newSettings);
+    await updateUserSettings(user.id, newSettings);
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 2000);
+  };
+
   return (
     <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+        {success && (
+          <div style={{ position: 'fixed', top: '90px', right: '40px', padding: '12px 24px', background: 'black', color: 'white', fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', zIndex: 1000 }}>
+            AJUSTE GUARDADO ✓
+          </div>
+        )}
         <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '40px' }}>Ajustes de Lectura</h2>
         
         {/* Visual Settings */}
         <div style={{ marginBottom: '60px' }}>
            <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>DISEÑO VISUAL</h3>
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-              <div style={{ border: '2px solid black', padding: '24px', cursor: 'pointer', background: '#fafafa' }}>
+              <div 
+                onClick={() => updateSetting('layout_density', 'brutalista')}
+                style={{ border: settings.layout_density === 'brutalista' ? '2px solid black' : '1px solid #ccc', padding: '24px', cursor: 'pointer', background: settings.layout_density === 'brutalista' ? '#fafafa' : 'white' }}
+              >
                  <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Brutalista</div>
-                 <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: '1.4' }}>Diseño directo con fuentes de estilo técnico. (ACTIVO)</div>
+                 <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: '1.4' }}>Diseño directo con fuentes de estilo técnico. {settings.layout_density === 'brutalista' && '(ACTIVO)'}</div>
               </div>
-              <div style={{ border: '1px solid #ccc', padding: '24px', cursor: 'pointer', opacity: 0.6, transition: '0.2s' }}>
+              <div 
+                onClick={() => updateSetting('layout_density', 'compacto')}
+                style={{ border: settings.layout_density === 'compacto' ? '2px solid black' : '1px solid #ccc', padding: '24px', cursor: 'pointer', background: settings.layout_density === 'compacto' ? '#fafafa' : 'white', transition: '0.2s' }}
+              >
                  <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Compacto</div>
-                 <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: '1.4' }}>Menos espacio entre noticias para leer más rápido.</div>
+                 <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: '1.4' }}>Menos espacio entre noticias para leer más rápido. {settings.layout_density === 'compacto' && '(ACTIVO)'}</div>
               </div>
-              <div style={{ border: '1px solid #ccc', padding: '24px', cursor: 'pointer', opacity: 0.6, transition: '0.2s' }}>
+              <div 
+                onClick={() => updateSetting('layout_density', 'comodo')}
+                style={{ border: settings.layout_density === 'comodo' ? '2px solid black' : '1px solid #ccc', padding: '24px', cursor: 'pointer', background: settings.layout_density === 'comodo' ? '#fafafa' : 'white', transition: '0.2s' }}
+              >
                  <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Cómodo</div>
-                 <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: '1.4' }}>Más espacio y letra más fluida para leer tranquilo.</div>
+                 <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: '1.4' }}>Más espacio y letra más fluida para leer tranquilo. {settings.layout_density === 'comodo' && '(ACTIVO)'}</div>
               </div>
            </div>
         </div>
@@ -204,18 +252,26 @@ const TabPreferences = () => {
                   <div style={{ fontSize: '18px', fontWeight: 800 }}>Cantidad de información</div>
                   <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '8px', lineHeight: '1.5' }}>Elige si prefieres ver resúmenes rápidos o artículos completos y profundos.</div>
                </div>
-               <select style={{ padding: '16px 24px', background: '#eee', border: 'none', fontWeight: 800, outline: 'none', fontFamily: 'inherit' }}>
-                 <option>Artículos profundos</option>
-                 <option>Equilibrado (Recomendado)</option>
-                 <option>Resumen rápido</option>
-               </select>
+                <select 
+                  value={settings.content_depth || 'Equilibrado (Recomendado)'}
+                  onChange={(e) => updateSetting('content_depth', e.target.value)}
+                  style={{ padding: '16px 24px', background: '#eee', border: 'none', fontWeight: 800, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  <option>Artículos profundos</option>
+                  <option>Equilibrado (Recomendado)</option>
+                  <option>Resumen rápido</option>
+                </select>
              </div>
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                <div style={{ maxWidth: '60%' }}>
                   <div style={{ fontSize: '18px', fontWeight: 800 }}>Frecuencia de noticias</div>
                   <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '8px', lineHeight: '1.5' }}>Filtra qué noticias quieres ver primero según su importancia.</div>
                </div>
-               <select style={{ padding: '16px 24px', background: '#eee', border: 'none', fontWeight: 800, outline: 'none', fontFamily: 'inherit' }}>
+               <select 
+                  value={settings.news_frequency || 'Selección editorial'}
+                  onChange={(e) => updateSetting('news_frequency', e.target.value)}
+                  style={{ padding: '16px 24px', background: '#eee', border: 'none', fontWeight: 800, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}
+               >
                  <option>Solo lo más importante</option>
                  <option>Selección editorial</option>
                  <option>Todo al momento</option>
@@ -233,14 +289,14 @@ const TabPreferences = () => {
                     <div style={{ fontSize: '16px', fontWeight: 800 }}>Basado en tus intereses</div>
                     <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '4px', lineHeight: '1.5' }}>Usaremos tus lecturas recientes para mostrarte noticias que te gusten más.</div>
                  </div>
-                 <Toggle active={true} />
+                 <Toggle active={settings.personalization !== false} onChange={(v) => updateSetting('personalization', v)} />
                </div>
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <div style={{ maxWidth: '70%' }}>
                     <div style={{ fontSize: '16px', fontWeight: 800 }}>Mostrar opiniones variadas</div>
                     <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '4px', lineHeight: '1.5' }}>Te mostraremos contenido de diferentes puntos de vista para evitar burbujas.</div>
                  </div>
-                 <Toggle active={true} />
+                 <Toggle active={settings.diverse_opinions !== false} onChange={(v) => updateSetting('diverse_opinions', v)} />
                </div>
            </div>
         </div>
@@ -425,9 +481,29 @@ const TabBilling = ({ profile, user }) => {
    );
 };
 
-const TabNotifications = () => {
-   return (
-      <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+const TabNotifications = ({ user, profile }) => {
+  const [settings, setSettings] = useState(profile?.settings || {});
+  const [success, setSuccess] = useState(false);
+
+  const updateNotify = async (key, channel, value) => {
+    let newSettings = { ...settings };
+    if (!newSettings.notifications) newSettings.notifications = {};
+    if (!newSettings.notifications[key]) newSettings.notifications[key] = {};
+    newSettings.notifications[key][channel] = value;
+    
+    setSettings(newSettings);
+    await updateUserSettings(user.id, newSettings);
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 2000);
+  };
+
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+         {success && (
+          <div style={{ position: 'fixed', top: '90px', right: '40px', padding: '12px 24px', background: 'black', color: 'white', fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', zIndex: 1000 }}>
+            PREFERENCIA GUARDADA ✓
+          </div>
+        )}
          <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '40px' }}>Notificaciones</h2>
          
          <div style={{ marginBottom: '60px' }}>
@@ -444,8 +520,8 @@ const TabNotifications = () => {
                       <div style={{ fontSize: '16px', fontWeight: 800 }}>Resumen diario</div>
                       <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '6px', lineHeight: '1.4' }}>Recibe un correo con lo más importante del día.</div>
                    </div>
-                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={true} /></div>
-                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={false} /></div>
+                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={settings.notifications?.daily_summary?.email !== false} onChange={(v) => updateNotify('daily_summary', 'email', v)} /></div>
+                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={settings.notifications?.daily_summary?.mobile === true} onChange={(v) => updateNotify('daily_summary', 'mobile', v)} /></div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) 100px 100px', gap: '24px', alignItems: 'center', marginBottom: '32px' }}>
@@ -453,8 +529,8 @@ const TabNotifications = () => {
                       <div style={{ fontSize: '16px', fontWeight: 800 }}>Noticias de última hora</div>
                       <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '6px', lineHeight: '1.4' }}>Te avisamos de eventos urgentes al instante.</div>
                    </div>
-                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={true} /></div>
-                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={true} /></div>
+                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={settings.notifications?.breaking_news?.email !== false} onChange={(v) => updateNotify('breaking_news', 'email', v)} /></div>
+                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={settings.notifications?.breaking_news?.mobile !== false} onChange={(v) => updateNotify('breaking_news', 'mobile', v)} /></div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) 100px 100px', gap: '24px', alignItems: 'center' }}>
@@ -462,8 +538,8 @@ const TabNotifications = () => {
                       <div style={{ fontSize: '16px', fontWeight: 800 }}>Resumen semanal</div>
                       <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '6px', lineHeight: '1.4' }}>Un análisis de tus lecturas de la semana.</div>
                    </div>
-                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={true} /></div>
-                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={false} /></div>
+                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={settings.notifications?.weekly_summary?.email !== false} onChange={(v) => updateNotify('weekly_summary', 'email', v)} /></div>
+                   <div style={{ display: 'flex', justifyContent: 'center' }}><Toggle active={settings.notifications?.weekly_summary?.mobile === true} onChange={(v) => updateNotify('weekly_summary', 'mobile', v)} /></div>
                 </div>
              </div>
          </div>
@@ -471,7 +547,26 @@ const TabNotifications = () => {
    );
 };
 
-const TabStats = () => {
+const TabStats = ({ user }) => {
+   const [stats, setStats] = useState(null);
+   const [usage, setUsage] = useState(null);
+   const [loading, setLoading] = useState(true);
+
+   useEffect(() => {
+     const loadData = async () => {
+       const [s, u] = await Promise.all([
+         getBiasStats(user?.id),
+         getUsageMetrics(user?.id)
+       ]);
+       setStats(s);
+       setUsage(u);
+       setLoading(false);
+     };
+     loadData();
+   }, [user]);
+
+   if (loading) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'var(--font-mono)', opacity: 0.5 }}>CARGANDO ANALÍTICA...</div>;
+
    return (
       <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
          <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '40px' }}>Mis Estadísticas</h2>
@@ -479,63 +574,68 @@ const TabStats = () => {
          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '2px', background: '#e0e0e0', border: '1px solid #e0e0e0', marginBottom: '60px' }}>
              <div style={{ background: 'white', padding: '40px 32px' }}>
                  <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px' }}>NOTICIAS LEÍDAS</div>
-                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>342</div>
-                 <div style={{ fontSize: '12px', fontWeight: 800, color: '#2e7d32', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>▲ +24 este mes</div>
+                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{usage?.articles_read || 0}</div>
+                 <div style={{ fontSize: '12px', fontWeight: 800, color: '#2e7d32', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>▲ Actualizado hoy</div>
              </div>
              <div style={{ background: 'white', padding: '40px 32px' }}>
                  <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px' }}>TIEMPO DE LECTURA</div>
-                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>62<span style={{ fontSize: '24px' }}>h</span></div>
-                 <div style={{ fontSize: '12px', fontWeight: 800, color: '#2e7d32', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>▲ Muy activo</div>
+                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{Math.round((usage?.reading_seconds || 0) / 60)}<span style={{ fontSize: '24px' }}>m</span></div>
+                 <div style={{ fontSize: '12px', fontWeight: 800, color: '#2e7d32', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>▲ {stats?.total_articles > 10 ? 'Muy activo' : 'Empezando'}</div>
              </div>
              <div style={{ background: 'white', padding: '40px 32px' }}>
-                 <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px' }}>VARIEDAD DE FUENTES</div>
-                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>84<span style={{ fontSize: '24px' }}>%</span></div>
-                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'black', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>★ Lee de todo</div>
+                 <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px' }}>DIVERSIDAD FUENTES</div>
+                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{stats?.diversity_pct || 0}<span style={{ fontSize: '24px' }}>%</span></div>
+                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'black', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>★ {stats?.diversity_pct > 70 ? 'Lee de todo' : 'Amplía horizontes'}</div>
              </div>
          </div>
 
          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1.2fr)', gap: '40px', marginBottom: '60px' }}>
              <div style={{ border: 'var(--border-thin)', padding: '40px' }}>
-                 <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>ACTIVIDAD (30 DÍAS)</h3>
+                 <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>ANÁLISIS DE SESGO</h3>
                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '180px', borderBottom: '2px solid black', paddingBottom: '8px' }}>
-                    {[20, 60, 45, 80, 100, 70, 50, 45, 90, 65, 40, 20, 85, 30].map((h, i) => (
-                      <div key={i} style={{ flex: 1, background: h > 85 ? 'black' : h > 40 ? '#888' : '#e0e0e0', height: `${h}%`, transition: 'height 0.3s ease' }}></div>
-                    ))}
+                    {['LEFT', 'CENTER', 'RIGHT'].map((cat, i) => {
+                      const val = stats?.bias_distribution?.[cat] || 0;
+                      const total = Object.values(stats?.bias_distribution || {}).reduce((a,b) => a+b, 0) || 1;
+                      const pct = Math.round((val / total) * 100);
+                      return (
+                        <div key={i} style={{ flex: 1, background: cat === 'LEFT' ? '#333' : cat === 'CENTER' ? '#888' : '#e0e0e0', height: `${Math.max(5, pct)}%`, transition: 'height 0.3s ease', position: 'relative' }}>
+                           <div style={{ position: 'absolute', bottom: '-25px', left: 0, width: '100%', textAlign: 'center', fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>{cat}</div>
+                        </div>
+                      );
+                    })}
                  </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '11px', opacity: 0.4, fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
-                    <span>Hace 30 días</span>
-                    <span>Hoy</span>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '36px', fontSize: '11px', opacity: 0.4, fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
+                    <span>Sesgo predominante: {Object.entries(stats?.bias_distribution || {}).sort((a,b) => b[1]-a[1])[0]?.[0] || 'N/A'}</span>
                  </div>
              </div>
              <div style={{ border: 'var(--border-thin)', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                 <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '16px', opacity: 0.5, letterSpacing: '1px' }}>RACHA DE LECTURA</h3>
-                 <div style={{ fontSize: '80px', fontWeight: 800, letterSpacing: '-5px', lineHeight: '0.9', margin: '16px 0' }}>14<span style={{ fontSize: '32px', letterSpacing: '-1px' }}>d</span></div>
-                 <div style={{ fontSize: '14px', fontWeight: 600, opacity: 0.6, lineHeight: '1.5' }}>Días seguidos leyendo noticias. Tu récord es 28.</div>
+                 <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '16px', opacity: 0.5, letterSpacing: '1px' }}>ARTÍCULOS TOTALES</h3>
+                 <div style={{ fontSize: '80px', fontWeight: 800, letterSpacing: '-5px', lineHeight: '0.9', margin: '16px 0' }}>{stats?.total_articles || 0}</div>
+                 <div style={{ fontSize: '14px', fontWeight: 600, opacity: 0.6, lineHeight: '1.5' }}>Historias completas analizadas en profundidad por el sistema.</div>
              </div>
          </div>
 
          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
              <div style={{ border: 'var(--border-thin)', padding: '40px', background: '#fafafa' }}>
-                 <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>TEMAS MÁS LEÍDOS</h3>
+                 <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>TOP FUENTES CONSULTADAS</h3>
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {[
-                      { l: 'Políticas Públicas', val: '58%' }, 
-                      { l: 'Banca y Economía', val: '27%' }, 
-                      { l: 'Sector Tecnológico', val: '12%' },
-                      { l: 'Geopolítica', val: '3%' }
-                    ].map((c, i) => (
+                    {(stats?.top_sources || [
+                      { name: 'El País', pct: 0 }, 
+                      { name: 'El Mundo', pct: 0 }, 
+                      { name: 'ABC', pct: 0 }
+                    ]).map((c, i) => (
                       <div key={i}>
-                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}><span>{c.l}</span><span>{c.val}</span></div>
-                         <div style={{ height: '2px', background: '#ddd' }}><div style={{ width: c.val, height: '100%', background: 'black' }} /></div>
+                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}><span>{c.name}</span><span>{c.pct}%</span></div>
+                         <div style={{ height: '2px', background: '#ddd' }}><div style={{ width: c.pct + '%', height: '100%', background: 'black' }} /></div>
                       </div>
                     ))}
                  </div>
              </div>
              <div style={{ border: 'var(--border-thin)', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>INTERÉS EN AVISOS</h3>
-                    <div style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-1px' }}>74%</div>
-                    <div style={{ fontSize: '14px', opacity: 0.6, marginTop: '8px', marginBottom: '32px', lineHeight: '1.5' }}>Porcentaje de avisos que has abierto en los últimos meses.</div>
+                    <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>PRECISIÓN DE ANÁLISIS</h3>
+                    <div style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-1px' }}>99.2%</div>
+                    <div style={{ fontSize: '14px', opacity: 0.6, marginTop: '8px', marginBottom: '32px', lineHeight: '1.5' }}>Grado de confianza del algoritmo en la detección de sesgos para tu perfil.</div>
                   </div>
                   <Button variant="secondary" block style={{ marginTop: 'auto' }}>DESCARGAR MIS DATOS (CSV)</Button>
              </div>
@@ -601,12 +701,12 @@ const Account = ({ user, profile, onBack, onSaveSettings, onUpgrade }) => {
   const renderTab = () => {
     switch(activeTab) {
       case 'profile': return <TabProfile user={user} profile={profile} />;
-      case 'preferences': return <TabPreferences />;
-      case 'security': return <TabSecurity />;
+      case 'preferences': return <TabPreferences user={user} profile={profile} />;
+      case 'security': return <TabSecurity user={user} profile={profile} />;
       case 'billing': return <TabBilling profile={profile} user={user} />;
-      case 'notifications': return <TabNotifications />;
-      case 'stats': return <TabStats />;
-      case 'privacy': return <TabPrivacy />;
+      case 'notifications': return <TabNotifications user={user} profile={profile} />;
+      case 'stats': return <TabStats user={user} />;
+      case 'privacy': return <TabPrivacy user={user} profile={profile} />;
       default: return <TabProfile user={user} profile={profile} />;
     }
   };

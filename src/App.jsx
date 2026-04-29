@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import './index.css';
-import StoryCard from './components/StoryCard';
-import StoryDetail from './components/StoryDetail';
-import Pricing from './components/Pricing';
-import Auth from './components/Auth';
-import CorporateLanding from './components/CorporateLanding';
-import ManagerStudio from './components/ManagerStudio';
-import BiasAnalysis from './components/BiasAnalysis';
-import StoryReader from './components/StoryReader';
-import DailySummary from './components/DailySummary';
-import FavoritesView from './components/FavoritesView';
-import Footer from './components/Footer';
-import ShareModal from './components/ShareModal';
+import Navbar from './components/layout/Navbar';
+import TrendingBar from './components/layout/TrendingBar';
+import Hero from './components/layout/Hero';
+import NewsFeed from './components/layout/NewsFeed';
+import Sidebar from './components/sidebar/Sidebar';
+import SpecialSection from './components/layout/SpecialSection';
 import Account from './components/Account';
 import { useAuth } from './context/AuthContext';
 import { 
@@ -309,90 +304,17 @@ const App = () => {
         { type: 'RIGHT', text: 'Los indicadores económicos positivos de las reformas laborales no suelen aparecer en los medios conservadores.' }
       ];
 
-  const Navbar = () => (
-    <nav className="navbar">
-      <div className="navbar__inner">
-        <div className="navbar__logo" onClick={() => { navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }} style={{ cursor: 'pointer' }}>TNE.</div>
-        <div className="navbar__links" style={{ display: 'flex', alignItems: 'center' }}>
-          <a href="/" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/'); setActiveCategory('TODO'); setSelectedStory(null); }}>INICIO</a>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <a 
-              href="#" 
-              className="navbar__link" 
-              onClick={(e) => { e.preventDefault(); setShowForYou(!showForYou); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              CATEGORÍAS {showForYou ? '▲' : '▼'}
-            </a>
-            {showForYou && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 1px)',
-                left: '0',
-                background: 'white',
-                border: '1px solid black',
-                padding: '20px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '12px',
-                width: '300px',
-                zIndex: 1000,
-                marginTop: '0px'
-              }}>
-                {categories.map(cat => (
-                  <span 
-                    key={cat} 
-                    onClick={() => { setActiveCategory(cat); setShowForYou(false); navigate('/'); setSelectedStory(null); }}
-                    style={{ 
-                      fontSize: '11px', 
-                      fontFamily: 'var(--font-mono)', 
-                      padding: '8px', 
-                      cursor: 'pointer',
-                      borderBottom: activeCategory === cat ? '2px solid black' : '1px solid #eee',
-                      fontWeight: activeCategory === cat ? 800 : 400
-                    }}
-                  >
-                    {cat}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <a href="/pricing" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
-          {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {user?.email === 'hectorvidal0411@gmail.com' || profile?.role === 'manager' ? (
-                <a 
-                  href="/manager" 
-                  className="navbar__link" 
-                  onClick={(e) => { e.preventDefault(); navigate('/manager'); }}
-                  style={{ fontWeight: 900, color: '#ff3333', fontFamily: 'var(--font-mono)' }}
-                >
-                  MANAGER
-                </a>
-              ) : null}
-              <a 
-                href="/account" 
-                className="navbar__link" 
-                onClick={(e) => { e.preventDefault(); navigate('/account'); }}
-                style={{ fontWeight: 800, color: 'black' }}
-              >
-                MI CUENTA
-              </a>
-              <a href="#" className="navbar__link navbar__link--btn" onClick={(e) => { e.preventDefault(); signOut(); navigate('/'); }} style={{ background: '#333' }}>SALIR</a>
-            </div>
-          ) : (
-            <a href="/auth" className="navbar__link navbar__link--btn" onClick={(e) => { e.preventDefault(); navigate('/auth'); }}>COMENZAR</a>
-          )}
-        </div>
-      </div>
-    </nav>
-  );
+// Components extracted to separate files
 
   if (authLoading) return <div className="loading-overlay" style={{ background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '2px' }}>CONECTANDO CON TNE CLOUD...</div>;
 
   return (
     <div className="app">
+      <Helmet>
+        <title>TNE — Trust News España | Periodismo Transparente</title>
+        <meta name="description" content="La plataforma de noticias que analiza el sesgo mediático y te ofrece una visión completa de la actualidad en España." />
+        <meta name="keywords" content="noticias, españa, sesgo mediático, periodismo, transparencia, actualidad" />
+      </Helmet>
       <style>{`
         @keyframes fadeInOut {
           0% { opacity: 0; transform: translateX(10px); }
@@ -406,7 +328,18 @@ const App = () => {
           100% { transform: scale(1); }
         }
       `}</style>
-      <Navbar />
+      <Navbar 
+        navigate={navigate} 
+        user={user} 
+        profile={profile} 
+        signOut={signOut} 
+        activeCategory={activeCategory} 
+        setActiveCategory={setActiveCategory} 
+        setSelectedStory={setSelectedStory} 
+        showForYou={showForYou} 
+        setShowForYou={setShowForYou} 
+        categories={categories} 
+      />
       <main style={{ marginTop: '72px', minHeight: '100vh', background: 'white' }}>
         <Routes>
           <Route path="/" element={
@@ -427,261 +360,43 @@ const App = () => {
               )}
 
               {/* Trending Topics Bar - Grab & Slide */}
-              <div 
-                id="trending-bar"
-                style={{ 
-                  borderBottom: 'var(--border-thin)', 
-                  padding: '12px var(--page-padding)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '16px', 
-                  overflowX: 'auto', 
-                  whiteSpace: 'nowrap', 
-                  background: 'white',
-                  cursor: 'grab',
-                  WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'none', // Firefox
-                  msOverflowStyle: 'none' // IE/Edge
-                }}
-                onMouseDown={(e) => {
-                  const el = e.currentTarget;
-                  el.style.cursor = 'grabbing';
-                  const startX = e.pageX - el.offsetLeft;
-                  const scrollLeft = el.scrollLeft;
-                  
-                  const handleMouseMove = (em) => {
-                    const x = em.pageX - el.offsetLeft;
-                    const walk = (x - startX) * 2;
-                    el.scrollLeft = scrollLeft - walk;
-                  };
-                  
-                  const handleMouseUp = () => {
-                    el.style.cursor = 'grab';
-                    window.removeEventListener('mousemove', handleMouseMove);
-                    window.removeEventListener('mouseup', handleMouseUp);
-                  };
-                  
-                  window.addEventListener('mousemove', handleMouseMove);
-                  window.addEventListener('mouseup', handleMouseUp);
-                }}
-              >
-                <style>{`
-                  #trending-bar::-webkit-scrollbar { display: none; }
-                `}</style>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, pointerEvents: 'none' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
-                  TRENDING
-                </span>
-                {trendingTopics.map(topic => (
-                  <span key={topic} onClick={() => navigate('/?topic=' + encodeURIComponent(topic))} style={{ backgroundColor: activeTopic === topic ? 'black' : 'white', color: activeTopic === topic ? 'white' : 'black', padding: '8px 16px', borderRadius: '100px', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '1px solid black', transition: '0.2s' }}>
-                    {topic} <Plus />
-                  </span>
-                ))}
-              </div>
+              <TrendingBar 
+                navigate={navigate} 
+                trendingTopics={trendingTopics} 
+                activeTopic={activeTopic} 
+              />
 
               {/* Hero Section */}
-              <section className="layout-split" style={{ minHeight: '300px' }}>
-                <div className="sidebar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg viewBox="0 0 285 152" fill="none" style={{ width: '80%' }}>
-                    <path d="M0 76H260M260 76L200 8M260 76L200 144" stroke="var(--color-primary)" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className="main-content" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                    <Plus /> <Plus />
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '3px' }}>
-                    {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
-                  </div>
-                  <h1 style={{ fontSize: '80px', lineHeight: '0.9', letterSpacing: '-4px', margin: 0 }}>
-                    {activeCategory === 'TODO' && !activeCity && !activeTopic
-                      ? 'Contrasta las \n noticias en España.' 
-                      : (activeCategory === 'PARA TI' ? 'Tu Selección \n Personal.' : `Resultados para: \n ${activeCategory !== 'TODO' ? activeCategory : (activeTopic || activeCity)}.`)}
-                  </h1>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
-                    <Plus /> <Plus />
-                  </div>
-                </div>
-              </section>
+              <Hero 
+                activeCategory={activeCategory} 
+                activeCity={activeCity} 
+                activeTopic={activeTopic} 
+              />
 
               {/* Content Split */}
               <section className="layout-split">
-                <div className="sidebar">
-                  {/* Daily Briefing - Exact Restoration */}
-                  <div 
-                    onClick={() => navigate('/daily-summary')}
-                    style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', marginBottom: '32px', background: '#fff', cursor: 'pointer' }}
-                  >
-                    <div style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.3, marginBottom: '20px', letterSpacing: '2px' }}>
-                      MIÉRCOLES, 15 DE ABRIL DE 2026
-                    </div>
-                    <h2 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-1px' }}>Resumen Diario</h2>
-                    <div style={{ fontSize: '11px', opacity: 0.4, fontFamily: 'var(--font-mono)', marginBottom: '32px', fontWeight: 800 }}>
-                      12 HISTORIAS • 342 ARTÍCULOS • 8M LECTURA
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '30px' }}>
-                      {globalHeadlines.map((h, i) => (
-                        <p key={i} style={{ fontSize: '14px', fontWeight: 700, lineHeight: '1.4', margin: 0 }}>{h.t}</p>
-                      ))}
-                    </div>
-                    <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.4 }}>
-                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                       92% DE INFORMES ORIGINALES
-                    </div>
-                  </div>
+                <Sidebar 
+                  navigate={navigate} 
+                  globalHeadlines={globalHeadlines} 
+                  favoritesCount={favorites.length} 
+                  blindSpotsData={blindSpotsData} 
+                  relatedTopics={(appConfig.related_topics?.length > 0) ? appConfig.related_topics : ['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO']} 
+                  activeTopic={activeTopic} 
+                  loading={storiesLoading}
+                />
 
-                  {/* My Bias Card - Exact Restoration */}
-                  <div style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', marginBottom: '32px', background: '#fff' }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '-1px' }}>Mi Sesgo de Lectura</h2>
-                    <div style={{ fontSize: '11px', opacity: 0.3, fontWeight: 800, fontFamily: 'var(--font-mono)', marginBottom: '24px', letterSpacing: '1px' }}>
-                      ANÁLISIS BASADO EN TUS ÚLTIMOS 30 ARTÍCULOS
-                    </div>
-                    
-                    <div style={{ height: '8px', background: '#f5f5f5', borderRadius: '10px', overflow: 'hidden', position: 'relative', marginBottom: '32px' }}>
-                      <div style={{ position: 'absolute', left: '42%', width: '25%', height: '100%', background: 'black' }} />
-                    </div>
-
-                    <button 
-                      onClick={() => navigate('/bias')}
-                      style={{ 
-                        width: '100%', 
-                        padding: '16px', 
-                        background: 'none', 
-                        border: '1.5px solid black', 
-                        borderRadius: '100px', 
-                        fontSize: '11px', 
-                        fontWeight: 900, 
-                        cursor: 'pointer',
-                        letterSpacing: '1.5px'
-                      }}
-                    >
-                      VER ANALÍTICA DETALLADA
-                    </button>
-                  </div>
-
-                  {/* Favorites Card - Re-inserted */}
-                  <div style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', marginBottom: '32px', background: '#fff' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '-1px' }}>Mis Favoritos</h2>
-                      <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.2 }}>[ {String(favorites.length).padStart(2, '0')} ]</span>
-                    </div>
-                    <div style={{ fontSize: '13px', opacity: 0.4, marginBottom: '24px', lineHeight: '1.4' }}>Tus historias guardadas para consulta prioritaria en cualquier momento.</div>
-                    
-                    <button 
-                      onClick={() => navigate('/favorites')}
-                      style={{ 
-                        width: '100%', 
-                        padding: '16px', 
-                        background: 'black', 
-                        color: 'white',
-                        border: 'none', 
-                        borderRadius: '100px', 
-                        fontSize: '11px', 
-                        fontWeight: 900, 
-                        cursor: 'pointer',
-                        letterSpacing: '1.5px'
-                      }}
-                    >
-                      VER MI ARCHIVO
-                    </button>
-                  </div>
-
-                   {/* Headlines - Exact Restoration */}
-                   <div style={{ marginBottom: '60px' }}>
-                    <h3 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px' }}>TITULARES DESTACADOS</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                      {[
-                        { t: 'El BCE mantiene los tipos pero apunta a junio.', w: '70%' },
-                        { t: 'Crisis de vivienda: el precio del alquiler sube un 12%.', w: '35%' },
-                        { t: 'Sánchez propone un pacto nacional por la IA.', w: '85%' },
-                        { t: 'La selección española se prepara para el amistoso.', w: '45%' }
-                      ].map((item, i) => (
-                        <div key={i}>
-                          <p style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 10px 0', lineHeight: '1.2' }}>{item.t}</p>
-                          <div style={{ width: '100%', height: '4px', background: '#f0f0f0' }}>
-                            <div style={{ width: item.w, height: '100%', background: '#444' }}></div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Puntos Ciegos */}
-                  <div style={{ marginBottom: '60px' }}>
-                    <h2 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 40px 0', letterSpacing: '-1.5px', lineHeight: '1' }}>Puntos Ciegos —<br/>Destacados</h2>
-                    
-                    {blindSpotsData.map((spot, i) => (
-                      <div key={i} style={{ marginBottom: i === blindSpotsData.length - 1 ? '0' : '40px', borderBottom: i === blindSpotsData.length - 1 ? 'none' : '1px solid black', paddingBottom: i === blindSpotsData.length - 1 ? '0' : '40px' }}>
-                        <span style={{ background: spot.type === 'LEFT' ? 'black' : '#888', color: 'white', fontSize: '10px', fontWeight: 900, padding: '4px 10px', borderRadius: '100px', fontFamily: 'var(--font-mono)' }}>
-                           PUNTO CIEGO DE {spot.type === 'LEFT' ? 'IZQUIERDA' : 'DERECHA'}
-                        </span>
-                        <p style={{ fontSize: '19px', fontWeight: 600, marginTop: '20px', lineHeight: '1.2' }}>{spot.text}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Related Topics */}
-                  <div style={{ marginBottom: '60px' }}>
-                    <h3 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px', textTransform: 'uppercase' }}>Temas Relacionados</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {((appConfig.related_topics?.length > 0) ? appConfig.related_topics : ['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO']).map(topic => (
-                        <span key={topic} onClick={() => navigate('/?topic=' + encodeURIComponent(topic))} style={{ background: activeTopic === topic ? 'black' : 'none', color: activeTopic === topic ? 'white' : 'black', border: '1px solid #eee', fontSize: '10px', fontWeight: 800, padding: '8px 16px', borderRadius: '100px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', transition: '0.2s' }}>{topic} <Plus /></span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Local News */}
-                  <div style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', background: '#fff', marginBottom: '60px', overflow: 'hidden' }}>
-                    <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '12px', letterSpacing: '-0.5px' }}>Noticias Locales</h3>
-                    <p style={{ fontSize: '13px', opacity: 0.4, marginBottom: '30px', lineHeight: '1.2' }}>Descubre qué está pasando en tu ciudad ahora mismo.</p>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', borderBottom: '1.5px solid #f8f8f8', paddingBottom: '10px' }}>
-                      <input id="local-city-input" type="text" placeholder="Tu ciudad..." style={{ flex: 1, border: 'none', fontSize: '14px', outline: 'none', fontWeight: 600, width: '100%' }} onKeyDown={(e) => { if(e.key === 'Enter') navigate('/?city=' + e.target.value); }} />
-                      <button onClick={() => navigate('/?city=' + document.getElementById('local-city-input').value)} style={{ background: 'black', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '100px', fontWeight: 900, fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>FIJAR</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="main-content">
-                   {/* Main Stories Feed */}
-                  {storiesLoading && displayStories.length === 0 && (
-                    <div style={{ padding: '80px 0', textAlign: 'center' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '2px', opacity: 0.4 }}>CARGANDO NOTICIAS...</div>
-                    </div>
-                  )}
-                  {!storiesLoading && displayStories.length === 0 && (
-                    <div style={{ padding: '80px 0', textAlign: 'center' }}>
-                      <div style={{ fontSize: '48px', fontWeight: 800, opacity: 0.05, marginBottom: '16px' }}>—</div>
-                      <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '8px' }}>No hay noticias disponibles</div>
-                      <div style={{ fontSize: '12px', opacity: 0.4, lineHeight: '1.5' }}>Publica tu primera noticia desde el Manager Studio o selecciona otra categoría.</div>
-                    </div>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
-                    {displayStories.map(story => (
-                      <div key={story.id} onClick={() => onSelectStory(story)} style={{ cursor: 'pointer' }}>
-                        <StoryCard 
-                          story={story} 
-                          isFavorite={favStoryIds.has(String(story.id))}
-                          onToggleFavorite={toggleFavorite}
-                          onShare={() => openShare(story)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: '60px', marginBottom: '40px' }}>
-                    {visibleStories < finalStories.length ? (
-                      <button 
-                        onClick={() => setVisibleStories(prev => prev + 8)}
-                        style={{ padding: '18px 40px', border: '1.5px solid black', borderBottomWidth: '3px', background: 'none', borderRadius: '100px', fontSize: '12px', fontWeight: 900, cursor: 'pointer', transition: '0.2s', letterSpacing: '1px' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'black'; e.currentTarget.style.color = 'white'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'black'; }}
-                      >
-                        CARGAR MÁS NOTICIAS
-                      </button>
-                    ) : (
-                      <div style={{ opacity: 0.3, fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>FIN DE LAS NOTICIAS RECIENTES</div>
-                    )}
-                  </div>
-                </div>
+                <NewsFeed 
+                  storiesLoading={storiesLoading} 
+                  displayStories={displayStories} 
+                  stories={stories} 
+                  onSelectStory={onSelectStory} 
+                  favStoryIds={favStoryIds} 
+                  toggleFavorite={toggleFavorite} 
+                  openShare={openShare} 
+                  visibleStories={visibleStories} 
+                  finalStoriesCount={finalStories.length} 
+                  setVisibleStories={setVisibleStories} 
+                />
               </section>
 
               {/* SPECIAL SECTIONS GRID SYSTEM — powered by Supabase special_sections table */}
@@ -742,106 +457,17 @@ const App = () => {
                   }
                 });
 
-                return combined;
-              })().map((section, idx) => {
-                // Normalize: DB uses snake_case jsonb, fallback uses camelCase
-                const main   = section.main   || {};
-                const sides  = section.sides  || [];
-                const label  = section.label  || '';
-                const title  = section.title  || '';
-
-                const handleMainClick = () => {
-                  const sid = main.story_id;
-                  if (!sid) return;
-                  const story = stories.find(s => String(s.id) === String(sid));
-                  if (story) onSelectStory(story);
-                  else navigate(`/story/${sid}`);
-                };
-
-                const handleSideClick = (side) => {
-                  const sid = side.story_id;
-                  if (!sid) return;
-                  const story = stories.find(s => String(s.id) === String(sid));
-                  if (story) onSelectStory(story);
-                  else navigate(`/story/${sid}`);
-                };
-
-                return (
-                  <section key={section.id} className="layout-split" style={{ borderTop: idx === 0 ? 'var(--border-thin)' : '1px solid black', background: '#fff' }}>
-                    <div className="sidebar" style={{ display: 'flex', flexDirection: 'column', padding: '60px 40px', borderRight: 'var(--border-thin)' }}>
-                      <h2 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: '1', margin: '0 0 32px 0' }}>{label}<br/>{title}</h2>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <button onClick={handleMainClick} style={{ padding: '14px', background: 'black', color: 'white', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: 900, cursor: main.story_id ? 'pointer' : 'default', letterSpacing: '1px' }}>
-                          {section.btn1 || 'VER NOTICIA →'}
-                        </button>
-                        <button style={{ padding: '14px', background: 'none', border: '1px solid #f0f0f0', borderRadius: '4px', fontSize: '10px', fontWeight: 900, cursor: 'pointer', color: '#999', letterSpacing: '1px' }}>
-                          {section.btn2 || 'OCULTAR'}
-                        </button>
-                      </div>
-                      <div style={{ marginTop: 'auto', fontSize: '10px', opacity: 0.2, fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{section.trend}</div>
-                    </div>
-                    <div className="main-content" style={{ padding: 0 }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', minHeight: '600px' }}>
-                        {/* MAIN STORY CARD */}
-                        <div
-                          onClick={main.story_id ? handleMainClick : undefined}
-                          style={{ padding: '60px', borderRight: 'var(--border-thin)', display: 'flex', flexDirection: 'column', gap: '24px', cursor: main.story_id ? 'pointer' : 'default', transition: 'background 0.15s' }}
-                          onMouseEnter={e => { if (main.story_id) e.currentTarget.style.background = '#fafafa'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <div style={{ fontSize: '11px', fontWeight: 900, opacity: 0.25, letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>{main.label}</div>
-                          <h3 style={{ fontSize: '48px', fontWeight: 800, lineHeight: '1.05', letterSpacing: '-2px', margin: 0 }}>{main.title}</h3>
-                          <p style={{ fontSize: '18px', color: '#666', lineHeight: '1.4', maxWidth: '90%', margin: 0 }}>{main.desc}</p>
-                          {main.story_id && (
-                            <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '1px' }}>
-                              VER ANÁLISIS COMPLETO ↗
-                            </div>
-                          )}
-                          <div style={{ marginTop: 'auto' }}>
-                            <div style={{ display: 'flex', height: '8px', background: '#f5f5f5', borderRadius: '4px', overflow: 'hidden' }}>
-                              {main.barType === 'bipartisan' ? (
-                                <>
-                                  <div style={{ width: '40%', background: 'black' }}></div>
-                                  <div style={{ width: '15%', background: '#ccc' }}></div>
-                                  <div style={{ width: '45%', background: '#666' }}></div>
-                                </>
-                              ) : (
-                                <>
-                                  <div style={{ width: '60%', background: 'black' }}></div>
-                                  <div style={{ width: '25%', background: '#666' }}></div>
-                                </>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
-                              <span style={{ opacity: 0.8 }}>{main.legendLeft}</span>
-                              <span style={{ opacity: 0.3 }}>{main.legendRight}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* SIDE STORIES */}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          {sides.map((side, sIdx) => (
-                            <div
-                              key={sIdx}
-                              onClick={() => handleSideClick(side)}
-                              style={{ padding: '40px', borderBottom: sIdx < sides.length - 1 ? 'var(--border-thin)' : 'none', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center', cursor: side.story_id ? 'pointer' : 'default', transition: 'background 0.15s' }}
-                              onMouseEnter={e => { if (side.story_id) e.currentTarget.style.background = '#fafafa'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                            >
-                              <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, letterSpacing: '0.5px' }}>{side.label}</div>
-                              <h4 style={{ fontSize: '19px', fontWeight: 700, lineHeight: '1.25', margin: 0 }}>{side.title}</h4>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.25, fontFamily: 'var(--font-mono)' }}>{side.meta}</div>
-                                {side.story_id && <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, fontFamily: 'var(--font-mono)' }}>↗</div>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                );
-              })}
+                return combined.map((section, idx) => (
+                  <SpecialSection 
+                    key={section.id || section.title} 
+                    idx={idx} 
+                    section={section} 
+                    stories={stories} 
+                    onSelectStory={onSelectStory} 
+                    navigate={navigate} 
+                  />
+                ));
+              })()}
 
             </>
           } />
