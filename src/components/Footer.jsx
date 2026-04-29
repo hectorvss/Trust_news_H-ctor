@@ -120,13 +120,16 @@ const Footer = ({ links }) => {
             </ul>
           </div>
           <div>
-            <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>Herramientas</h4>
+          <div>
+            <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>
+              <Link to="/tools" style={{ color: 'inherit', textDecoration: 'none' }}>Herramientas</Link>
+            </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li>App móvil</li>
-              <li>Extensión de navegador</li>
-              <li>Newsletter diaria</li>
-              <li>Timelines</li>
-              <li>API de datos</li>
+              <li key="h1"><Link to="/tools?section=app-movil" style={{ color: 'inherit', textDecoration: 'none' }}>App móvil</Link></li>
+              <li key="h2"><Link to="/tools?section=extension" style={{ color: 'inherit', textDecoration: 'none' }}>Extensión de navegador</Link></li>
+              <li key="h3"><Link to="/tools?section=newsletter" style={{ color: 'inherit', textDecoration: 'none' }}>Newsletter diaria</Link></li>
+              <li key="h4"><Link to="/tools?section=timelines" style={{ color: 'inherit', textDecoration: 'none' }}>Timelines</Link></li>
+              <li key="h5"><Link to="/tools?section=api" style={{ color: 'inherit', textDecoration: 'none' }}>API de datos</Link></li>
             </ul>
           </div>
         </div>
@@ -144,9 +147,8 @@ const Footer = ({ links }) => {
         }}>
           <div>© 2026 TRUST NEWS ESPAÑA. TODOS LOS DERECHOS RESERVADOS.</div>
           <div style={{ display: 'flex', gap: '24px' }}>
-            <span>TÉRMINOS</span>
-            <span>PRIVACIDAD</span>
-            <span>DISEÑO POR ANTIGRAVITY</span>
+            <Link to="/terms" style={{ color: 'inherit', textDecoration: 'none' }}>TÉRMINOS</Link>
+            <Link to="/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>PRIVACIDAD</Link>
           </div>
         </div>
       </div>

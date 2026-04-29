@@ -553,6 +553,9 @@ const App = () => {
           <Route path="/manager" element={<ManagerStudio user={user} profile={profile} stories={finalStories} onBack={() => navigate('/')} onRefresh={refreshStories} />} />
           <Route path="/company" element={<CorporateLanding type="COMPANY" onBack={() => navigate('/')} />} />
           <Route path="/help" element={<CorporateLanding type="HELP" onBack={() => navigate('/')} />} />
+          <Route path="/tools" element={<CorporateLanding type="TOOLS" onBack={() => navigate('/')} />} />
+          <Route path="/terms" element={<CorporateLanding type="TERMS" onBack={() => navigate('/')} />} />
+          <Route path="/privacy" element={<CorporateLanding type="PRIVACY" onBack={() => navigate('/')} />} />
         </Routes>
       </main>
       <Footer links={appConfig.footer_links} />

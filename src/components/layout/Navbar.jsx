@@ -51,6 +51,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
             )}
           </div>
           <a href="/pricing" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
+          <a href="/tools" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/tools'); }}>HERRAMIENTAS</a>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               {user?.email === 'hectorvidal0411@gmail.com' || profile?.role === 'manager' ? (

@@ -155,6 +155,119 @@ const CorporateLanding = ({ type, onBack }) => {
     }
   ];
 
+  const toolsSections = [
+    { 
+      id: 'app-movil', 
+      title: 'App móvil', 
+      subtitle: 'TNE EN TU BOLSILLO', 
+      blocks: [
+        {
+          title: 'Noticias sin ruido, donde estés.',
+          content: 'Nuestra aplicación para iOS y Android está diseñada para el consumo rápido y crítico. Incluye widgets de sesgo en tiempo real para tu pantalla de inicio.',
+          tag: 'MOBILE'
+        },
+        {
+          title: 'Alertas de burbuja.',
+          content: 'Configura notificaciones inteligentes que te avisan cuando estás consumiendo demasiado contenido de una sola tendencia ideológica.',
+          tag: 'SMART NOTIFY'
+        }
+      ]
+    },
+    { 
+      id: 'extension', 
+      title: 'Extensión de navegador', 
+      subtitle: 'ANÁLISIS EN TIEMPO REAL', 
+      blocks: [
+        {
+          title: 'Inyecta transparencia en tu navegación.',
+          content: 'Nuestra extensión para Chrome, Firefox y Safari analiza automáticamente cualquier artículo que estés leyendo fuera de TNE, mostrándote el rating de sesgo y fuentes alternativas.',
+          tag: 'BROWSER'
+        }
+      ]
+    },
+    { 
+      id: 'newsletter', 
+      title: 'Newsletter diaria', 
+      subtitle: 'TU RESUMEN MATINAL', 
+      blocks: [
+        {
+          title: 'El mapa del día.',
+          content: 'Cada mañana a las 7:00 AM, recibe un correo con las 3 noticias más importantes y cómo están siendo cubiertas por todo el espectro mediático.',
+          tag: 'EMAIL'
+        }
+      ]
+    },
+    { 
+      id: 'timelines', 
+      title: 'Timelines', 
+      subtitle: 'CONTEXTO HISTÓRICO', 
+      blocks: [
+        {
+          title: 'No te pierdas en el presente.',
+          content: 'Nuestra herramienta de Timelines te permite retroceder meses o años para ver cómo ha evolucionado la narrativa de una noticia específica.',
+          tag: 'DATA VIZ'
+        }
+      ]
+    },
+    { 
+      id: 'api', 
+      title: 'API de datos', 
+      subtitle: 'PARA DESARROLLADORES', 
+      blocks: [
+        {
+          title: 'Construye sobre la verdad.',
+          content: 'Accede a nuestra base de datos de análisis de sesgo y factuality para tus propios proyectos de investigación o aplicaciones.',
+          tag: 'ELITE PLAN'
+        }
+      ]
+    }
+  ];
+
+  const termsSections = [
+    { 
+      id: 'terminos', 
+      title: 'Términos de Uso', 
+      subtitle: 'ACUERDO LEGAL', 
+      blocks: [
+        {
+          title: '1. Aceptación de los términos.',
+          content: 'Al acceder a TNE, aceptas cumplir con nuestras normas de comunidad y uso ético de los datos proporcionados.',
+          tag: 'LEGAL'
+        },
+        {
+          title: '2. Propiedad Intelectual.',
+          content: 'El software y los algoritmos de análisis de sesgo son propiedad exclusiva de TNE. El contenido de las noticias pertenece a sus respectivos autores citados.',
+          tag: 'IP'
+        },
+        {
+          title: '3. Uso permitido.',
+          content: 'Queda prohibido el uso de técnicas de scraping masivo sin autorización previa a través de nuestra API oficial.',
+          tag: 'USO'
+        }
+      ]
+    }
+  ];
+
+  const privacySections = [
+    { 
+      id: 'privacidad', 
+      title: 'Privacidad', 
+      subtitle: 'PROTECCIÓN DE DATOS', 
+      blocks: [
+        {
+          title: 'Privacidad por diseño.',
+          content: 'No rastreamos tu identidad personal ni vendemos tu comportamiento de lectura a anunciantes. Tu perfil de sesgo es solo para tu mejora personal.',
+          tag: 'PRIVACY'
+        },
+        {
+          title: 'Cifrado de extremo a extremo.',
+          content: 'Tus marcadores y preferencias están protegidos mediante cifrado industrial, asegurando que nadie más tenga acceso a tu dieta informativa.',
+          tag: 'SEGURIDAD'
+        }
+      ]
+    }
+  ];
+
   const jobs = [
     { role: 'Senior React Engineer', type: 'Remoto / Madrid', area: 'PRODUCTO' },
     { role: 'Data Scientist (NLP)', type: 'Remoto / Barcelona', area: 'INTELIGENCIA' },
@@ -170,7 +283,15 @@ const CorporateLanding = ({ type, onBack }) => {
     { q: '¿Vendéis mis datos de lectura?', a: 'Nunca. Tu historial de lectura es privado y está cifrado punto a punto. No vendemos perfiles de usuario a terceros.' },
   ];
 
-  const sections = type === 'COMPANY' ? companySections : helpSections;
+  const sectionsMap = {
+    'COMPANY': companySections,
+    'HELP': helpSections,
+    'TOOLS': toolsSections,
+    'TERMS': termsSections,
+    'PRIVACY': privacySections
+  };
+
+  const sections = sectionsMap[type] || companySections;
   
   const initialIndex = sectionId 
     ? sections.findIndex(s => s.id === sectionId) 
@@ -202,7 +323,14 @@ const CorporateLanding = ({ type, onBack }) => {
           ← VOLVER AL FEED
         </div>
         <div style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.3 }}>
-          TNE / {type === 'COMPANY' ? 'CORPORATIVO' : 'SOPORTE'}
+          TNE / {(() => {
+            if (type === 'COMPANY') return 'CORPORATIVO';
+            if (type === 'HELP') return 'SOPORTE';
+            if (type === 'TOOLS') return 'HERRAMIENTAS';
+            if (type === 'TERMS') return 'TÉRMINOS';
+            if (type === 'PRIVACY') return 'PRIVACIDAD';
+            return 'INFO';
+          })()}
         </div>
       </div>
 
@@ -210,7 +338,14 @@ const CorporateLanding = ({ type, onBack }) => {
         <div className="sidebar" style={{ background: '#fcfcfc', borderRight: 'var(--border-thin)' }}>
           <div style={{ padding: '60px var(--page-padding)' }}>
             <h1 style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '4px', marginBottom: '60px', opacity: 0.3 }}>
-              {type === 'COMPANY' ? 'COMPAÑÍA' : 'AYUDA'}
+              {(() => {
+                if (type === 'COMPANY') return 'COMPAÑÍA';
+                if (type === 'HELP') return 'AYUDA';
+                if (type === 'TOOLS') return 'HERRAMIENTAS';
+                if (type === 'TERMS') return 'LEGAL';
+                if (type === 'PRIVACY') return 'LEGAL';
+                return 'INFO';
+              })()}
             </h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {sections.map((section, index) => (
