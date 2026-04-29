@@ -7,9 +7,7 @@ const Plus = () => (
   </svg>
 );
 
-const CorporateLanding = ({ type, onBack }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const sectionId = searchParams.get('section');
+
 
 const companySections = [
   { 
