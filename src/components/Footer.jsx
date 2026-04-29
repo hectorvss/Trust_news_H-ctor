@@ -120,7 +120,6 @@ const Footer = ({ links }) => {
             </ul>
           </div>
           <div>
-          <div>
             <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>
               <Link to="/tools" style={{ color: 'inherit', textDecoration: 'none' }}>Herramientas</Link>
             </h4>
