@@ -50,7 +50,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
               </div>
             )}
           </div>
-          <a href="/company?section=suscripciones" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/company?section=suscripciones'); }}>PRECIOS</a>
+          <a href="/pricing" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
           <a href="/tools" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/tools'); }}>HERRAMIENTAS</a>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

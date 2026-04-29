@@ -15,6 +15,11 @@ import StoryReader from './components/StoryReader';
 import ManagerStudio from './components/ManagerStudio';
 import ShareModal from './components/ShareModal';
 import Footer from './components/Footer';
+import Pricing from './components/Pricing';
+import Auth from './components/Auth';
+import DailySummary from './components/DailySummary';
+import FavoritesView from './components/FavoritesView';
+import BiasAnalysis from './components/BiasAnalysis';
 import { useAuth } from './context/AuthContext';
 import { 
   getFavorites, 
@@ -352,7 +357,7 @@ const App = () => {
             <>
               {/* Launch Offer Banner */}
               <div style={{ background: 'black', color: 'white', padding: '8px var(--page-padding)', textAlign: 'center', fontSize: '11px', fontWeight: 800, letterSpacing: '2px', fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)' }}>
-                OFERTA DE LANZAMIENTO: 1€ POR SEMANA • <span onClick={() => navigate('/company?section=suscripciones')} style={{ textDecoration: 'underline', cursor: 'pointer' }}>OBTÉN EL DESCUENTO ↗</span>
+                OFERTA DE LANZAMIENTO: 1€ POR SEMANA • <span onClick={() => navigate('/pricing')} style={{ textDecoration: 'underline', cursor: 'pointer' }}>OBTÉN EL DESCUENTO ↗</span>
               </div>
 
               {/* Active Category/Filter Indicator */}
@@ -562,7 +567,6 @@ const App = () => {
           <Route path="/tools" element={<CorporateLanding type="TOOLS" onBack={() => navigate('/')} />} />
           <Route path="/terms" element={<CorporateLanding type="TERMS" onBack={() => navigate('/')} />} />
           <Route path="/privacy" element={<CorporateLanding type="PRIVACY" onBack={() => navigate('/')} />} />
-          <Route path="/pricing" element={<CorporateLanding type="COMPANY" onBack={() => navigate('/')} />} />
         </Routes>
       </main>
       <Footer links={appConfig.footer_links} />
