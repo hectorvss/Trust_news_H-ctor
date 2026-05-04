@@ -30,8 +30,7 @@ export const logReading = async (userId, storyId) => {
 export const getSessionId = () => {
   let sessionId = localStorage.getItem('tne_session_id');
   if (!sessionId) {
-    // Generate UUID v4 format roughly
-    sessionId = 'test-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
+    sessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 10) + '-' + Date.now();
     localStorage.setItem('tne_session_id', sessionId);
   }
   return sessionId;

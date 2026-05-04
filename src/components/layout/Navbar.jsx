@@ -54,7 +54,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
           <a href="/tools" className="navbar__link" onClick={(e) => { e.preventDefault(); navigate('/tools'); }}>HERRAMIENTAS</a>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {user?.email === 'hectorvidal0411@gmail.com' || profile?.role === 'manager' ? (
+              {(profile?.role === 'manager' || profile?.role === 'admin_editor') ? (
                 <a 
                   href="/manager" 
                   className="navbar__link" 

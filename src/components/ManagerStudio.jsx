@@ -6,7 +6,7 @@ const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 70
 
 const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   const navigate = useNavigate();
-  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor' || user?.email === 'hectorvidal0411@gmail.com';
+  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor';
   const [activeView, setActiveView] = useState('POSTS'); // POSTS, SECCIONES, DESTACADOS
   const [loading, setLoading] = useState(false);
   const [localStories, setLocalStories] = useState(stories || []);

@@ -141,9 +141,9 @@ const TabProfile = ({ user, profile }) => {
              <div>
                <div style={{ fontSize: '11px', fontWeight: 900, opacity: 0.4, marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>EMAIL</div>
                {!editing ? (
-                 <div style={{ fontWeight: 600 }}>{user?.email || 'hectorvidal041103@gmail.com'}</div>
+                 <div style={{ fontWeight: 600 }}>{user?.email}</div>
                ) : (
-                 <input defaultValue={user?.email || 'hectorvidal041103@gmail.com'} style={{ fontWeight: 600, border: 'none', borderBottom: '1px solid #ddd', width: '100%', outline: 'none', padding: '4px 0', fontFamily: 'inherit' }} />
+                 <input defaultValue={user?.email} style={{ fontWeight: 600, border: 'none', borderBottom: '1px solid #ddd', width: '100%', outline: 'none', padding: '4px 0', fontFamily: 'inherit' }} />
                )}
              </div>
              <div>

@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }) => {
     return { error };
   };
 
-  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor' || user?.email === 'hectorvidal0411@gmail.com';
+  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor';
 
   const value = {
     user,

@@ -527,7 +527,7 @@ const App = () => {
                       onSelectArticle={setSelectedArticle}
                       activeFilter={activeStoryFilter} setActiveFilter={setActiveStoryFilter}
                       activeTab={activeStoryTab} setActiveTab={setActiveStoryTab}
-                      userRole={profile?.role || (user?.email === 'hectorvidal0411@gmail.com' ? 'manager' : 'reader')}
+                      userRole={profile?.role || 'reader'}
                     />
                   );
                 })()}
