@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import './index.css';
@@ -34,6 +34,7 @@ import {
   fetchSpecialSections
 } from './supabaseService';
 import AccessLimitModal from './components/AccessLimitModal';
+import SearchResults from './components/SearchResults';
 
 // Anonymous favorites persistence (localStorage)
 const ANON_FAVS_KEY = 'tne_anon_favorites';
@@ -404,6 +405,7 @@ const App = () => {
                   toggleFavorite={toggleFavorite} 
                   openShare={openShare} 
                   visibleStories={visibleStories}
+                  finalStoriesCount={finalStories.length}
                   setVisibleStories={setVisibleStories} 
                 />
               </section>
@@ -481,6 +483,14 @@ const App = () => {
             </>
           } />
 
+          <Route path="/search" element={
+            <SearchResults
+              onSelectStory={onSelectStory}
+              favStoryIds={favStoryIds}
+              toggleFavorite={toggleFavorite}
+              openShare={openShare}
+            />
+          } />
           <Route path="/pricing" element={<div className="container" style={{ padding: '60px 24px' }}><Pricing onBack={() => navigate('/')} /></div>} />
           <Route path="/auth" element={<div className="container" style={{ padding: '60px 24px' }}><Auth onBack={() => navigate('/')} /></div>} />
           <Route path="/daily-summary" element={<DailySummary onBack={() => navigate('/')} />} />

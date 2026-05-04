@@ -185,6 +185,25 @@ const mapStory = (s) => {
   };
 };
 
+export const searchStories = async (query) => {
+  const term = query?.trim();
+  if (!term) return [];
+
+  const { data, error } = await supabase
+    .from('stories')
+    .select('*')
+    .eq('status', 'published')
+    .or(`title.ilike.%${term}%,summary.ilike.%${term}%,category.ilike.%${term}%,location.ilike.%${term}%`)
+    .order('created_at', { ascending: false })
+    .limit(40);
+
+  if (error) {
+    console.error('Error searching stories:', error);
+    return [];
+  }
+  return (data || []).map(mapStory);
+};
+
 export const fetchStories = async (category = 'TODO') => {
   let query = supabase
     .from('stories')
