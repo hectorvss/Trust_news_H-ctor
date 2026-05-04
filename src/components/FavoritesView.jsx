@@ -1,7 +1,6 @@
 import React from 'react';
 import StoryCard from './StoryCard';
-
-const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
+import Plus from './ui/Plus';
 
 const FavoritesView = ({ favorites, onBack, onSelectStory }) => {
   return (

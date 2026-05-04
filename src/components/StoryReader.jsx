@@ -124,7 +124,7 @@ const StoryReader = ({ article, onBack }) => {
             textTransform: 'uppercase',
             letterSpacing: '1px'
           }}>
-            <span>POR {article.author || 'M. JIMÉNEZ'}</span>
+            <span>POR {article.author || 'TNE'}</span>
             <span style={{ opacity: 0.3 }}>/</span>
             <span>{article.source}</span>
             <span style={{ opacity: 0.3 }}>/</span>
@@ -254,7 +254,7 @@ const StoryReader = ({ article, onBack }) => {
               REDACTOR / FUENTE
             </span>
             <span style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-1px' }}>
-              {article.author || 'M. JIMÉNEZ'} para {article.source}
+              {article.author || 'TNE'} para {article.source}
             </span>
             <span style={{ fontSize: '14px', opacity: 0.5 }}>
               Especialista en política de vivienda y análisis regulatorio. Publicado originalmente el {article.time}.

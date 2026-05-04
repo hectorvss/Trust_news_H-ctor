@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { saveStory, deleteStory, fetchAppConfig, updateAppConfig, fetchSpecialSections, saveSpecialSection, deleteSpecialSection } from '../supabaseService';
 
-const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
+import Plus from './ui/Plus';
 
 const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   const navigate = useNavigate();

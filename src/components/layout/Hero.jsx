@@ -1,6 +1,5 @@
 import React from 'react';
-
-const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
+import Plus from '../ui/Plus';
 
 const Hero = ({ activeCategory, activeCity, activeTopic }) => {
   return (
@@ -12,7 +11,7 @@ const Hero = ({ activeCategory, activeCity, activeTopic }) => {
       </div>
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <Plus /> <Plus />
+          <Plus inline /> <Plus inline />
         </div>
         <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '3px' }}>
           {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
@@ -23,7 +22,7 @@ const Hero = ({ activeCategory, activeCity, activeTopic }) => {
             : (activeCategory === 'PARA TI' ? 'Tu Selección \n Personal.' : `Resultados para: \n ${activeCategory !== 'TODO' ? activeCategory : (activeTopic || activeCity)}.`)}
         </h1>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
-          <Plus /> <Plus />
+          <Plus inline /> <Plus inline />
         </div>
       </div>
     </section>

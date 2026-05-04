@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import BiasBar from './BiasBar';
 import ShareModal from './ShareModal';
+import Plus from './ui/Plus';
 import { saveStory } from '../supabaseService';
-
-const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
 
 const InlineEdit = ({ text, onChange, isEditing, tag = 'span', style = {}, multiline = false, placeholder = 'Añadir texto...' }) => {
   if (!isEditing) {
@@ -345,7 +344,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                      ) : (
                        (Array.isArray(editedStory.desglose) ? editedStory.desglose : (editedStory.desglose || '').split('\n')).filter(l => l && String(l).trim()).map((line, idx) => (
                          <div key={idx} style={{ display: 'flex', gap: '24px', fontSize: '17px', lineHeight: '1.6', fontWeight: 500 }}>
-                            <Plus size={18} />
+                            <Plus />
                             <span>{line}</span>
                          </div>
                        ))
@@ -417,7 +416,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                    ) : (
                      (Array.isArray(editedStory.contexto) ? editedStory.contexto : (editedStory.contexto || '').split('\n')).filter(l => l && String(l).trim()).map((p, idx) => (
                        <div key={idx} style={{ display: 'flex', gap: '24px', marginBottom: '32px' }}>
-                          <Plus size={18} />
+                          <Plus />
                           <p style={{ margin: 0 }}>{p}</p>
                        </div>
                      ))

@@ -1,6 +1,5 @@
 import React from 'react';
-
-const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
+import Plus from '../ui/Plus';
 
 const TrendingBar = ({ navigate, trendingTopics, activeTopic }) => {
   return (
@@ -51,7 +50,7 @@ const TrendingBar = ({ navigate, trendingTopics, activeTopic }) => {
       </span>
       {trendingTopics.map(topic => (
         <span key={topic} onClick={() => navigate('/?topic=' + encodeURIComponent(topic))} style={{ backgroundColor: activeTopic === topic ? 'black' : 'white', color: activeTopic === topic ? 'white' : 'black', padding: '8px 16px', borderRadius: '100px', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '1px solid black', transition: '0.2s' }}>
-          {topic} <Plus />
+          {topic} <Plus inline />
         </span>
       ))}
     </div>

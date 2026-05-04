@@ -1,39 +1,14 @@
 import React, { useState } from 'react';
-import ShareModal from './ShareModal';
-
-const BiasBar = ({ bias = { left: 33, center: 34, right: 33 } }) => {
-  const { left, center, right } = bias;
-  
-  return (
-    <div style={{
-      width: '100%',
-      height: '6px',
-      backgroundColor: '#f5f5f5',
-      borderRadius: '10px',
-      display: 'flex',
-      overflow: 'hidden'
-    }}>
-      <div style={{ width: `${left}%`, backgroundColor: '#000000', transition: 'var(--transition)' }} />
-      <div style={{ width: `${center}%`, backgroundColor: '#777777', transition: 'var(--transition)' }} />
-      <div style={{ width: `${right}%`, backgroundColor: '#dddddd', transition: 'var(--transition)' }} />
-    </div>
-  );
-};
+import BiasBar from './BiasBar';
 
 const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
   const [copied, setCopied] = useState(false);
-  const [liked, setLiked] = useState(false);
 
   const handleCopy = (e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(`${window.location.origin}/story/${story.id}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleLike = (e) => {
-    e.stopPropagation();
-    setLiked(!liked);
   };
 
   return (

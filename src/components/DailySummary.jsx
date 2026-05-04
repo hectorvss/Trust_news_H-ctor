@@ -1,4 +1,5 @@
-const Plus = () => <span style={{ fontSize: '18px', opacity: 0.3, fontWeight: 700 }}>+</span>;
+import React from 'react';
+import Plus from './ui/Plus';
 
 const DailySummary = ({ onBack }) => {
   return (

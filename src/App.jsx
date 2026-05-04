@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import './index.css';
@@ -41,7 +41,6 @@ const getAnonFavorites = () => { try { return JSON.parse(localStorage.getItem(AN
 const saveAnonFavorites = (favs) => localStorage.setItem(ANON_FAVS_KEY, JSON.stringify(favs));
 const clearAnonFavorites = () => localStorage.removeItem(ANON_FAVS_KEY);
 
-const Plus = () => <span style={{ fontSize: '14px', opacity: 0.3, fontWeight: 700, display: 'inline-flex', alignItems: 'center', marginLeft: '4px', lineHeight: 1 }}>+</span>;
 
 const App = () => {
   const navigate = useNavigate();
@@ -404,8 +403,7 @@ const App = () => {
                   favStoryIds={favStoryIds} 
                   toggleFavorite={toggleFavorite} 
                   openShare={openShare} 
-                  visibleStories={visibleStories} 
-                  finalStoriesCount={finalStories.length} 
+                  visibleStories={visibleStories}
                   setVisibleStories={setVisibleStories} 
                 />
               </section>

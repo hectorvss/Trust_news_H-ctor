@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getBiasStats } from '../supabaseService';
 import { useAuth } from '../context/AuthContext';
-
-const Plus = () => <span style={{ fontSize: '18px', opacity: 0.2, fontWeight: 700 }}>+</span>;
+import Plus from './ui/Plus';
 
 const BiasAnalysis = ({ onBack }) => {
   const { user } = useAuth();
@@ -20,7 +19,7 @@ const BiasAnalysis = ({ onBack }) => {
 
   const stats = [
     { label: 'ARTÍCULOS LEÍDOS', value: realStats ? realStats.total_articles : '342', meta: '+12% vs mes ant.', detail: 'Media 11.4/día' },
-    { label: 'SESGO PROMEDIO', value: realStats ? (realStats.bias_distribution.LEFT > realStats.bias_distribution.RIGHT ? 'CENTRO-IZQ' : 'CENTRO-DER') : 'CENTRO-IZQ', meta: 'ESTABILIDAD ALTA', detail: 'Confianza 94%' },
+    { label: 'SESGO PROMEDIO', value: realStats ? ((realStats.bias_distribution?.LEFT ?? 0) > (realStats.bias_distribution?.RIGHT ?? 0) ? 'CENTRO-IZQ' : 'CENTRO-DER') : 'CENTRO-IZQ', meta: 'ESTABILIDAD ALTA', detail: 'Confianza 94%' },
     { label: 'FUENTES CONSULTADAS', value: realStats ? realStats.top_sources.length : '86', meta: '+5 nuevas', detail: 'Top 3 cubren 42%' },
     { label: 'DIVERSIDAD MEDIA', value: realStats ? `${realStats.diversity_pct}%` : '72%', meta: '-2% vs histórico', detail: 'Patrón saludable' },
   ];
