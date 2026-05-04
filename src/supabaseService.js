@@ -66,7 +66,7 @@ export const pingUsage = async (userId, storyId, readSeconds = 0, biasCategory =
   }
 };
 
-export const getBiasStats = async (userId) => {
+export const getBiasStats = async (userId, days = null) => {
   const sessionId = getSessionId();
   try {
     let query = supabase.from('bias_logs').select('*');
@@ -75,37 +75,44 @@ export const getBiasStats = async (userId) => {
     } else {
       query = query.eq('session_id', sessionId);
     }
+    if (days) {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      query = query.gte('created_at', since);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
-    
+
     if (!data || data.length === 0) return null;
 
-    // Aggregate stats
-    const totalSeconds = data.reduce((acc, log) => acc + log.seconds_read, 0);
+    const totalSeconds = data.reduce((acc, log) => acc + (log.seconds_read || 0), 0);
     const biasCounts = data.reduce((acc, log) => {
-      acc[log.bias_category] = (acc[log.bias_category] || 0) + 1;
-      return acc;
-    }, {});
-    
-    const sourceCounts = data.reduce((acc, log) => {
-      acc[log.source_name] = (acc[log.source_name] || 0) + 1;
+      if (log.bias_category) acc[log.bias_category] = (acc[log.bias_category] || 0) + 1;
       return acc;
     }, {});
 
-    // Calculate diversity (mock logic for now: based on how many sources vs total)
+    const sourceCounts = data.reduce((acc, log) => {
+      if (log.source_name) acc[log.source_name] = (acc[log.source_name] || 0) + 1;
+      return acc;
+    }, {});
+
     const uniqueSources = Object.keys(sourceCounts).length;
-    const diversity = Math.min(100, Math.round((uniqueSources / 10) * 100));
+    const totalBias = Object.values(biasCounts).reduce((a, b) => a + b, 0) || 1;
+    const maxBias = Math.max(...Object.values(biasCounts), 0);
+    const diversityFromBias = Math.round((1 - maxBias / totalBias) * 150);
+    const diversityFromSources = Math.min(100, Math.round((uniqueSources / 10) * 100));
+    const diversity = Math.min(100, Math.max(diversityFromBias, diversityFromSources));
 
     return {
-      total_articles: Object.keys(new Set(data.map(l => l.story_id))).length,
+      total_articles: new Set(data.map(l => l.story_id)).size,
       bias_distribution: biasCounts,
       top_sources: Object.entries(sourceCounts)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 5)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
         .map(([name, count]) => ({ name, count, pct: Math.round((count / data.length) * 100) })),
       diversity_pct: diversity,
-      total_seconds: totalSeconds
+      total_seconds: totalSeconds,
+      unique_sources: uniqueSources,
     };
   } catch (err) {
     console.error('Error fetching bias stats:', err);
@@ -394,6 +401,17 @@ export const saveStory = async (storyData) => {
   }
 };
 
+export const updateStoryArticles = async (storyId, articles) => {
+  const { data, error } = await supabase
+    .from('stories')
+    .update({ articles, source_count: articles.length, updated_at: new Date().toISOString() })
+    .eq('id', storyId)
+    .select()
+    .single();
+  if (error) { console.error('Error updating articles:', error); return null; }
+  return mapStory(data);
+};
+
 export const deleteStory = async (storyId) => {
   const { error } = await supabase
     .from('stories')
@@ -405,6 +423,214 @@ export const deleteStory = async (storyId) => {
     return false;
   }
   return true;
+};
+
+// ==========================================
+// NOTIFICATIONS (in-app)
+// ==========================================
+
+export const getNotifications = async (userId, limit = 30) => {
+  if (!userId) return [];
+  // Fetch user-specific + broadcast notifications
+  const { data: notifs, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .or(`user_id.eq.${userId},user_id.is.null`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching notifications:', error);
+    return [];
+  }
+
+  // Fetch read receipts for broadcasts (broadcasts are unread per-user)
+  const broadcastIds = (notifs || []).filter(n => !n.user_id).map(n => n.id);
+  let readSet = new Set();
+  if (broadcastIds.length > 0) {
+    const { data: reads } = await supabase
+      .from('notification_reads')
+      .select('notification_id')
+      .eq('user_id', userId)
+      .in('notification_id', broadcastIds);
+    readSet = new Set((reads || []).map(r => r.notification_id));
+  }
+
+  return (notifs || []).map(n => ({
+    ...n,
+    is_read: n.user_id ? n.is_read : readSet.has(n.id),
+    is_broadcast: !n.user_id
+  }));
+};
+
+export const getUnreadNotificationCount = async (userId) => {
+  if (!userId) return 0;
+  const list = await getNotifications(userId, 50);
+  return list.filter(n => !n.is_read).length;
+};
+
+export const markNotificationRead = async (userId, notification) => {
+  if (!userId || !notification) return;
+  if (notification.is_broadcast) {
+    await supabase
+      .from('notification_reads')
+      .upsert({ user_id: userId, notification_id: notification.id }, { onConflict: 'user_id, notification_id' });
+  } else {
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notification.id)
+      .eq('user_id', userId);
+  }
+};
+
+export const markAllNotificationsRead = async (userId, notifications) => {
+  if (!userId) return;
+  await Promise.all((notifications || []).filter(n => !n.is_read).map(n => markNotificationRead(userId, n)));
+};
+
+export const createNotification = async ({ userId = null, type = 'info', title, message = '', link = '' }) => {
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({ user_id: userId, type, title, message, link })
+    .select()
+    .single();
+  if (error) {
+    console.error('Error creating notification:', error);
+    return null;
+  }
+  return data;
+};
+
+export const fetchAllNotifications = async (limit = 100) => {
+  // Manager-only: list all notifications regardless of audience
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) { console.error('Error fetching all notifications:', error); return []; }
+  return data || [];
+};
+
+export const deleteNotification = async (id) => {
+  const { error } = await supabase.from('notifications').delete().eq('id', id);
+  if (error) { console.error('Error deleting notification:', error); return false; }
+  return true;
+};
+
+// ==========================================
+// NEWSLETTER
+// ==========================================
+
+export const subscribeToNewsletter = async ({ email, fullName = null, frequency = 'weekly', userId = null, source = 'footer' }) => {
+  if (!email) return { error: 'Email obligatorio' };
+  const { data, error } = await supabase
+    .from('newsletter_subscribers')
+    .upsert({
+      email: email.toLowerCase().trim(),
+      full_name: fullName,
+      frequency,
+      user_id: userId,
+      source,
+      is_active: true,
+      unsubscribed_at: null
+    }, { onConflict: 'email' })
+    .select()
+    .single();
+  if (error) {
+    console.error('Error subscribing to newsletter:', error);
+    return { error: error.message };
+  }
+  return { data };
+};
+
+export const fetchNewsletterSubscribers = async () => {
+  const { data, error } = await supabase
+    .from('newsletter_subscribers')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Error fetching subscribers:', error); return []; }
+  return data || [];
+};
+
+export const updateSubscriberStatus = async (id, isActive) => {
+  const payload = { is_active: isActive };
+  if (!isActive) payload.unsubscribed_at = new Date().toISOString();
+  const { error } = await supabase
+    .from('newsletter_subscribers')
+    .update(payload)
+    .eq('id', id);
+  if (error) { console.error('Error updating subscriber:', error); return false; }
+  return true;
+};
+
+// ==========================================
+// ADMIN: USERS PANEL
+// ==========================================
+
+export const fetchAdminUsers = async () => {
+  const { data, error } = await supabase
+    .from('admin_users_overview')
+    .select('*')
+    .order('signed_up_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching admin users:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const updateUserRole = async (userId, role) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (error) { console.error('Error updating role:', error); return false; }
+  return true;
+};
+
+export const updateUserSubscriptionTier = async (userId, tier) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ subscription_tier: tier, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (error) { console.error('Error updating subscription tier:', error); return false; }
+  return true;
+};
+
+// ==========================================
+// IMAGE UPLOAD (Storage)
+// ==========================================
+
+export const uploadStoryImage = async (storyId, file) => {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `${storyId}/cover.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('story-images')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) {
+    console.error('Error uploading image:', uploadError);
+    return null;
+  }
+
+  const { data } = supabase.storage.from('story-images').getPublicUrl(path);
+  const publicUrl = data?.publicUrl;
+  if (!publicUrl) return null;
+
+  const { error: dbError } = await supabase
+    .from('stories')
+    .update({ image_url: publicUrl, updated_at: new Date().toISOString() })
+    .eq('id', storyId);
+
+  if (dbError) {
+    console.error('Error saving image_url to story:', dbError);
+    return null;
+  }
+
+  return publicUrl;
 };
 
 // ==========================================

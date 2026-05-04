@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 import { updateProfile, updateUserSettings, getBiasStats, getUsageMetrics } from '../supabaseService';
 
 // --- ELEMENTOS UI REUSABLES ---
@@ -71,16 +72,24 @@ const TABS = [
 
 // --- COMPONENTES DE BLOQUE (SUBVISTAS) ---
 
+const ALL_CATEGORIES = ['POLÍTICA', 'ECONOMÍA', 'TECNOLOGÍA', 'SOCIEDAD', 'CULTURA', 'DEPORTES', 'CIENCIA', 'INTERNACIONAL', 'VIVIENDA', 'SUCESOS', 'MEDIO AMBIENTE'];
+
 const TabProfile = ({ user, profile }) => {
   const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [phone, setPhone] = useState(profile?.settings?.phone || '');
+  const [location, setLocation] = useState(profile?.settings?.location || '');
+  const [editing, setEditing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
     setLoading(true);
-    const result = await updateProfile(user.id, { full_name: fullName });
+    const [r1, r2] = await Promise.all([
+      updateProfile(user.id, { full_name: fullName }),
+      updateUserSettings(user.id, { ...(profile?.settings || {}), phone, location })
+    ]);
     setLoading(false);
-    if (result) {
+    if (r1 || r2) {
       setEditing(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -149,23 +158,17 @@ const TabProfile = ({ user, profile }) => {
              <div>
                <div style={{ fontSize: '11px', fontWeight: 900, opacity: 0.4, marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>TELÉFONO</div>
                {!editing ? (
-                 <div style={{ fontWeight: 600 }}>+34 600 000 000</div>
+                 <div style={{ fontWeight: 600 }}>{phone || <span style={{ opacity: 0.3 }}>—</span>}</div>
                ) : (
-                 <input defaultValue="+34 600 000 000" style={{ fontWeight: 600, border: 'none', borderBottom: '1px solid #ddd', width: '100%', outline: 'none', padding: '4px 0', fontFamily: 'inherit' }} />
+                 <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+34 600 000 000" style={{ fontWeight: 600, border: 'none', borderBottom: '1px solid #ddd', width: '100%', outline: 'none', padding: '4px 0', fontFamily: 'inherit' }} />
                )}
              </div>
              <div>
                <div style={{ fontSize: '11px', fontWeight: 900, opacity: 0.4, marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>LOCALIZACIÓN</div>
                {!editing ? (
-                 <>
-                   <div style={{ fontWeight: 600 }}>Español (ES)</div>
-                   <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px' }}>Madrid, España</div>
-                 </>
+                 <div style={{ fontWeight: 600 }}>{location || <span style={{ opacity: 0.3 }}>—</span>}</div>
                ) : (
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                   <select style={{ fontWeight: 600, border: 'none', borderBottom: '1px solid #ddd', outline: 'none', padding: '4px 0', background: 'transparent', fontFamily: 'inherit' }}><option>Español (ES)</option><option>English (US)</option></select>
-                   <select style={{ fontSize: '12px', opacity: 0.6, border: 'none', outline: 'none', padding: 0, background: 'transparent', fontFamily: 'inherit' }}><option>Madrid, España</option></select>
-                 </div>
+                 <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Madrid, España" style={{ fontWeight: 600, border: 'none', borderBottom: '1px solid #ddd', width: '100%', outline: 'none', padding: '4px 0', fontFamily: 'inherit' }} />
                )}
              </div>
           </div>
@@ -185,6 +188,45 @@ const TabProfile = ({ user, profile }) => {
   );
 };
 
+
+const CategoriesSection = ({ settings, updateSetting }) => {
+  const [showPicker, setShowPicker] = useState(false);
+  const favCats = settings.favorite_categories || ['POLÍTICA', 'ECONOMÍA', 'TECNOLOGÍA', 'SUCESOS', 'VIVIENDA'];
+  const available = ALL_CATEGORIES.filter(c => !favCats.includes(c));
+
+  const removeCategory = (cat) => updateSetting('favorite_categories', favCats.filter(c => c !== cat));
+  const addCategory = (cat) => { updateSetting('favorite_categories', [...favCats, cat]); setShowPicker(false); };
+
+  return (
+    <div>
+      <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>MIS TEMAS FAVORITOS</h3>
+      <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px' }}>Estos temas aparecen en tu página principal. Pulsa ✕ para quitar uno.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', position: 'relative' }}>
+        {favCats.map(c => (
+          <div key={c} style={{ padding: '12px 24px', border: '1px solid black', background: 'white', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>{c}</span>
+            <span onClick={() => removeCategory(c)} style={{ cursor: 'pointer', opacity: 0.4, fontWeight: 900, lineHeight: 1 }} title="Quitar tema">✕</span>
+          </div>
+        ))}
+        {available.length > 0 && (
+          <div onClick={() => setShowPicker(p => !p)} style={{ padding: '12px 24px', border: '1px dashed #ccc', background: '#fafafa', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span> AÑADIR TEMA
+          </div>
+        )}
+        {showPicker && (
+          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: 'white', border: '1px solid black', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px', zIndex: 100, maxWidth: '400px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
+            {available.map(c => (
+              <span key={c} onClick={() => addCategory(c)} style={{ padding: '8px 16px', border: '1px solid #eee', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', background: '#fafafa' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'black'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fafafa'}
+              >{c}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const TabPreferences = ({ user, profile }) => {
   const [settings, setSettings] = useState(profile?.settings || {});
@@ -302,40 +344,41 @@ const TabPreferences = ({ user, profile }) => {
         </div>
 
         {/* Categories */}
-        <div>
-           <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5 }}>MIS TEMAS FAVORITOS</h3>
-           <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px' }}>Organiza los temas que aparecen en tu página principal.</p>
-           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {['POLÍTICA', 'ECONOMÍA', 'TECNOLOGÍA', 'SUCESOS', 'VIVIENDA'].map(c => (
-                <div key={c} style={{ padding: '12px 24px', border: '1px solid black', background: 'white', display: 'flex', alignItems: 'center', gap: '12px', transition: '0.2s', cursor: 'grab' }}>
-                  <span style={{ opacity: 0.3 }}>≡</span>
-                  <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>{c}</span>
-                  <span style={{ cursor: 'pointer', opacity: 0.3, fontWeight: 900, marginLeft: '8px' }}>✕</span>
-                </div>
-              ))}
-              <div style={{ padding: '12px 24px', border: '1px dashed #ccc', color: 'black', background: '#fafafa', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 <span style={{ fontSize: '16px' }}>+</span> AÑADIR TEMA
-              </div>
-           </div>
-        </div>
+        <CategoriesSection settings={settings} updateSetting={updateSetting} />
     </div>
   );
 };
 
 
-const TabSecurity = () => {
+const TabSecurity = ({ user }) => {
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!window.confirm(`¿Enviamos un correo a ${user?.email} para cambiar la contraseña?`)) return;
+    setPwLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(user?.email, {
+      redirectTo: window.location.origin + '/auth?reset=true'
+    });
+    setPwLoading(false);
+    if (error) setPwMsg('Error: ' + error.message);
+    else setPwMsg('Correo enviado. Revisa tu bandeja de entrada.');
+    setTimeout(() => setPwMsg(''), 5000);
+  };
+
    return (
       <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
          <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '40px' }}>Seguridad</h2>
          
          <div style={{ border: 'var(--border-thin)', padding: '40px', marginBottom: '60px' }}>
              <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '32px' }}>Ajustes de acceso</h3>
+             {pwMsg && <div style={{ padding: '12px 16px', background: pwMsg.startsWith('Error') ? '#fff5f5' : 'black', color: pwMsg.startsWith('Error') ? '#d32f2f' : 'white', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '24px' }}>{pwMsg}</div>}
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', paddingBottom: '32px', borderBottom: '1px solid #eee' }}>
                 <div>
                    <div style={{ fontSize: '15px', fontWeight: 800 }}>Contraseña</div>
-                   <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '4px' }}>Cambiado por última vez hace unos meses.</div>
+                   <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '4px' }}>Recibirás un correo para cambiarla de forma segura.</div>
                 </div>
-                <Button variant="secondary">CAMBIAR CONTRASEÑA</Button>
+                <Button variant="secondary" onClick={handleChangePassword} disabled={pwLoading}>{pwLoading ? 'ENVIANDO...' : 'CAMBIAR CONTRASEÑA'}</Button>
              </div>
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ maxWidth: '60%' }}>
@@ -347,40 +390,36 @@ const TabSecurity = () => {
          </div>
 
          <div style={{ border: 'var(--border-thin)', padding: '40px', marginBottom: '60px' }}>
-             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Cuentas vinculadas</h3>
+             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '8px' }}>Cuentas vinculadas</h3>
+             <p style={{ fontSize: '13px', opacity: 0.5, marginBottom: '24px' }}>El inicio de sesión con Google y Apple estará disponible próximamente.</p>
              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ flex: 1, padding: '24px', border: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
+                <div style={{ flex: 1, padding: '24px', border: '1px dashed #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.4 }}>
                    <div style={{ fontWeight: 800 }}>Google</div>
-                   <span style={{ fontSize: '10px', color: '#2e7d32', fontWeight: 800 }}>CONECTADO</span>
+                   <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>PRÓXIMAMENTE</span>
                 </div>
-                <div style={{ flex: 1, padding: '24px', border: '1px dashed #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1, padding: '24px', border: '1px dashed #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.4 }}>
                    <div style={{ fontWeight: 800 }}>Apple</div>
-                   <Button variant="ghost">CONECTAR</Button>
+                   <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>PRÓXIMAMENTE</span>
                 </div>
              </div>
          </div>
 
          <div>
              <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Sesiones activas</h3>
-             <div style={{ border: 'var(--border-thin)' }}>
-                <div style={{ padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f5f5', borderBottom: '1px solid #ccc' }}>
+             <div style={{ border: 'var(--border-thin)', padding: '32px', background: '#fafafa' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                    <div>
                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 800 }}>MacBook Pro 16"</span>
-                        <span style={{ background: 'black', color: 'white', padding: '4px 8px', fontSize: '9px', fontWeight: 900 }}>ESTE DISPOSITIVO</span>
+                        <span style={{ fontSize: '15px', fontWeight: 800 }}>Sesión actual</span>
+                        <span style={{ background: 'black', color: 'white', padding: '4px 8px', fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>ESTE DISPOSITIVO</span>
                      </div>
-                     <div style={{ fontSize: '12px', opacity: 0.6, fontFamily: 'var(--font-mono)' }}>Madrid, España • Activo ahora</div>
+                     <div style={{ fontSize: '12px', opacity: 0.5, fontFamily: 'var(--font-mono)' }}>
+                       {user?.email} • Activo ahora
+                     </div>
                    </div>
                 </div>
-                <div style={{ padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                   <div>
-                     <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>iPhone 15 Pro</div>
-                     <div style={{ fontSize: '12px', opacity: 0.6, fontFamily: 'var(--font-mono)' }}>Barcelona, España • Hace 6 horas</div>
-                     <Button variant="danger">CERRAR SESIÓN</Button>
-                   </div>
-                </div>
-                <div style={{ marginTop: '24px', textAlign: 'right' }}>
-                   <Button variant="danger">CERRAR TODAS LAS SESIONES</Button>
+                <div style={{ marginTop: '24px', fontSize: '12px', opacity: 0.4, fontFamily: 'var(--font-mono)' }}>
+                  La gestión de sesiones en otros dispositivos está disponible próximamente.
                 </div>
              </div>
          </div>
@@ -552,6 +591,29 @@ const TabStats = ({ user }) => {
    const [usage, setUsage] = useState(null);
    const [loading, setLoading] = useState(true);
 
+   const handleDownloadCSV = () => {
+     const rows = [
+       ['Métrica', 'Valor'],
+       ['Noticias leídas', usage?.articles_read || 0],
+       ['Tiempo de lectura (min)', Math.round((usage?.reading_seconds || 0) / 60)],
+       ['Artículos analizados totales', stats?.total_articles || 0],
+       ['Diversidad de fuentes (%)', stats?.diversity_pct || 0],
+       ['Sesgo predominante', Object.entries(stats?.bias_distribution || {}).sort((a,b) => b[1]-a[1])[0]?.[0] || 'N/A'],
+       ...Object.entries(stats?.bias_distribution || {}).map(([k, v]) => [`Lecturas sesgo ${k}`, v]),
+       ...(stats?.top_sources || []).map(s => [`Fuente: ${s.name}`, `${s.pct}%`]),
+     ];
+     const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+     const url = URL.createObjectURL(blob);
+     const a = document.createElement('a');
+     a.href = url;
+     a.download = `tne-estadisticas-${new Date().toISOString().split('T')[0]}.csv`;
+     document.body.appendChild(a);
+     a.click();
+     document.body.removeChild(a);
+     URL.revokeObjectURL(url);
+   };
+
    useEffect(() => {
      const loadData = async () => {
        const [s, u] = await Promise.all([
@@ -633,34 +695,65 @@ const TabStats = ({ user }) => {
              </div>
              <div style={{ border: 'var(--border-thin)', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>PRECISIÓN DE ANÁLISIS</h3>
-                    <div style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-1px' }}>99.2%</div>
-                    <div style={{ fontSize: '14px', opacity: 0.6, marginTop: '8px', marginBottom: '32px', lineHeight: '1.5' }}>Grado de confianza del algoritmo en la detección de sesgos para tu perfil.</div>
+                    <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '32px', opacity: 0.5, borderBottom: '1px solid #ccc', paddingBottom: '16px' }}>EXPORTAR DATOS</h3>
+                    <div style={{ fontSize: '13px', opacity: 0.6, lineHeight: '1.6', marginBottom: '32px' }}>
+                      Descarga un archivo CSV con todas tus métricas de lectura, distribución de sesgo y fuentes más consultadas.
+                    </div>
                   </div>
-                  <Button variant="secondary" block style={{ marginTop: 'auto' }}>DESCARGAR MIS DATOS (CSV)</Button>
+                  <Button variant="secondary" block onClick={handleDownloadCSV} style={{ marginTop: 'auto' }}>DESCARGAR MIS DATOS (CSV)</Button>
              </div>
          </div>
       </div>
    )
 }
 
-const TabPrivacy = () => {
+const TabPrivacy = ({ user, profile }) => {
+  const [settings, setSettings] = useState(profile?.settings || {});
+  const [saved, setSaved] = useState(false);
+
+  const updatePrivacy = async (key, value) => {
+    const next = { ...settings, [key]: value };
+    setSettings(next);
+    await updateUserSettings(user.id, next);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const data = {
+      email: user?.email,
+      settings,
+      exported_at: new Date().toISOString(),
+      note: 'Exportación de datos personales TNE'
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tne-mis-datos-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
    return (
       <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+         {saved && <div style={{ position: 'fixed', top: '90px', right: '40px', padding: '12px 24px', background: 'black', color: 'white', fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', zIndex: 1000 }}>PREFERENCIA GUARDADA ✓</div>}
          <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', marginBottom: '40px' }}>Privacidad y Datos</h2>
-         
+
          <div style={{ border: 'var(--border-thin)', padding: '40px', marginBottom: '60px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Cómo usamos tus datos</h3>
             <p style={{ fontSize: '15px', lineHeight: '1.7', opacity: 0.7, marginBottom: '40px', maxWidth: '700px' }}>
               No vendemos tu información a terceros. Usamos tus datos exclusivamente para mejorar tu experiencia de lectura y mostrarte contenido relevante.
             </p>
-            
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '32px', borderBottom: '1px solid #eee', marginBottom: '32px' }}>
                 <div style={{ maxWidth: '70%' }}>
                    <div style={{ fontSize: '16px', fontWeight: 800 }}>Permitir estadísticas técnicas</div>
                    <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '8px', lineHeight: '1.5' }}>Si lo activas, nos ayudas a detectar errores en la web para que todo cargue rápido.</div>
                 </div>
-                <Toggle active={true} />
+                <Toggle active={settings.privacy_tech_stats !== false} onChange={v => updatePrivacy('privacy_tech_stats', v)} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -668,16 +761,15 @@ const TabPrivacy = () => {
                    <div style={{ fontSize: '16px', fontWeight: 800 }}>Uso de historial para recomendaciones</div>
                    <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '8px', lineHeight: '1.5' }}>Permite que el sistema use lo que has leído antes para sugerirte noticias nuevas.</div>
                 </div>
-                <Toggle active={true} />
+                <Toggle active={settings.privacy_history !== false} onChange={v => updatePrivacy('privacy_history', v)} />
             </div>
          </div>
 
          <div style={{ border: 'var(--border-thin)', padding: '40px', marginBottom: '60px', background: '#fafafa' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Descargar tus datos</h3>
-            <p style={{ fontSize: '14px', lineHeight: '1.6', opacity: 0.7, marginBottom: '32px', maxWidth: '700px' }}>Eres el dueño de tu información. Puedes descargar todo lo que hemos guardado en un archivo simple.</p>
+            <p style={{ fontSize: '14px', lineHeight: '1.6', opacity: 0.7, marginBottom: '32px', maxWidth: '700px' }}>Eres el dueño de tu información. Puedes descargar todo lo que hemos guardado en un archivo JSON.</p>
             <div style={{ display: 'flex', gap: '16px' }}>
-               <Button variant="secondary">DESCARGAR MIS DATOS</Button>
-               <Button variant="ghost">VER CONDICIONES LEGALES</Button>
+               <Button variant="secondary" onClick={handleDownload}>DESCARGAR MIS DATOS</Button>
             </div>
          </div>
 
@@ -702,11 +794,11 @@ const Account = ({ user, profile, onBack, onSaveSettings, onUpgrade }) => {
     switch(activeTab) {
       case 'profile': return <TabProfile user={user} profile={profile} />;
       case 'preferences': return <TabPreferences user={user} profile={profile} />;
-      case 'security': return <TabSecurity user={user} profile={profile} />;
+      case 'security': return <TabSecurity user={user} />;
       case 'billing': return <TabBilling profile={profile} user={user} />;
       case 'notifications': return <TabNotifications user={user} profile={profile} />;
       case 'stats': return <TabStats user={user} />;
-      case 'privacy': return <TabPrivacy user={user} profile={profile} />;
+      case 'privacy': return <TabPrivacy user={user} profile={profile} key={profile?.id} />;
       default: return <TabProfile user={user} profile={profile} />;
     }
   };

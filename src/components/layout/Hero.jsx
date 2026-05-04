@@ -1,7 +1,9 @@
 import React from 'react';
 import Plus from '../ui/Plus';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 const Hero = ({ activeCategory, activeCity, activeTopic }) => {
+  const { isMobile } = useBreakpoint();
   return (
     <section className="layout-split" style={{ minHeight: '300px' }}>
       <div className="sidebar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -16,7 +18,7 @@ const Hero = ({ activeCategory, activeCity, activeTopic }) => {
         <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '3px' }}>
           {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
         </div>
-        <h1 style={{ fontSize: '80px', lineHeight: '0.9', letterSpacing: '-4px', margin: 0 }}>
+        <h1 style={{ fontSize: isMobile ? '40px' : '80px', lineHeight: isMobile ? '1.1' : '0.9', letterSpacing: isMobile ? '-2px' : '-4px', margin: 0 }}>
           {activeCategory === 'TODO' && !activeCity && !activeTopic
             ? 'Contrasta las \n noticias en España.' 
             : (activeCategory === 'PARA TI' ? 'Tu Selección \n Personal.' : `Resultados para: \n ${activeCategory !== 'TODO' ? activeCategory : (activeTopic || activeCity)}.`)}

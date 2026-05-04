@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import NewsletterSignup from './NewsletterSignup';
 
 const Footer = ({ links }) => {
   const topCols = [
@@ -63,10 +64,15 @@ const Footer = ({ links }) => {
       borderTop: '1px solid #333'
     }}>
       <div className="container">
+        {/* Newsletter signup banner */}
+        <div style={{ marginBottom: '80px' }}>
+          <NewsletterSignup variant="dark" source="footer" />
+        </div>
+
         {/* Top Grid */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(5, 1fr)', 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, 1fr)',
           gap: '40px',
           marginBottom: '80px'
         }}>

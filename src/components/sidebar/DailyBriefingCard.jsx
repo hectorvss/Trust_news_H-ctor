@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DailyBriefingCard = ({ navigate, globalHeadlines }) => {
+const DailyBriefingCard = ({ navigate, globalHeadlines, storiesCount }) => {
   return (
     <div 
       onClick={() => navigate('/daily-summary')}
@@ -11,7 +11,7 @@ const DailyBriefingCard = ({ navigate, globalHeadlines }) => {
       </div>
       <h2 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-1px' }}>Resumen Diario</h2>
       <div style={{ fontSize: '11px', opacity: 0.4, fontFamily: 'var(--font-mono)', marginBottom: '32px', fontWeight: 800 }}>
-        12 HISTORIAS • 342 ARTÍCULOS • 8M LECTURA
+        {storiesCount || '—'} HISTORIAS • {Math.round((storiesCount || 0) * 4.2)} ARTÍCULOS EST. • {Math.round((storiesCount || 0) * 4)}M LECTURA
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '30px' }}>
         {globalHeadlines.map((h, i) => (

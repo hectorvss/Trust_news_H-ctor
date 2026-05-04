@@ -8,13 +8,14 @@ import BlindSpotsCard from './BlindSpotsCard';
 import RelatedTopicsCard from './RelatedTopicsCard';
 import LocalNewsCard from './LocalNewsCard';
 
-const Sidebar = ({ 
-  navigate, 
-  globalHeadlines, 
-  favoritesCount, 
-  blindSpotsData, 
-  relatedTopics, 
+const Sidebar = ({
+  navigate,
+  globalHeadlines,
+  favoritesCount,
+  blindSpotsData,
+  relatedTopics,
   activeTopic,
+  storiesCount,
   loading
 }) => {
   if (loading) {
@@ -28,10 +29,10 @@ const Sidebar = ({
   }
   return (
     <div className="sidebar">
-      <DailyBriefingCard navigate={navigate} globalHeadlines={globalHeadlines} />
+      <DailyBriefingCard navigate={navigate} globalHeadlines={globalHeadlines} storiesCount={storiesCount} />
       <BiasCard navigate={navigate} />
       <FavoritesCard navigate={navigate} favoritesCount={favoritesCount} />
-      <HeadlinesCard headlines={[
+      <HeadlinesCard headlines={globalHeadlines?.length > 0 ? globalHeadlines : [
         { t: 'El BCE mantiene los tipos pero apunta a junio.', w: '70%' },
         { t: 'Crisis de vivienda: el precio del alquiler sube un 12%.', w: '35%' },
         { t: 'Sánchez propone un pacto nacional por la IA.', w: '85%' },

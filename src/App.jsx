@@ -1,40 +1,49 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import './index.css';
+// Critical path — loaded eagerly
 import Navbar from './components/layout/Navbar';
 import TrendingBar from './components/layout/TrendingBar';
 import Hero from './components/layout/Hero';
 import NewsFeed from './components/layout/NewsFeed';
 import Sidebar from './components/sidebar/Sidebar';
 import SpecialSection from './components/layout/SpecialSection';
-import Account from './components/Account';
-import CorporateLanding from './components/CorporateLanding';
-import StoryDetail from './components/StoryDetail';
-import StoryReader from './components/StoryReader';
-import ManagerStudio from './components/ManagerStudio';
 import ShareModal from './components/ShareModal';
 import Footer from './components/Footer';
-import Pricing from './components/Pricing';
-import Auth from './components/Auth';
-import DailySummary from './components/DailySummary';
-import FavoritesView from './components/FavoritesView';
-import BiasAnalysis from './components/BiasAnalysis';
+// Route-level code splitting
+const Account = lazy(() => import('./components/Account'));
+const CorporateLanding = lazy(() => import('./components/CorporateLanding'));
+const StoryDetail = lazy(() => import('./components/StoryDetail'));
+const StoryReader = lazy(() => import('./components/StoryReader'));
+const ManagerStudio = lazy(() => import('./components/ManagerStudio'));
+const Pricing = lazy(() => import('./components/Pricing'));
+const Auth = lazy(() => import('./components/Auth'));
+const DailySummary = lazy(() => import('./components/DailySummary'));
+const FavoritesView = lazy(() => import('./components/FavoritesView'));
+const BiasAnalysis = lazy(() => import('./components/BiasAnalysis'));
+const SearchResults = lazy(() => import('./components/SearchResults'));
+
 import { useAuth } from './context/AuthContext';
-import { 
-  getFavorites, 
-  addFavorite, 
-  removeFavorite, 
-  logReading, 
-  fetchStories, 
-  fetchStoryById, 
+import {
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+  logReading,
+  fetchStories,
+  fetchStoryById,
   fetchAppConfig,
   getUsageMetrics,
   pingUsage,
   fetchSpecialSections
 } from './supabaseService';
 import AccessLimitModal from './components/AccessLimitModal';
-import SearchResults from './components/SearchResults';
+
+const PageLoader = () => (
+  <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 900, letterSpacing: '2px', opacity: 0.3 }}>
+    CARGANDO...
+  </div>
+);
 
 // Anonymous favorites persistence (localStorage)
 const ANON_FAVS_KEY = 'tne_anon_favorites';
@@ -352,6 +361,7 @@ const App = () => {
         categories={categories} 
       />
       <main style={{ marginTop: '72px', minHeight: '100vh', background: 'white' }}>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={
             <>
@@ -386,13 +396,14 @@ const App = () => {
 
               {/* Content Split */}
               <section className="layout-split">
-                <Sidebar 
-                  navigate={navigate} 
-                  globalHeadlines={globalHeadlines} 
-                  favoritesCount={favorites.length} 
-                  blindSpotsData={blindSpotsData} 
-                  relatedTopics={(appConfig.related_topics?.length > 0) ? appConfig.related_topics : ['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO']} 
-                  activeTopic={activeTopic} 
+                <Sidebar
+                  navigate={navigate}
+                  globalHeadlines={globalHeadlines}
+                  favoritesCount={favorites.length}
+                  blindSpotsData={blindSpotsData}
+                  relatedTopics={(appConfig.related_topics?.length > 0) ? appConfig.related_topics : ['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO']}
+                  activeTopic={activeTopic}
+                  storiesCount={stories.length}
                   loading={storiesLoading}
                 />
 
@@ -493,7 +504,7 @@ const App = () => {
           } />
           <Route path="/pricing" element={<div className="container" style={{ padding: '60px 24px' }}><Pricing onBack={() => navigate('/')} /></div>} />
           <Route path="/auth" element={<div className="container" style={{ padding: '60px 24px' }}><Auth onBack={() => navigate('/')} /></div>} />
-          <Route path="/daily-summary" element={<DailySummary onBack={() => navigate('/')} />} />
+          <Route path="/daily-summary" element={<DailySummary onBack={() => navigate('/')} stories={stories} />} />
           <Route path="/favorites" element={
             <div className="container" style={{ padding: '60px 0' }}>
               <FavoritesView 
@@ -523,7 +534,20 @@ const App = () => {
                     return <div style={{ minHeight: '80vh' }} />;
                   }
 
+                  const seoDesc = currentStory.summary || currentStory.analyticalSnippet || '';
                   return (
+                    <>
+                      <Helmet>
+                        <title>{currentStory.title} | TNE España</title>
+                        <meta name="description" content={seoDesc.substring(0, 160)} />
+                        <meta property="og:title" content={`${currentStory.title} | TNE España`} />
+                        <meta property="og:description" content={seoDesc.substring(0, 200)} />
+                        <meta property="og:image" content={currentStory.image || ''} />
+                        <meta property="og:url" content={`${window.location.origin}/story/${currentStory.id}`} />
+                        <meta property="og:type" content="article" />
+                        <meta name="twitter:card" content="summary_large_image" />
+                        <link rel="canonical" href={`${window.location.origin}/story/${currentStory.id}`} />
+                      </Helmet>
                     <StoryDetail 
                       story={location.pathname === '/story/new' ? { category: 'POLÍTICA', bias: { left: 33, center: 34, right: 33 }, articles: [] } : currentStory} 
                       isFavorite={favStoryIds.has(String(currentStory.id))}
@@ -537,6 +561,7 @@ const App = () => {
                       activeTab={activeStoryTab} setActiveTab={setActiveStoryTab}
                       userRole={profile?.role || 'reader'}
                     />
+                    </>
                   );
                 })()}
             </div>
@@ -544,25 +569,31 @@ const App = () => {
           <Route path="/article/:id" element={
             <div className="container" style={{ padding: '60px 24px' }}>
               {(() => {
-                const articleId = location.pathname.split('/').pop();
-                const currentArticle = selectedArticle || (selectedStory?.articles?.[articleId]) || null;
-                
+                const articleIdx = parseInt(location.pathname.split('/').pop(), 10);
+                const currentArticle = selectedArticle
+                  || (selectedStory?.articles && !isNaN(articleIdx) ? selectedStory.articles[articleIdx] : null);
+
+                if (accessModal.isOpen) return <div style={{ minHeight: '80vh' }} />;
+
                 if (!currentArticle) {
                   return (
-                    <div style={{ padding: '100px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
-                      <h2 style={{ fontSize: '12px', opacity: 0.3 }}>CARGANDO ARTÍCULO...</h2>
+                    <div style={{ padding: '120px 40px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                      <div style={{ fontSize: '64px', fontWeight: 800, opacity: 0.05, marginBottom: '24px' }}>∅</div>
+                      <div style={{ fontSize: '12px', fontWeight: 900, opacity: 0.4, letterSpacing: '2px', marginBottom: '16px' }}>ARTÍCULO NO DISPONIBLE</div>
+                      <p style={{ fontSize: '14px', opacity: 0.5, maxWidth: '400px', margin: '0 auto 40px auto', lineHeight: '1.6' }}>
+                        Los artículos individuales se cargan desde la noticia principal. Visita la noticia para acceder a cada fuente.
+                      </p>
+                      <button onClick={() => navigate(-1 || '/')} style={{ padding: '16px 32px', background: 'black', color: 'white', border: 'none', fontWeight: 900, fontSize: '11px', cursor: 'pointer', letterSpacing: '1px' }}>
+                        ← VOLVER
+                      </button>
                     </div>
                   );
                 }
 
-                if (accessModal.isOpen) {
-                    return <div style={{ minHeight: '80vh' }} />;
-                }
-                
                 return (
-                  <StoryReader 
-                    article={currentArticle} 
-                    onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }} 
+                  <StoryReader
+                    article={currentArticle}
+                    onBack={() => { navigate(-1); setTimeout(() => window.scrollTo(0, scrollPos), 50); }}
                   />
                 );
               })()}
@@ -576,6 +607,7 @@ const App = () => {
           <Route path="/terms" element={<CorporateLanding type="TERMS" onBack={() => navigate('/')} />} />
           <Route path="/privacy" element={<CorporateLanding type="PRIVACY" onBack={() => navigate('/')} />} />
         </Routes>
+        </Suspense>
       </main>
       <Footer links={appConfig.footer_links} />
       <ShareModal 

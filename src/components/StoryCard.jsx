@@ -44,7 +44,7 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
           color: 'black'
         }}>{story.title}</h3>
         <p style={{ fontSize: '14px', opacity: 0.5, fontFamily: 'var(--font-mono)', letterSpacing: '-0.2px' }}>
-          {story.time} — Covering the latest developments in the region.
+          {story.time}{story.summary ? ` — ${story.summary.substring(0, 120)}${story.summary.length > 120 ? '…' : ''}` : ''}
         </p>
       </div>
 

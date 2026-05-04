@@ -2,7 +2,7 @@ import React from 'react';
 import StoryCard from '../StoryCard';
 import { SkeletonStory } from '../Skeleton';
 
-const NewsFeed = ({ storiesLoading, displayStories, stories, onSelectStory, favStoryIds, toggleFavorite, openShare, visibleStories, setVisibleStories }) => {
+const NewsFeed = ({ storiesLoading, displayStories, stories, onSelectStory, favStoryIds, toggleFavorite, openShare, visibleStories, finalStoriesCount, setVisibleStories }) => {
   return (
     <div className="main-content">
       {/* Main Stories Feed */}
