@@ -157,6 +157,17 @@ export const getReadingHistory = async (userId) => {
 // Mapper to convert DB snake_case to Frontend camelCase
 const mapStory = (s) => {
   if (!s) return null;
+  // Derived coverage from the real pipeline columns (coverage_left/center/right).
+  // Normalizing the three values works whether they are counts or percentages.
+  const _cl = Number(s.coverage_left) || 0, _cc = Number(s.coverage_center) || 0, _cr = Number(s.coverage_right) || 0;
+  const _sum = _cl + _cc + _cr;
+  const _total = s.sources_count ?? s.source_count ?? (Array.isArray(s.articles) ? s.articles.length : 0);
+  const _dist = _sum > 0
+    ? { left: Math.round(_cl / _sum * 100), center: Math.round(_cc / _sum * 100), right: Math.round(_cr / _sum * 100) }
+    : null;
+  const _lean = _dist
+    ? (_dist.left >= _dist.center && _dist.left >= _dist.right ? 'LEFT' : (_dist.right >= _dist.center ? 'RIGHT' : 'CENTER'))
+    : null;
   return {
     ...s,
     id: s.id,
@@ -188,8 +199,68 @@ const mapStory = (s) => {
     mediosAnalizados: Array.isArray(s.medios_analizados) ? s.medios_analizados : [],
     documentosInfo: Array.isArray(s.documentos_info) ? s.documentos_info : [],
     protagonistasInfo: s.protagonistas_info || { beneficiados: '', afectados: '' },
-    preguntasInfo: Array.isArray(s.preguntas_info) ? s.preguntas_info : []
+    preguntasInfo: Array.isArray(s.preguntas_info) ? s.preguntas_info : [],
+    // ── Derived coverage fields consumed by StoryCard / StoryDetail / coverage UI ──
+    totalSources: _total,
+    biasDistribution: _dist,
+    leaningLeft: _dist ? Math.round(_dist.left / 100 * _total) : 0,
+    leaningCenter: _dist ? Math.round(_dist.center / 100 * _total) : 0,
+    leaningRight: _dist ? Math.round(_dist.right / 100 * _total) : 0,
+    dominantLean: _lean,
+    dominantLeanPct: _dist ? Math.max(_dist.left, _dist.center, _dist.right) : 0,
+    factualityBreakdown: {},
+    ownershipBreakdown: {},
+    coverageUpdatedAt: s.pipeline_generated_at || s.updated_at || null
   };
+};
+
+// ── Sources catalog (consumed by Discover + per-article enrichment in StoryDetail) ──
+let _sourcesCache = null;
+
+export const fetchSources = async (force = false) => {
+  if (_sourcesCache && !force) return _sourcesCache;
+  const { data, error } = await supabase
+    .from('sources')
+    .select('*')
+    .eq('active', true)
+    .order('name', { ascending: true });
+  if (error) {
+    console.error('Error fetching sources:', error);
+    return [];
+  }
+  _sourcesCache = data || [];
+  return _sourcesCache;
+};
+
+export const mapSource = (s) => {
+  if (!s) return null;
+  const biasBucket =
+    ['LEFT', 'LEAN_LEFT'].includes(s.bias_rating) ? 'LEFT'
+    : ['RIGHT', 'LEAN_RIGHT'].includes(s.bias_rating) ? 'RIGHT'
+    : 'CENTER';
+  return {
+    id: s.id,
+    name: s.name,
+    domain: s.domain,
+    logoUrl: s.logo_url || (s.domain ? `https://www.google.com/s2/favicons?domain=${s.domain}&sz=64` : null),
+    biasRating: s.bias_rating,
+    biasBucket,
+    factuality: s.factuality,
+    ownershipName: s.ownership_name,
+    ownershipCategory: s.ownership_category,
+    country: s.country
+  };
+};
+
+export const buildSourceIndex = async () => {
+  const list = await fetchSources();
+  const idx = {};
+  list.forEach(s => {
+    const m = mapSource(s);
+    if (s.name) idx[s.name.toLowerCase()] = m;
+    if (s.id) idx[String(s.id).toLowerCase()] = m;
+  });
+  return idx;
 };
 
 export const searchStories = async (query) => {

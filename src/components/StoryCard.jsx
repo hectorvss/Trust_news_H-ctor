@@ -4,6 +4,13 @@ import BiasBar from './BiasBar';
 const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
   const [copied, setCopied] = useState(false);
 
+  // Prefer the real derived coverage distribution over the legacy bias field
+  const hasDerived = (story.totalSources || 0) > 0 && story.biasDistribution;
+  const dist = hasDerived ? story.biasDistribution : (story.bias || { left: 33, center: 34, right: 33 });
+  const srcCount = story.totalSources || story.sourceCount || 0;
+  const LEAN = { LEFT: 'IZQUIERDA', CENTER: 'CENTRO', RIGHT: 'DERECHA' };
+  const dominant = story.dominantLean ? `${story.dominantLeanPct}% ${LEAN[story.dominantLean]}` : null;
+
   const handleCopy = (e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(`${window.location.origin}/story/${story.id}`);
@@ -31,7 +38,7 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
             <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, fontFamily: 'var(--font-mono)' }}>IMPACTO: {story.impact || 'ALTO'}</span>
           </div>
         </div>
-        <span style={{ fontSize: '11px', fontWeight: 800, opacity: 0.3, letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>{story.sourceCount} SOURCES</span>
+        <span style={{ fontSize: '11px', fontWeight: 800, opacity: 0.3, letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>{srcCount} FUENTES</span>
       </div>
       
       <div>
@@ -63,10 +70,12 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
       
       <div style={{ marginTop: '0px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-           <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '-0.3px' }}>Media Bias Spectrum</span>
+           <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '-0.3px' }}>
+             Distribución de cobertura {dominant && <span style={{ opacity: 0.45, fontFamily: 'var(--font-mono)', fontSize: '10px' }}>· {dominant}</span>}
+           </span>
            <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.4 }}>VER PERSPECTIVAS ↗</span>
         </div>
-        <BiasBar bias={story.bias} />
+        <BiasBar bias={dist} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', alignItems: 'center', paddingTop: '12px' }}>

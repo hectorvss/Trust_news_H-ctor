@@ -4,7 +4,8 @@ import { Helmet } from 'react-helmet-async';
 import BiasBar from './BiasBar';
 import ShareModal from './ShareModal';
 import Plus from './ui/Plus';
-import { saveStory } from '../supabaseService';
+import { saveStory, buildSourceIndex } from '../supabaseService';
+import { CoverageDetails, SourceTag, SourceLogo, toBucket } from './coverage';
 
 const InlineEdit = ({ text, onChange, isEditing, tag = 'span', style = {}, multiline = false, placeholder = 'Añadir texto...' }) => {
   if (!isEditing) {
@@ -83,11 +84,18 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
   const [isSaving, setIsSaving] = useState(false);
   const [infoSubTab, setInfoSubTab] = useState('GENERAL');
   const [showManagerBar, setShowManagerBar] = useState(true);
-  
+  const [sourceIndex, setSourceIndex] = useState({});
+  const [coverageView, setCoverageView] = useState('COMPARE'); // LEFT | CENTER | RIGHT | COMPARE
+
   useEffect(() => {
     setEditedStory(story || {});
     if(!story || !story.id) setIsEditing(true);
   }, [story]);
+
+  // Load the source catalog once to enrich articles with bias/factuality/ownership
+  useEffect(() => {
+    buildSourceIndex().then(setSourceIndex).catch(() => {});
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -138,15 +146,68 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 
   if (!editedStory || Object.keys(editedStory).length === 0) return null;
 
-  const allArticles = (editedStory.articles || []).map(art => ({
-    ...art,
-    readerContent: art.readerContent,
-    title: editedStory.title || 'Título provisorio'
-  }));
+  // Enrich each article with catalog data (bias rating, factuality, ownership, logo)
+  const enrichArticle = (art) => {
+    const cat = sourceIndex[(art.source || '').toLowerCase()] || null;
+    const biasRating = cat?.biasRating || art.bias || 'CENTER';
+    return {
+      ...art,
+      readerContent: art.readerContent,
+      title: art.title || editedStory.title || 'Título provisorio',
+      _src: cat,
+      name: art.source,
+      domain: cat?.domain || null,
+      logoUrl: cat?.logoUrl || null,
+      biasRating,
+      _bucket: toBucket(biasRating),
+      factuality: cat?.factuality || null,
+      ownershipCategory: cat?.ownershipCategory || null
+    };
+  };
 
-  const filteredArticles = activeFilter === 'TODO' 
-    ? allArticles 
-    : allArticles.filter(art => art.bias === activeFilter);
+  const allArticles = (editedStory.articles || []).map(enrichArticle);
+
+  const filteredArticles = activeFilter === 'TODO'
+    ? allArticles
+    : allArticles.filter(art => art._bucket === activeFilter);
+
+  // Derive a coverage object: prefer DB-computed columns, else compute on the fly
+  const computeClientCoverage = () => {
+    const counts = { LEFT: 0, CENTER: 0, RIGHT: 0 };
+    const fact = {};
+    const own = {};
+    allArticles.forEach(a => {
+      counts[a._bucket] = (counts[a._bucket] || 0) + 1;
+      const f = a.factuality || 'UNKNOWN'; fact[f] = (fact[f] || 0) + 1;
+      const o = a.ownershipCategory || 'UNKNOWN'; own[o] = (own[o] || 0) + 1;
+    });
+    const total = allArticles.length;
+    const pct = n => (total > 0 ? Math.round((n * 100) / total) : 0);
+    const maxKey = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    return {
+      totalSources: total,
+      leaningLeft: counts.LEFT, leaningCenter: counts.CENTER, leaningRight: counts.RIGHT,
+      biasDistribution: { left: pct(counts.LEFT), center: pct(counts.CENTER), right: pct(counts.RIGHT) },
+      factualityBreakdown: fact,
+      ownershipBreakdown: own,
+      dominantLean: total > 0 ? maxKey : null,
+      dominantLeanPct: total > 0 ? pct(counts[maxKey] || 0) : 0,
+      coverageUpdatedAt: editedStory.coverageUpdatedAt || editedStory.updated_at || null
+    };
+  };
+
+  const coverageStory = (editedStory.totalSources && editedStory.totalSources > 0)
+    ? editedStory
+    : computeClientCoverage();
+
+  // Sources list for the bias distribution logos
+  const coverageSources = allArticles.map(a => ({
+    id: a._src?.id || a.source,
+    name: a.source,
+    domain: a.domain,
+    logoUrl: a.logoUrl,
+    biasRating: a.biasRating
+  }));
 
   const updateStory = (key, val) => {
     setEditedStory(prev => ({ ...prev, [key]: val }));
@@ -314,6 +375,60 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
           <div style={{ marginBottom: '60px' }}>
             {activeTab === 'RESUMEN' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+                {/* PERSPECTIVA DE COBERTURA — Left/Center/Right/Comparación (read mode) */}
+                {!isEditing && (editedStory.consensoNarrativo || '').trim() && (() => {
+                  const narratives = (editedStory.consensoNarrativo || '').split('|');
+                  const map = { LEFT: narratives[0], CENTER: narratives[1], RIGHT: narratives[2] };
+                  const viewLabel = { LEFT: 'IZQUIERDA', CENTER: 'CENTRO', RIGHT: 'DERECHA', COMPARE: 'COMPARACIÓN' };
+                  const toBullets = (txt) => (txt || '').split(/(?:\n|\.\s)/).map(s => s.trim()).filter(s => s.length > 4);
+                  return (
+                    <div style={{ border: 'var(--border-thin)', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', borderBottom: 'var(--border-thin)' }}>
+                        {['LEFT', 'CENTER', 'RIGHT', 'COMPARE'].map(v => (
+                          <button
+                            key={v}
+                            onClick={() => setCoverageView(v)}
+                            style={{
+                              flex: 1, padding: '12px 8px', border: 'none', cursor: 'pointer',
+                              fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '0.5px',
+                              borderRight: v !== 'COMPARE' ? '1px solid #eee' : 'none',
+                              background: coverageView === v ? '#000' : '#fff',
+                              color: coverageView === v ? '#fff' : '#000', transition: '0.2s'
+                            }}
+                          >
+                            {viewLabel[v]}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ padding: '28px' }}>
+                        {coverageView === 'COMPARE' ? (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+                            {['LEFT', 'CENTER', 'RIGHT'].map(b => (
+                              <div key={b} style={{ borderTop: `3px solid ${b === 'LEFT' ? '#000' : b === 'CENTER' ? '#888' : '#d8d8d8'}`, paddingTop: '14px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px', letterSpacing: '1px' }}>{viewLabel[b]}</div>
+                                <p style={{ fontSize: '13px', lineHeight: '1.5', margin: 0, fontWeight: 500 }}>{map[b] || 'Sin narrativa registrada para este lado.'}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            {toBullets(map[coverageView]).length > 0 ? (
+                              toBullets(map[coverageView]).map((line, idx) => (
+                                <div key={idx} style={{ display: 'flex', gap: '14px', fontSize: '15px', lineHeight: '1.5', fontWeight: 500 }}>
+                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#000', marginTop: '7px', flexShrink: 0 }} />
+                                  <span>{line}.</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p style={{ fontSize: '14px', opacity: 0.4, margin: 0, fontFamily: 'var(--font-mono)' }}>Sin narrativa registrada para esta perspectiva.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div>
                   <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>RESUMEN EJECUTIVO</div>
                   <div style={{ display: 'flex', gap: '24px', fontSize: '22px', lineHeight: '1.4', fontWeight: 600 }}>
@@ -795,7 +910,9 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '22px', height: '22px', background: 'black', borderRadius: '4px' }} />
+                      {isEditing
+                        ? <div style={{ width: '22px', height: '22px', background: 'black', borderRadius: '4px' }} />
+                        : <SourceLogo source={art} size={26} />}
                       <span style={{ fontWeight: 800, fontSize: '14px', fontFamily: 'var(--font-mono)' }}>
                         <InlineEdit text={art.source} onChange={v => { const a = [...editedStory.articles]; a[i].source = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="Medio (Ej. El País)..." />
                       </span>
@@ -804,13 +921,21 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                         (<InlineEdit text={art.origin} onChange={v => { const a = [...editedStory.articles]; a[i].origin = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="Ubicación/Origen..." />)
                       </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.3, letterSpacing: '1px' }}>
                          <InlineEdit text={art.type} onChange={v => { const a = [...editedStory.articles]; a[i].type = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="Tipo (ej. OPINIÓN)..." />
                       </span>
-                      <span style={{ fontSize: '10px', padding: '4px 10px', background: 'black', color: 'white', fontWeight: 800 }}>
-                         <InlineSelect text={art.bias} options={['LEFT', 'CENTER', 'RIGHT']} onChange={v => { const a = [...editedStory.articles]; a[i].bias = v; updateStory('articles', a); }} isEditing={isEditing} />
-                      </span>
+                      {isEditing ? (
+                        <span style={{ fontSize: '10px', padding: '4px 10px', background: 'black', color: 'white', fontWeight: 800 }}>
+                           <InlineSelect text={art.bias} options={['LEFT', 'CENTER', 'RIGHT']} onChange={v => { const a = [...editedStory.articles]; a[i].bias = v; updateStory('articles', a); }} isEditing={isEditing} />
+                        </span>
+                      ) : (
+                        <>
+                          <SourceTag kind="bias" value={art.biasRating} />
+                          {art.factuality && <SourceTag kind="factuality" value={art.factuality} />}
+                          {art.ownershipCategory && <SourceTag kind="ownership" value={art.ownershipCategory} />}
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -882,10 +1007,9 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
             </div>
           </div>
 
-          {/* DISTRIBUCIÓN DE SESGO */}
+          {/* COVERAGE DETAILS — distribución de sesgo / factualidad / propiedad derivadas */}
           <div style={{ marginBottom: '56px' }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', marginBottom: '24px', fontFamily: 'var(--font-mono)', opacity: 0.3 }}>DISTRIBUCIÓN DE SESGO (PREVIEW)</h4>
-            <BiasBar bias={editedStory.bias || {left:33, center: 34, right: 33}} />
+            <CoverageDetails story={coverageStory} sources={coverageSources} />
           </div>
 
           {/* FACT CHECK (Dynamic) */}
@@ -893,14 +1017,44 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
             <h4 style={{ fontSize: '10px', fontWeight: 900, letterSpacing: '1px', marginBottom: '16px', color: '#666' }}>VERIFICACIÓN TNE Intelligence</h4>
             <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '8px' }}>[✓] Verificación de Datos</div>
             <div style={{ fontSize: '12px', opacity: 0.6, margin: 0, textAlign: 'justify', lineHeight: '1.4' }}>
-              <InlineEdit 
-                text={editedStory.factCheck} 
-                onChange={v => updateStory('factCheck', v)} 
+              <InlineEdit
+                text={editedStory.factCheck}
+                onChange={v => updateStory('factCheck', v)}
                 isEditing={isEditing} multiline
-                placeholder="Explicación o resolución del Fact Check sobre las afirmaciones." 
+                placeholder="Explicación o resolución del Fact Check sobre las afirmaciones."
               />
             </div>
           </div>
+
+          {/* SIMILAR NEWS TOPICS */}
+          {!isEditing && (() => {
+            const topics = Array.from(new Set([
+              editedStory.category,
+              editedStory.location,
+              ...allArticles.map(a => a.origin)
+            ].map(t => (t || '').toString().trim()).filter(t => t && t.toLowerCase() !== 'españa' && t.length > 1)));
+            const list = topics.slice(0, 6);
+            if (list.length === 0) return null;
+            return (
+              <div style={{ marginBottom: '56px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', marginBottom: '20px', fontFamily: 'var(--font-mono)', opacity: 0.3 }}>TEMAS RELACIONADOS</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eee', border: 'var(--border-thin)' }}>
+                  {list.map((topic, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => navigate(`/?topic=${encodeURIComponent(topic)}`)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#fff', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                    >
+                      <span style={{ fontSize: '14px', fontWeight: 700 }}>{topic}</span>
+                      <span style={{ fontSize: '16px', fontWeight: 900, lineHeight: 1, opacity: 0.5 }}>+</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
       </div>
