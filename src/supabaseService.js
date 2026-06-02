@@ -753,3 +753,59 @@ export const removeFavorite = async (userId, storyId) => {
   }
   return true;
 };
+
+// ==========================================
+// PIPELINE REVIEW QUEUE (A.11)
+// ==========================================
+
+export const fetchPipelineDrafts = async () => {
+  const { data, error } = await supabase
+    .from('stories')
+    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, blind_spot, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, is_auto_generated, pipeline_cluster_id')
+    .eq('status', 'draft')
+    .eq('is_auto_generated', true)
+    .order('source_count', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('Error fetching pipeline drafts:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const approveDraftStory = async (storyId) => {
+  const { error } = await supabase
+    .from('stories')
+    .update({
+      status: 'published',
+      cluster_status: 'approved',
+      reviewed_at: new Date().toISOString(),
+      published_at: new Date().toISOString()
+    })
+    .eq('id', storyId);
+
+  if (error) {
+    console.error('Error approving draft story:', error);
+    return false;
+  }
+  return true;
+};
+
+export const rejectDraftStory = async (storyId, reason = '') => {
+  const { error } = await supabase
+    .from('stories')
+    .update({
+      status: 'rejected',
+      cluster_status: 'rejected',
+      pipeline_rejected_reason: reason || null,
+      reviewed_at: new Date().toISOString()
+    })
+    .eq('id', storyId);
+
+  if (error) {
+    console.error('Error rejecting draft story:', error);
+    return false;
+  }
+  return true;
+};

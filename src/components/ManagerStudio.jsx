@@ -4,7 +4,8 @@ import {
   deleteStory, fetchAppConfig, updateAppConfig, fetchSpecialSections, saveSpecialSection, deleteSpecialSection, updateStoryArticles, uploadStoryImage,
   fetchAdminUsers, updateUserRole, updateUserSubscriptionTier,
   fetchAllNotifications, createNotification, deleteNotification,
-  fetchNewsletterSubscribers, updateSubscriberStatus
+  fetchNewsletterSubscribers, updateSubscriberStatus,
+  fetchPipelineDrafts, approveDraftStory, rejectDraftStory
 } from '../supabaseService';
 
 import Plus from './ui/Plus';
@@ -37,7 +38,7 @@ const blankArticle = () => ({
 const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   const navigate = useNavigate();
   const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor';
-  const [activeView, setActiveView] = useState('POSTS'); // POSTS, SECCIONES, DESTACADOS, USUARIOS, COMUNICACIÓN
+  const [activeView, setActiveView] = useState('POSTS'); // POSTS, REVISIÓN, SECCIONES, DESTACADOS, USUARIOS, COMUNICACIÓN
   const [loading, setLoading] = useState(false);
   const [localStories, setLocalStories] = useState(stories || []);
   const [specialSections, setSpecialSections] = useState([]);
@@ -58,6 +59,12 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   const [adminUsers, setAdminUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userFilter, setUserFilter] = useState('');
+
+  // Pipeline review queue
+  const [reviewDrafts, setReviewDrafts] = useState([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState('TODAS');
+  const [reviewActing, setReviewActing] = useState({}); // { [storyId]: 'approving'|'rejecting' }
 
   // Admin: communication panel
   const [commTab, setCommTab] = useState('NOTIFICACIONES'); // NOTIFICACIONES | NEWSLETTER
@@ -86,6 +93,10 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
     if (activeView === 'COMUNICACIÓN') {
       fetchAllNotifications().then(n => setAllNotifications(n || []));
       fetchNewsletterSubscribers().then(s => setSubscribers(s || []));
+    }
+    if (activeView === 'REVISIÓN') {
+      setReviewLoading(true);
+      fetchPipelineDrafts().then(d => { setReviewDrafts(d || []); setReviewLoading(false); });
     }
   }, [activeView]);
 
@@ -125,6 +136,22 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
     if (!window.confirm('¿Eliminar esta notificación?')) return;
     const ok = await deleteNotification(id);
     if (ok) setAllNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleApprove = async (storyId) => {
+    setReviewActing(prev => ({ ...prev, [storyId]: 'approving' }));
+    const ok = await approveDraftStory(storyId);
+    if (ok) setReviewDrafts(prev => prev.filter(s => s.id !== storyId));
+    setReviewActing(prev => { const next = { ...prev }; delete next[storyId]; return next; });
+  };
+
+  const handleReject = async (storyId) => {
+    const reason = window.prompt('Motivo del rechazo (opcional):') ?? null;
+    if (reason === null) return; // cancelled
+    setReviewActing(prev => ({ ...prev, [storyId]: 'rejecting' }));
+    const ok = await rejectDraftStory(storyId, reason);
+    if (ok) setReviewDrafts(prev => prev.filter(s => s.id !== storyId));
+    setReviewActing(prev => { const next = { ...prev }; delete next[storyId]; return next; });
   };
 
   // ── Admin: newsletter handlers ──
@@ -308,7 +335,7 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
 
       {/* NAVIGATION TABS */}
       <div style={{ display: 'flex', gap: '40px', marginBottom: '40px', flexWrap: 'wrap' }}>
-        {['POSTS', 'SECCIONES', 'DESTACADOS', 'USUARIOS', 'COMUNICACIÓN'].map(tab => (
+        {['POSTS', 'REVISIÓN', 'SECCIONES', 'DESTACADOS', 'USUARIOS', 'COMUNICACIÓN'].map(tab => (
           <h2
             key={tab}
             onClick={() => setActiveView(tab)}
@@ -1053,6 +1080,169 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
           })()}
         </div>
       )}
+
+      {/* ─── COLA DE REVISIÓN (pipeline auto-generated drafts) ─── */}
+      {activeView === 'REVISIÓN' && (() => {
+        const categories = ['TODAS', ...new Set(reviewDrafts.map(s => s.category).filter(Boolean))].sort();
+        const filtered = reviewFilter === 'TODAS' ? reviewDrafts : reviewDrafts.filter(s => s.category === reviewFilter);
+        const withSynthesis = filtered.filter(s => s.consensus_narrative).length;
+
+        return (
+          <div>
+            {/* Header stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+              {[
+                { label: 'EN COLA', value: reviewDrafts.length },
+                { label: 'CON SÍNTESIS IA', value: withSynthesis },
+                { label: 'SIN SÍNTESIS', value: reviewDrafts.length - withSynthesis },
+                { label: 'MOSTRANDO', value: filtered.length },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ border: '2px solid black', padding: '16px 20px', background: '#fafafa' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-1px' }}>{value}</div>
+                  <div style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.5, letterSpacing: '1px', marginTop: '4px' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* ANTHROPIC key warning when no synthesis generated */}
+            {withSynthesis === 0 && reviewDrafts.length > 0 && (
+              <div style={{ border: '2px solid #f59e0b', background: '#fffbeb', padding: '16px 20px', marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '20px' }}>⚠️</span>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: '13px', marginBottom: '4px' }}>SÍNTESIS IA PENDIENTE DE CONFIGURACIÓN</div>
+                  <div style={{ fontSize: '12px', opacity: 0.8, lineHeight: '1.5' }}>
+                    La función <code>generate-synthesis</code> requiere <strong>ANTHROPIC_API_KEY</strong> como secret en Supabase.
+                    Ve a <strong>Dashboard → Project Settings → Edge Functions → Secrets</strong> y añade la key.
+                    Las noticias a continuación ya tienen título, resumen y distribución de sesgo, pero sin el análisis comparativo de IA.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Category filter */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setReviewFilter(cat)}
+                  style={{
+                    padding: '6px 14px', border: '1px solid black', background: reviewFilter === cat ? 'black' : 'white',
+                    color: reviewFilter === cat ? 'white' : 'black', fontWeight: 900, fontSize: '10px',
+                    fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: '1px'
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {reviewLoading ? (
+              <div style={{ padding: '60px', textAlign: 'center', fontWeight: 800, opacity: 0.4 }}>CARGANDO COLA...</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ padding: '60px', background: 'white', textAlign: 'center', fontWeight: 800, opacity: 0.5 }}>
+                {reviewDrafts.length === 0 ? 'COLA VACÍA — EL PIPELINE NO HA GENERADO DRAFTS AÚN' : 'SIN RESULTADOS PARA ESTE FILTRO'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {filtered.map(story => {
+                  const acting = reviewActing[story.id];
+                  const srcCount = story.source_count || story.sources_count || 0;
+                  const covL = Math.round(story.coverage_left || 0);
+                  const covC = Math.round(story.coverage_center || 0);
+                  const covR = Math.round(story.coverage_right || 0);
+                  const medios = story.medios_analizados || (story.articles || []).map(a => a.source).filter(Boolean);
+
+                  return (
+                    <div key={story.id} style={{ border: '2px solid #e5e5e5', background: 'white', padding: '20px 24px' }}>
+                      {/* Story header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '12px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)', background: 'black', color: 'white', padding: '2px 6px', letterSpacing: '1px' }}>{story.category}</span>
+                            <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', opacity: 0.5 }}>{srcCount} fuentes</span>
+                            {story.consensus_narrative ? (
+                              <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#16a34a' }}>✓ SÍNTESIS IA</span>
+                            ) : (
+                              <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: '#d97706' }}>⏳ SIN SÍNTESIS</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '16px', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: '1.3', marginBottom: '8px' }}>{story.title}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.7, lineHeight: '1.5' }}>{story.summary}</div>
+                        </div>
+                        {story.image_url && (
+                          <img src={story.image_url} alt="" style={{ width: '100px', height: '70px', objectFit: 'cover', flexShrink: 0 }} />
+                        )}
+                      </div>
+
+                      {/* Bias bar */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', height: '6px', overflow: 'hidden', borderRadius: '3px', background: '#f0f0f0' }}>
+                          <div style={{ width: `${covL}%`, background: '#3b82f6' }} />
+                          <div style={{ width: `${covC}%`, background: '#9ca3af' }} />
+                          <div style={{ width: `${covR}%`, background: '#ef4444' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '4px', fontSize: '9px', fontFamily: 'var(--font-mono)', opacity: 0.6 }}>
+                          <span>IZQ {covL}%</span>
+                          <span>CTR {covC}%</span>
+                          <span>DER {covR}%</span>
+                        </div>
+                      </div>
+
+                      {/* Synthesis block */}
+                      {story.consensus_narrative && (
+                        <div style={{ background: '#f8f8f8', border: '1px solid #eee', padding: '12px 14px', marginBottom: '12px', fontSize: '12px', lineHeight: '1.5' }}>
+                          <div style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.5, marginBottom: '4px' }}>CONSENSO NARRATIVO</div>
+                          <div>{story.consensus_narrative}</div>
+                          {story.blind_spot && (
+                            <>
+                              <div style={{ fontSize: '9px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.5, marginTop: '10px', marginBottom: '4px' }}>ÁNGULO IGNORADO</div>
+                              <div style={{ opacity: 0.8 }}>{story.blind_spot}</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Sources */}
+                      {medios.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                          {[...new Set(medios)].slice(0, 12).map((m, i) => (
+                            <span key={i} style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', background: '#f0f0f0', padding: '3px 7px', fontWeight: 700 }}>{m}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <button
+                          onClick={() => handleApprove(story.id)}
+                          disabled={!!acting}
+                          style={{ padding: '10px 20px', background: '#16a34a', color: 'white', border: 'none', fontWeight: 900, fontSize: '11px', cursor: acting ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '1px', opacity: acting ? 0.5 : 1 }}
+                        >
+                          {acting === 'approving' ? 'PUBLICANDO...' : '✓ PUBLICAR'}
+                        </button>
+                        <button
+                          onClick={() => handleReject(story.id)}
+                          disabled={!!acting}
+                          style={{ padding: '10px 20px', background: 'white', color: '#dc2626', border: '2px solid #dc2626', fontWeight: 900, fontSize: '11px', cursor: acting ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '1px', opacity: acting ? 0.5 : 1 }}
+                        >
+                          {acting === 'rejecting' ? 'RECHAZANDO...' : '✕ RECHAZAR'}
+                        </button>
+                        <button
+                          onClick={() => handleEditStory(story)}
+                          style={{ padding: '10px 20px', background: 'white', color: 'black', border: '1px solid #ddd', fontWeight: 700, fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '1px' }}
+                        >
+                          EDITAR →
+                        </button>
+                        <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', opacity: 0.4, marginLeft: 'auto' }}>{story.id}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
     </div>
   );
