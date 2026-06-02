@@ -215,6 +215,7 @@ const mapStory = (s) => {
 };
 
 // ── Sources catalog (consumed by Discover + per-article enrichment in StoryDetail) ──
+// Bound to the LIVE schema: nombre/name, bias_label/bias_score, ownership, activo.
 let _sourcesCache = null;
 
 export const fetchSources = async (force = false) => {
@@ -222,33 +223,55 @@ export const fetchSources = async (force = false) => {
   const { data, error } = await supabase
     .from('sources')
     .select('*')
-    .eq('active', true)
-    .order('name', { ascending: true });
+    .eq('activo', true)
+    .order('nombre', { ascending: true });
   if (error) {
     console.error('Error fetching sources:', error);
     return [];
   }
-  _sourcesCache = data || [];
+  // The live catalog contains duplicate rows per outlet — dedupe by display name.
+  const seen = new Set();
+  _sourcesCache = (data || []).filter(s => {
+    const key = (s.nombre || s.name || s.id || '').toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   return _sourcesCache;
+};
+
+// Normalize the live bias representation (numeric bias_score / text bias_label) to
+// the 5-point vocabulary the coverage UI expects.
+const _biasFromSource = (s) => {
+  const score = typeof s.bias_score === 'number' ? s.bias_score : null;
+  if (score !== null) {
+    return score <= -2 ? 'LEFT' : score === -1 ? 'LEAN_LEFT' : score === 0 ? 'CENTER' : score === 1 ? 'LEAN_RIGHT' : 'RIGHT';
+  }
+  return {
+    'LEFT': 'LEFT', 'CENTER-LEFT': 'LEAN_LEFT', 'LEAN_LEFT': 'LEAN_LEFT', 'CENTER': 'CENTER',
+    'CENTER-RIGHT': 'LEAN_RIGHT', 'LEAN_RIGHT': 'LEAN_RIGHT', 'RIGHT': 'RIGHT'
+  }[(s.bias_label || '').toUpperCase()] || 'CENTER';
 };
 
 export const mapSource = (s) => {
   if (!s) return null;
-  const biasBucket =
-    ['LEFT', 'LEAN_LEFT'].includes(s.bias_rating) ? 'LEFT'
-    : ['RIGHT', 'LEAN_RIGHT'].includes(s.bias_rating) ? 'RIGHT'
-    : 'CENTER';
+  const biasRating = _biasFromSource(s);
+  const biasBucket = ['LEFT', 'LEAN_LEFT'].includes(biasRating) ? 'LEFT'
+    : ['RIGHT', 'LEAN_RIGHT'].includes(biasRating) ? 'RIGHT' : 'CENTER';
+  let domain = null;
+  try { if (s.url) domain = new URL(s.url).hostname.replace(/^www\./, ''); } catch { /* ignore */ }
   return {
     id: s.id,
-    name: s.name,
-    domain: s.domain,
-    logoUrl: s.logo_url || (s.domain ? `https://www.google.com/s2/favicons?domain=${s.domain}&sz=64` : null),
-    biasRating: s.bias_rating,
+    name: s.nombre || s.name || s.id,
+    domain,
+    logoUrl: s.logo_url || (domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null),
+    biasRating,
+    biasLabel: s.bias_label || biasRating,
     biasBucket,
     factuality: s.factuality,
-    ownershipName: s.ownership_name,
-    ownershipCategory: s.ownership_category,
-    country: s.country
+    ownershipName: s.ownership || null,
+    ownershipCategory: s.tipo || null,
+    country: s.country || s.pais
   };
 };
 
@@ -257,7 +280,8 @@ export const buildSourceIndex = async () => {
   const idx = {};
   list.forEach(s => {
     const m = mapSource(s);
-    if (s.name) idx[s.name.toLowerCase()] = m;
+    const name = s.nombre || s.name;
+    if (name) idx[name.toLowerCase()] = m;
     if (s.id) idx[String(s.id).toLowerCase()] = m;
   });
   return idx;
