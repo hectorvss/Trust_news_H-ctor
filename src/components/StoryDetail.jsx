@@ -5,7 +5,7 @@ import BiasBar from './BiasBar';
 import ShareModal from './ShareModal';
 import Plus from './ui/Plus';
 import { saveStory, buildSourceIndex } from '../supabaseService';
-import { CoverageDetails, SourceTag, SourceLogo, toBucket } from './coverage';
+import { CoverageDetails, SourceTag, SourceLogo, toBucket, MiniBiasBar } from './coverage';
 
 const InlineEdit = ({ text, onChange, isEditing, tag = 'span', style = {}, multiline = false, placeholder = 'Añadir texto...' }) => {
   if (!isEditing) {
@@ -196,9 +196,13 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
     };
   };
 
-  const coverageStory = (editedStory.totalSources && editedStory.totalSources > 0)
-    ? editedStory
-    : computeClientCoverage();
+  // Prefer real pipeline coverage (coverage_left/center/right via mapStory);
+  // fall back to computing from the enriched article list whenever the DB
+  // breakdown is missing or empty, so the bias widgets still populate.
+  const _db = editedStory.biasDistribution || null;
+  const _dbHasCoverage = !!_db && (editedStory.totalSources || 0) > 0 &&
+    ((_db.left || 0) + (_db.center || 0) + (_db.right || 0)) > 0;
+  const coverageStory = _dbHasCoverage ? editedStory : computeClientCoverage();
 
   // Sources list for the bias distribution logos
   const coverageSources = allArticles.map(a => ({
@@ -276,7 +280,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
           
           <div style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>SECCIÓN:</span>
-            <InlineSelect text={editedStory.category || 'POLÍTICA'} options={['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL']} onChange={v => updateStory('category', v)} isEditing={isEditing} />
+            <InlineSelect text={editedStory.category || 'POLÍTICA'} options={['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE']} onChange={v => updateStory('category', v)} isEditing={isEditing} />
           </div>
           <div style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>FACTUALIDAD:</span>
@@ -859,11 +863,15 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                  </button>
               ) : (
                 <div style={{ display: 'flex', gap: '32px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
-                  {['TODO', 'LEFT', 'CENTER', 'RIGHT'].map(f => (
-                    <span key={f} onClick={() => setActiveFilter(f)} style={{ cursor: 'pointer', opacity: activeFilter === f ? 1 : 0.1, letterSpacing: '1px' }}>
-                      {f === 'LEFT' ? 'IZQUIERDA' : f === 'CENTER' ? 'CENTRO' : f === 'RIGHT' ? 'DERECHA' : f}
-                    </span>
-                  ))}
+                  {['TODO', 'LEFT', 'CENTER', 'RIGHT'].map(f => {
+                    const n = f === 'TODO' ? allArticles.length : allArticles.filter(a => a._bucket === f).length;
+                    const label = f === 'LEFT' ? 'IZQUIERDA' : f === 'CENTER' ? 'CENTRO' : f === 'RIGHT' ? 'DERECHA' : 'TODO';
+                    return (
+                      <span key={f} onClick={() => setActiveFilter(f)} style={{ cursor: 'pointer', opacity: activeFilter === f ? 1 : 0.25, letterSpacing: '1px' }}>
+                        {label}{n > 0 ? <span style={{ opacity: 0.5, marginLeft: '6px' }}>{n}</span> : ''}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1006,6 +1014,53 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
               />
             </div>
           </div>
+
+          {/* BIAS DISTRIBUTION EDITOR (manager-only) — controla la barra de sesgo editorial */}
+          {isEditing && (() => {
+            const bias = editedStory.bias || { left: 0, center: 0, right: 0 };
+            const setBias = (patch) => updateStory('bias', { ...(editedStory.bias || { left: 0, center: 0, right: 0 }), ...patch });
+            const sum = (Number(bias.left) || 0) + (Number(bias.center) || 0) + (Number(bias.right) || 0);
+            const fields = [
+              { key: 'left', label: 'Izquierda' },
+              { key: 'center', label: 'Centro' },
+              { key: 'right', label: 'Derecha' }
+            ];
+            return (
+              <div style={{ border: 'var(--border-thin)', padding: '24px', marginBottom: '56px', background: '#fffcea' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', marginBottom: '20px', fontFamily: 'var(--font-mono)', opacity: 0.3 }}>
+                  DISTRIBUCIÓN DE SESGO (EDITORIAL)
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                  {fields.map(f => (
+                    <label key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                      <span>{f.label}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={bias?.[f.key] ?? 0}
+                        onChange={e => setBias({ [f.key]: Number(e.target.value) })}
+                        style={{
+                          width: '72px', padding: '6px 8px', textAlign: 'right',
+                          background: 'rgba(0,0,0,0.03)', border: '1px dashed #ccc', outline: 'none',
+                          fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 800, color: 'inherit'
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  <MiniBiasBar distribution={editedStory.bias || { left: 0, center: 0, right: 0 }} width={200} height={12} />
+                  <div style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', color: sum === 100 ? 'inherit' : '#d32f2f', opacity: sum === 100 ? 0.5 : 1 }}>
+                    Suma: {sum}%{sum !== 100 ? ' (recomendado 100)' : ''}
+                  </div>
+                </div>
+                <p style={{ fontSize: '10px', lineHeight: '1.5', fontFamily: 'var(--font-mono)', opacity: 0.4, margin: 0 }}>
+                  Controla la barra de sesgo que ven los lectores en la tarjeta y la ficha. Para noticias del pipeline se usa coverage_* automáticamente.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* COVERAGE DETAILS — distribución de sesgo / factualidad / propiedad derivadas */}
           <div style={{ marginBottom: '56px' }}>

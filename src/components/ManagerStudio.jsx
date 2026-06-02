@@ -9,6 +9,9 @@ import {
 } from '../supabaseService';
 
 import Plus from './ui/Plus';
+import PipelineDashboard from './manager/PipelineDashboard';
+import ClustersView from './manager/ClustersView';
+import ReviewQueue from './manager/ReviewQueue';
 
 const BIAS_OPTIONS = ['LEFT', 'CENTER', 'RIGHT'];
 const TYPE_OPTIONS = ['REPORTAJE', 'OPINIÓN', 'ANÁLISIS', 'CRÓNICA', 'ENTREVISTA', 'EDITORIAL', 'BREAKING'];
@@ -335,7 +338,7 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
 
       {/* NAVIGATION TABS */}
       <div style={{ display: 'flex', gap: '40px', marginBottom: '40px', flexWrap: 'wrap' }}>
-        {['POSTS', 'REVISIÓN', 'SECCIONES', 'DESTACADOS', 'USUARIOS', 'COMUNICACIÓN'].map(tab => (
+        {['POSTS', 'REVISIÓN', 'MOTOR', 'CLÚSTERS', 'SECCIONES', 'DESTACADOS', 'USUARIOS', 'COMUNICACIÓN'].map(tab => (
           <h2
             key={tab}
             onClick={() => setActiveView(tab)}
@@ -1081,8 +1084,13 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
         </div>
       )}
 
-      {/* ─── COLA DE REVISIÓN (pipeline auto-generated drafts) ─── */}
-      {activeView === 'REVISIÓN' && (() => {
+      {/* Paneles del motor de noticias — componentes dedicados (src/components/manager/) */}
+      {activeView === 'MOTOR' && <PipelineDashboard />}
+      {activeView === 'CLÚSTERS' && <ClustersView />}
+      {activeView === 'REVISIÓN' && <ReviewQueue onEditStory={(id) => handleEditStory({ id })} />}
+
+      {/* Legacy inline review queue — superseded by <ReviewQueue/>, disabled pending cleanup */}
+      {activeView === '__legacy_revision_disabled__' && (() => {
         const categories = ['TODAS', ...new Set(reviewDrafts.map(s => s.category).filter(Boolean))].sort();
         const filtered = reviewFilter === 'TODAS' ? reviewDrafts : reviewDrafts.filter(s => s.category === reviewFilter);
         const withSynthesis = filtered.filter(s => s.consensus_narrative).length;

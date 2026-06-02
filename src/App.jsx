@@ -277,7 +277,7 @@ const App = () => {
     navigate(`/story/${storyId}`);
   };
 
-  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL'];
+  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE'];
 
   // Stories from Supabase (single source of truth)
   const searchParams = new URLSearchParams(location.search);
@@ -412,6 +412,7 @@ const App = () => {
                   relatedTopics={(appConfig.related_topics?.length > 0) ? appConfig.related_topics : ['POLÍTICA FISCAL', 'IBEX 35', 'ENERGÍA VERDE', 'OTAN', 'STARTUPS', 'MUSEO DEL PRADO']}
                   activeTopic={activeTopic}
                   storiesCount={stories.length}
+                  stories={displayStories}
                   loading={storiesLoading}
                 />
 

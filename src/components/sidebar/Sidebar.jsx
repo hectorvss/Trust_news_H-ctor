@@ -16,9 +16,10 @@ const Sidebar = ({
   relatedTopics,
   activeTopic,
   storiesCount,
+  stories = [],
   loading
 }) => {
-  if (loading) {
+  if (loading && stories.length === 0) {
     return (
       <div className="sidebar">
         <SkeletonSidebar />
@@ -29,7 +30,7 @@ const Sidebar = ({
   }
   return (
     <div className="sidebar">
-      <DailyBriefingCard navigate={navigate} globalHeadlines={globalHeadlines} storiesCount={storiesCount} />
+      <DailyBriefingCard navigate={navigate} stories={stories} globalHeadlines={globalHeadlines} storiesCount={storiesCount} />
       <BiasCard navigate={navigate} />
       <FavoritesCard navigate={navigate} favoritesCount={favoritesCount} />
       <HeadlinesCard headlines={globalHeadlines?.length > 0 ? globalHeadlines : [

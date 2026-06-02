@@ -16,6 +16,9 @@ const Discover = ({ navigate, setActiveCategory }) => {
   const [follows, setFollows] = useState(loadFollows);
   const [sources, setSources] = useState([]);
   const [expanded, setExpanded] = useState({});
+  const [query, setQuery] = useState('');
+  const ql = query.trim().toLowerCase();
+  const match = (s) => !ql || String(s || '').toLowerCase().includes(ql);
 
   useEffect(() => {
     fetchSources().then(list => setSources((list || []).map(mapSource)));
@@ -65,7 +68,8 @@ const Discover = ({ navigate, setActiveCategory }) => {
     </div>
   );
 
-  const Section = ({ title, items, renderRow, sectionKey }) => {
+  const Section = ({ title, items, renderRow, sectionKey, searching }) => {
+    if (searching && items.length === 0) return null;
     const isOpen = expanded[sectionKey];
     const shown = isOpen ? items : items.slice(0, isMobile ? 5 : 8);
     return (
@@ -109,20 +113,30 @@ const Discover = ({ navigate, setActiveCategory }) => {
         ))}
       </div>
 
+      {/* Search across all interests (Figma 9:10034 — "Search all interests") */}
+      <div style={{ marginBottom: '48px' }}>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Buscar temas, lugares, personas o medios…"
+          style={{ width: '100%', maxWidth: '520px', padding: '14px 18px', border: 'var(--border-thin)', borderBottomWidth: '3px', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-heading)', outline: 'none' }}
+        />
+      </div>
+
       <Section
-        title="Temas" sectionKey="topics" items={TOPICS}
+        title="Temas" sectionKey="topics" items={TOPICS.filter(match)} searching={!!ql}
         renderRow={(t) => <Row key={t} icon={monogram(t)} label={t} followKey={`topic:${t}`} onOpen={() => goTopic(t)} />}
       />
       <Section
-        title="Lugares" sectionKey="places" items={PLACES}
+        title="Lugares" sectionKey="places" items={PLACES.filter(match)} searching={!!ql}
         renderRow={(p) => <Row key={p} icon={monogram(p)} label={p} followKey={`place:${p}`} onOpen={() => goPlace(p)} />}
       />
       <Section
-        title="Personas" sectionKey="people" items={PEOPLE}
+        title="Personas" sectionKey="people" items={PEOPLE.filter(match)} searching={!!ql}
         renderRow={(p) => <Row key={p} icon={monogram(p)} label={p} followKey={`person:${p}`} onOpen={() => goTopic(p)} />}
       />
       <Section
-        title="Fuentes" sectionKey="sources" items={sources}
+        title="Fuentes" sectionKey="sources" items={sources.filter(s => match(s.name))} searching={!!ql}
         renderRow={(s) => (
           <Row
             key={s.id}

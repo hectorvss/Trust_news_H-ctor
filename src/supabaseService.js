@@ -161,10 +161,22 @@ const mapStory = (s) => {
   // Normalizing the three values works whether they are counts or percentages.
   const _cl = Number(s.coverage_left) || 0, _cc = Number(s.coverage_center) || 0, _cr = Number(s.coverage_right) || 0;
   const _sum = _cl + _cc + _cr;
-  const _total = s.sources_count ?? s.source_count ?? (Array.isArray(s.articles) ? s.articles.length : 0);
-  const _dist = _sum > 0
-    ? { left: Math.round(_cl / _sum * 100), center: Math.round(_cc / _sum * 100), right: Math.round(_cr / _sum * 100) }
-    : null;
+  const _articlesLen = Array.isArray(s.articles) ? s.articles.length : 0;
+  // sources_count is the pipeline figure; editorial stories carry source_count
+  // instead (sources_count = 0, NOT null), so coalesce on truthiness — `??`
+  // would wrongly keep the 0 and zero out totalSources for every editorial story.
+  const _total = s.sources_count || s.source_count || _articlesLen || 0;
+  // Coverage distribution: prefer the pipeline columns (coverage_left/center/right);
+  // fall back to the editorial `bias` jsonb the manager curates by hand, so manually
+  // edited stories still render their bias bar (they have no coverage_* data).
+  let _dist = null;
+  if (_sum > 0) {
+    _dist = { left: Math.round(_cl / _sum * 100), center: Math.round(_cc / _sum * 100), right: Math.round(_cr / _sum * 100) };
+  } else if (s.bias && typeof s.bias === 'object') {
+    const _bl = Number(s.bias.left) || 0, _bc = Number(s.bias.center) || 0, _br = Number(s.bias.right) || 0;
+    const _bsum = _bl + _bc + _br;
+    if (_bsum > 0) _dist = { left: Math.round(_bl / _bsum * 100), center: Math.round(_bc / _bsum * 100), right: Math.round(_br / _bsum * 100) };
+  }
   const _lean = _dist
     ? (_dist.left >= _dist.center && _dist.left >= _dist.right ? 'LEFT' : (_dist.right >= _dist.center ? 'RIGHT' : 'CENTER'))
     : null;
@@ -856,7 +868,7 @@ export const removeFavorite = async (userId, storyId) => {
 export const fetchPipelineDrafts = async () => {
   const { data, error } = await supabase
     .from('stories')
-    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, blind_spot, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, is_auto_generated, pipeline_cluster_id')
+    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, blind_spot, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, is_auto_generated, pipeline_cluster_id')
     .eq('status', 'draft')
     .eq('is_auto_generated', true)
     .order('source_count', { ascending: false })
@@ -903,4 +915,167 @@ export const rejectDraftStory = async (storyId, reason = '') => {
     return false;
   }
   return true;
+};
+
+// ==========================================
+// PIPELINE / INGESTION ENGINE — read-only dashboards (Manager)
+// Reads the live engine tables: ingestion_jobs, raw_articles, story_clusters,
+// sources, stories. NOTE: visibility depends on RLS allowing manager reads on
+// these tables (infra/pipeline owns the policies).
+// ==========================================
+
+// Aggregate counters for the engine dashboard.
+export const fetchPipelineStats = async () => {
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const countOf = async (table, build) => {
+    let q = supabase.from(table).select('*', { count: 'exact', head: true });
+    if (build) q = build(q);
+    const { count, error } = await q;
+    if (error) { console.error(`count ${table}:`, error.message); return 0; }
+    return count || 0;
+  };
+
+  const [
+    sourcesActive, sourcesTotal, rawTotal, rawEmbedded,
+    clusters, draftsPending, published, jobs24h, jobErr24h
+  ] = await Promise.all([
+    countOf('sources', q => q.eq('activo', true)),
+    countOf('sources'),
+    countOf('raw_articles'),
+    countOf('raw_articles', q => q.not('embedding', 'is', null)),
+    countOf('story_clusters'),
+    countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true)),
+    countOf('stories', q => q.eq('status', 'published')),
+    countOf('ingestion_jobs', q => q.gte('created_at', since24h)),
+    countOf('ingestion_jobs', q => q.gte('created_at', since24h).eq('status', 'error')),
+  ]);
+
+  let lastIngestAt = null;
+  const { data: lastJob } = await supabase
+    .from('ingestion_jobs').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (lastJob) lastIngestAt = lastJob.created_at;
+
+  return {
+    sourcesActive, sourcesTotal,
+    rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded),
+    clusters, draftsPending, published,
+    jobs24h, jobErr24h, jobOk24h: Math.max(0, jobs24h - jobErr24h),
+    lastIngestAt,
+  };
+};
+
+// Recent ingestion runs, enriched with the source display name.
+export const fetchIngestionJobs = async (limit = 60) => {
+  const { data, error } = await supabase
+    .from('ingestion_jobs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) { console.error('fetchIngestionJobs:', error.message); return []; }
+  const jobs = data || [];
+  const ids = [...new Set(jobs.map(j => j.source_id).filter(Boolean))];
+  const nameById = {};
+  if (ids.length) {
+    const { data: srcs } = await supabase.from('sources').select('id, nombre, name').in('id', ids);
+    (srcs || []).forEach(s => { nameById[s.id] = s.nombre || s.name || s.id; });
+  }
+  return jobs.map(j => ({
+    ...j,
+    sourceName: nameById[j.source_id] || '—',
+    articlesNew: j.articles_new ?? j.articulos_nuevos ?? 0,
+    articlesFound: j.articles_found ?? j.articulos_encontrados ?? 0,
+    when: j.created_at || j.started_at || null,
+  }));
+};
+
+// Per-source health (deduped by display name), worst (most errors) first.
+export const fetchSourcesHealth = async () => {
+  const { data, error } = await supabase
+    .from('sources')
+    .select('id, nombre, name, activo, active, rss_url, error_count, last_ingested_at, ultima_ingesta, articulos_ingestados, bias_label, pais, country')
+    .order('error_count', { ascending: false, nullsFirst: false });
+  if (error) { console.error('fetchSourcesHealth:', error.message); return []; }
+  const seen = new Set();
+  return (data || []).filter(s => {
+    const key = (s.nombre || s.name || s.id || '').toLowerCase();
+    if (seen.has(key)) return false; seen.add(key); return true;
+  }).map(s => ({
+    id: s.id,
+    name: s.nombre || s.name || s.id,
+    active: s.activo ?? s.active ?? false,
+    rssUrl: s.rss_url,
+    errorCount: s.error_count || 0,
+    lastIngestedAt: s.last_ingested_at || s.ultima_ingesta || null,
+    ingested: s.articulos_ingestados || 0,
+    biasLabel: s.bias_label || null,
+    country: s.pais || s.country || null,
+  }));
+};
+
+// Clustering: recent clusters with a normalized bias distribution.
+export const fetchClusters = async (limit = 80) => {
+  const { data, error } = await supabase
+    .from('story_clusters')
+    .select('id, topic_summary, topic_keywords, article_count, source_count, coverage_left, coverage_center, coverage_right, left_pct, center_pct, right_pct, status, story_id, article_ids, last_seen_at, created_at')
+    .order('last_seen_at', { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) { console.error('fetchClusters:', error.message); return []; }
+  return (data || []).map(c => {
+    const cl = Number(c.coverage_left ?? c.left_pct ?? 0), cc = Number(c.coverage_center ?? c.center_pct ?? 0), cr = Number(c.coverage_right ?? c.right_pct ?? 0);
+    const sum = cl + cc + cr;
+    return {
+      ...c,
+      articleCount: c.article_count || (Array.isArray(c.article_ids) ? c.article_ids.length : 0),
+      sourceCount: c.source_count || 0,
+      keywords: Array.isArray(c.topic_keywords) ? c.topic_keywords : [],
+      biasDistribution: sum > 0 ? { left: Math.round(cl / sum * 100), center: Math.round(cc / sum * 100), right: Math.round(cr / sum * 100) } : null,
+    };
+  });
+};
+
+// Raw articles that were grouped into a cluster (pass a cluster object).
+export const fetchClusterArticles = async (cluster) => {
+  if (!cluster) return [];
+  const ids = Array.isArray(cluster.article_ids) ? cluster.article_ids : [];
+  let query = supabase.from('raw_articles')
+    .select('id, title, titulo, url, excerpt, content_excerpt, summary, source_id, published_at, fecha_publicacion, image_url, imagen_url, bias, language')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .limit(80);
+  if (ids.length) query = query.in('id', ids);
+  else query = query.eq('cluster_uuid', cluster.id);
+  const { data, error } = await query;
+  if (error) { console.error('fetchClusterArticles:', error.message); return []; }
+  const sids = [...new Set((data || []).map(a => a.source_id).filter(Boolean))];
+  const srcById = {};
+  if (sids.length) {
+    const { data: srcs } = await supabase.from('sources').select('id, nombre, name, bias_label, logo_url, url').in('id', sids);
+    (srcs || []).forEach(s => { srcById[s.id] = { name: s.nombre || s.name || s.id, biasLabel: s.bias_label, logoUrl: s.logo_url, url: s.url }; });
+  }
+  return (data || []).map(a => ({
+    id: a.id,
+    title: a.title || a.titulo || '(sin título)',
+    url: a.url,
+    excerpt: a.excerpt || a.content_excerpt || a.summary || '',
+    publishedAt: a.published_at || a.fecha_publicacion || null,
+    image: a.image_url || a.imagen_url || null,
+    bias: a.bias || null,
+    language: a.language || null,
+    source: srcById[a.source_id] || { name: '—' },
+  }));
+};
+
+// Full review payload for one auto-generated draft: the mapped story + its
+// cluster + the raw articles that were clustered into it. Powers the review
+// dashboard/sidebar where the manager verifies the auto-created story.
+export const fetchDraftReview = async (storyId) => {
+  const { data: story, error } = await supabase.from('stories').select('*').eq('id', storyId).maybeSingle();
+  if (error || !story) { console.error('fetchDraftReview:', error?.message); return null; }
+  let cluster = null;
+  const clusterId = story.pipeline_cluster_id || story.cluster_id || null;
+  if (clusterId) {
+    const { data: c } = await supabase.from('story_clusters').select('*').eq('id', clusterId).maybeSingle();
+    cluster = c || null;
+  }
+  const articles = cluster ? await fetchClusterArticles(cluster) : [];
+  return { story: mapStory(story), cluster, articles };
 };
