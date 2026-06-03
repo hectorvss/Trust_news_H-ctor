@@ -1,4 +1,4 @@
-import { buildEmbeddingInput, config, parseAnthropicJson } from "./pipeline.ts";
+import { biasBucketOf, buildEmbeddingInput, config, parseAnthropicJson } from "./pipeline.ts";
 
 const openAiKey = () => Deno.env.get("OPENAI_API_KEY") || "";
 const anthropicKey = () => Deno.env.get("ANTHROPIC_API_KEY") || "";
@@ -76,6 +76,7 @@ Reglas:
 
 Estructura obligatoria:
 {
+  "category": "sección temática EXACTA, una de: POLÍTICA|INTERNACIONAL|ECONOMÍA|SOCIEDAD|CULTURA|TECNOLOGÍA|DEPORTES|MEDIO AMBIENTE",
   "title": "Título neutral",
   "summary": "2-3 frases objetivas",
   "full_content": "Análisis completo de 4-7 párrafos",
@@ -128,7 +129,7 @@ Estructura obligatoria:
     ...articles.slice(0, config.analysisMaxArticlesInPrompt).map((article, index) => {
       const source = article.source_id ? sourcesMap[article.source_id] : null;
       return [
-        `[${index + 1}] ${source?.nombre || source?.name || article.source_id || "Desconocido"} (${source?.bias || "?"})`,
+        `[${index + 1}] ${source?.nombre || source?.name || article.source_id || "Desconocido"} (${source ? biasBucketOf(source) : "?"})`,
         `URL: ${article.url || ""}`,
         `Autor: ${article.author || ""}`,
         `Fecha: ${article.published_at || ""}`,

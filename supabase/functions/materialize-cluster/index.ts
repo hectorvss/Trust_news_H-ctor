@@ -1,5 +1,5 @@
 import { db } from "../_shared/supabase.ts";
-import { config, pickMainImage } from "../_shared/pipeline.ts";
+import { biasBucketOf, config, pickMainImage } from "../_shared/pipeline.ts";
 import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
@@ -17,7 +17,11 @@ const buildStoryPayload = (cluster: any, articles: any[]) => {
     source_count: sourceIds.length,
     sources_count: sourceIds.length,
     source_ids: sourceIds,
-    bias: { left: 33, center: 34, right: 33 },
+    bias: {
+      left: Math.round((Number(cluster.coverage_left) || 0) * 100),
+      center: Math.round((Number(cluster.coverage_center) || 0) * 100),
+      right: Math.round((Number(cluster.coverage_right) || 0) * 100),
+    },
     coverage_left: Number(cluster.coverage_left) || 0,
     coverage_center: Number(cluster.coverage_center) || 0,
     coverage_right: Number(cluster.coverage_right) || 0,
@@ -92,7 +96,7 @@ Deno.serve(async (req) => {
 
     const sourceIds = [...new Set(articles.map((article) => article.source_id).filter(Boolean))];
     const { data: sources } = sourceIds.length
-      ? await db.from("sources").select("id, nombre, name, bias").in("id", sourceIds)
+      ? await db.from("sources").select("id, nombre, name, bias, bias_label, bias_score").in("id", sourceIds)
       : { data: [] };
 
     const sourceMap: Record<string, any> = {};
@@ -106,7 +110,7 @@ Deno.serve(async (req) => {
         ? article.article_content[0]?.extracted_tone
         : article.article_content?.extracted_tone,
       source_name: sourceMap[article.source_id]?.nombre || sourceMap[article.source_id]?.name || article.source_id,
-      source_bias: sourceMap[article.source_id]?.bias || "centro",
+      source_bias: sourceMap[article.source_id] ? biasBucketOf(sourceMap[article.source_id]) : "centro",
     }));
 
     const story = buildStoryPayload(cluster, storyArticles);

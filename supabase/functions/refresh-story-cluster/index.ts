@@ -1,13 +1,13 @@
 import { db } from "../_shared/supabase.ts";
 import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
-import { validateEditorialStory } from "../_shared/pipeline.ts";
+import { biasBucketOf, validateEditorialStory } from "../_shared/pipeline.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
 const articlePayload = (article: any, source: any) => {
   const content = Array.isArray(article.article_content) ? article.article_content[0] : article.article_content;
   return {
     source: source?.nombre || source?.name || article.source_id || "Desconocido",
-    bias: source?.bias || "centro",
+    bias: source ? biasBucketOf(source) : "centro",
     title: article.title,
     summary: content?.content_excerpt || article.excerpt || "",
     url: article.url,
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
       const sourceIds = [...new Set(articles.map((article: any) => article.source_id).filter(Boolean))];
       const { data: sources } = sourceIds.length
-        ? await db.from("sources").select("id, nombre, name, bias").in("id", sourceIds)
+        ? await db.from("sources").select("id, nombre, name, bias, bias_label, bias_score").in("id", sourceIds)
         : { data: [] };
       const sourceMap: Record<string, any> = {};
       (sources || []).forEach((source: any) => { sourceMap[source.id] = source; });

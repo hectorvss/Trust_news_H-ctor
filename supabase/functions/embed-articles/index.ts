@@ -15,6 +15,13 @@ Deno.serve(async (req) => {
   const body = req.method === "POST" ? await parseJson<{ dry_run?: boolean }>(req) : {};
   const runId = await startRun({ stage: "embed" });
 
+  // No OpenAI key yet -> do not "poison" rows as embedded with a null vector.
+  // Leave them pending so they get real 1536-dim embeddings the moment the key lands.
+  if (!Deno.env.get("OPENAI_API_KEY")) {
+    await finishRun(runId, "completed", { items_out: 0, metadata: { skipped: "no_openai_key" } });
+    return jsonResponse({ ok: true, embedded: 0, skipped: "OPENAI_API_KEY not configured" });
+  }
+
   const { data: pending, error } = await db
     .from("raw_articles")
     .select("id, title, excerpt")

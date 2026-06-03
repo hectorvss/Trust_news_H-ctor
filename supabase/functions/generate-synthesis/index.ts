@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   const cutoff = new Date(Date.now() - config.analysisMinAgeMinutes * 60 * 1000).toISOString();
   let draftQuery = db
     .from("stories")
-    .select("id, title, summary, pipeline_cluster_id, cluster_id, source_count, sources_count, status, created_at, consensus_narrative, consenso_narrativo, articles, coverage_left, coverage_center, coverage_right")
+    .select("id, title, summary, category, pipeline_cluster_id, cluster_id, source_count, sources_count, status, created_at, consensus_narrative, consenso_narrativo, articles, coverage_left, coverage_center, coverage_right")
     .eq("status", "draft")
     .eq("is_auto_generated", true)
     .is("consensus_narrative", null);
@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
       factuality: String(analysis.factuality || "ALTA").toUpperCase(),
       consensus: analysis.consensus || "MEDIO",
       impact: analysis.impact || "ALTO",
+      category: analysis.category ? String(analysis.category).toUpperCase().trim() : (draft.category || "GENERAL"),
       cifras_clave: analysis.cifras_clave || [],
       verificacion_info: analysis.verificacion_info || null,
       origen_info: analysis.origen_info || [],
@@ -138,7 +139,17 @@ Deno.serve(async (req) => {
       preguntas_info: analysis.preguntas_info || [],
       impacto_social: analysis.impacto_social || [],
       impacto_sistemico: analysis.impacto_sistemico || [],
-      perspectivas_info: typeof analysis.perspectivas_info === "string" ? analysis.perspectivas_info : JSON.stringify(analysis.perspectivas_info || {}),
+      perspectivas_info: ((p) => {
+        if (typeof p === "string") return p;
+        if (p && typeof p === "object") {
+          return [
+            p.izquierda ? `Izquierda: ${p.izquierda}` : "",
+            p.centro ? `Centro: ${p.centro}` : "",
+            p.derecha ? `Derecha: ${p.derecha}` : "",
+          ].filter(Boolean).join("\n\n");
+        }
+        return null;
+      })(analysis.perspectivas_info),
       perspectives: analysis.perspectivas_info || {},
       articles: analysis.articles?.length ? analysis.articles : draft.articles,
       review_status: validation.ready ? "ready_for_review" : "analysis_failed",

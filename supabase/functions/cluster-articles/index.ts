@@ -61,7 +61,7 @@ const recalcCluster = async (clusterId: string, articleIds: string[], forcedStat
 
   const sourceIds = [...new Set((articles || []).map((article: any) => article.source_id).filter(Boolean))];
   const { data: sources } = sourceIds.length
-    ? await db.from("sources").select("id, bias, factuality, nombre").in("id", sourceIds)
+    ? await db.from("sources").select("id, bias, bias_label, bias_score, factuality, nombre").in("id", sourceIds)
     : { data: [] };
 
   const sourceMap: Record<string, any> = {};

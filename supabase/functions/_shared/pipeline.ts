@@ -1,7 +1,7 @@
 const encoder = new TextEncoder();
 
 export const config = {
-  userAgent: Deno.env.get("PIPELINE_USER_AGENT") ?? "TrustNewsBot/2.0 (+https://trustnews.es/bot)",
+  userAgent: Deno.env.get("PIPELINE_USER_AGENT") ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   fetchTimeoutMs: Number(Deno.env.get("PIPELINE_FETCH_TIMEOUT_MS") ?? 8000),
   excerptMaxChars: Number(Deno.env.get("PIPELINE_EXCERPT_MAX_CHARS") ?? 300),
   fullContentMaxChars: Number(Deno.env.get("PIPELINE_FULL_CONTENT_MAX_CHARS") ?? 12000),
@@ -68,19 +68,39 @@ export const sha256 = async (value: string) => {
 export const buildEmbeddingInput = (title?: string | null, excerpt?: string | null) =>
   [title?.trim(), excerpt?.trim()].filter(Boolean).join(". ");
 
-const textContent = (root: Element, selectors: string[]) => {
-  for (const selector of selectors) {
-    const el = root.querySelector(selector);
-    const text = el?.textContent?.trim();
-    if (text) return text;
-  }
-  return null;
+const decodeEntities = (value: string) =>
+  (value || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCharCode(parseInt(code, 16)))
+    .trim();
+
+const tagText = (xml: string, tag: string) => {
+  const escaped = tag.replace(/:/g, "\\:");
+  const match = xml.match(new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, "i"));
+  return match ? stripHtml(decodeEntities(match[1])) : null;
 };
 
-const attrValue = (root: Element, selector: string, attr: string) => {
-  const el = root.querySelector(selector);
-  const value = el?.getAttribute(attr)?.trim();
-  return value || null;
+const attrFromTag = (xml: string, tag: string, attr: string, extraPattern = "") => {
+  const escaped = tag.replace(/:/g, "\\:");
+  const re = new RegExp(`<${escaped}${extraPattern}[^>]*\\s${attr}=["']([^"']+)["'][^>]*>`, "i");
+  const match = xml.match(re);
+  return match ? decodeEntities(match[1]) : null;
+};
+
+const splitFeedItems = (xml: string) => {
+  const itemMatches = [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].map((match) => match[1]);
+  if (itemMatches.length) return { isAtom: false, items: itemMatches };
+  return {
+    isAtom: true,
+    items: [...xml.matchAll(/<entry(?:\s[^>]*)?>([\s\S]*?)<\/entry>/gi)].map((match) => match[1]),
+  };
 };
 
 export const parseRssFeed = async (feedUrl: string, userAgent = config.userAgent) => {
@@ -99,39 +119,33 @@ export const parseRssFeed = async (feedUrl: string, userAgent = config.userAgent
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const xml = await res.text();
-    const doc = new DOMParser().parseFromString(xml, "text/xml");
-    if (!doc) throw new Error("Invalid XML document");
-
-    const isAtom = !!doc.querySelector("feed");
-    const items = Array.from(doc.querySelectorAll(isAtom ? "entry" : "item"));
+    const { isAtom, items } = splitFeedItems(xml);
 
     return items
       .map((item) => {
         const url = isAtom
-          ? item.querySelector('link[rel="alternate"]')?.getAttribute("href")?.trim()
-            || item.querySelector("link")?.getAttribute("href")?.trim()
-            || textContent(item, ["id"])
-          : textContent(item, ["link"]) || item.querySelector("link")?.getAttribute("href")?.trim();
+          ? attrFromTag(item, "link", "href", `(?=[^>]*rel=["']alternate["'])`)
+            || attrFromTag(item, "link", "href")
+            || tagText(item, "id")
+          : tagText(item, "link") || attrFromTag(item, "link", "href");
 
-        const title = textContent(item, ["title"]);
-        const content = textContent(item, [
-          "content\\:encoded",
-          "content",
-          "description",
-          "summary",
-        ]);
-        const author = textContent(item, ["dc\\:creator", "author", "name"]);
-        const publishedRaw = textContent(item, [
-          isAtom ? "published" : "pubDate",
-          "updated",
-          "dc\\:date",
-        ]);
-        const enclosureUrl = attrValue(item, "enclosure", "url");
-        const enclosureType = attrValue(item, "enclosure", "type") || "";
+        const title = tagText(item, "title");
+        const content =
+          tagText(item, "content:encoded") ||
+          tagText(item, "content") ||
+          tagText(item, "description") ||
+          tagText(item, "summary");
+        const author = tagText(item, "dc:creator") || tagText(item, "author") || tagText(item, "name");
+        const publishedRaw =
+          tagText(item, isAtom ? "published" : "pubDate") ||
+          tagText(item, "updated") ||
+          tagText(item, "dc:date");
+        const enclosureUrl = attrFromTag(item, "enclosure", "url");
+        const enclosureType = attrFromTag(item, "enclosure", "type") || "";
         const imageUrl =
           (enclosureUrl && enclosureType.startsWith("image") ? enclosureUrl : null)
-          || attrValue(item, "media\\:content", "url")
-          || attrValue(item, "media\\:thumbnail", "url");
+          || attrFromTag(item, "media:content", "url")
+          || attrFromTag(item, "media:thumbnail", "url");
 
         let publishedAt: string | null = null;
         if (publishedRaw) {
@@ -218,6 +232,38 @@ const removeBoilerplate = (html: string) =>
     .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
     .replace(/<nav[\s\S]*?<\/nav>/gi, " ");
 
+const firstTagText = (html: string, tag: string) => {
+  const match = html.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? stripHtml(decodeEntities(match[1])) : null;
+};
+
+const metaContent = (html: string, name: string) => {
+  const patterns = [
+    new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i"),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["'][^>]*>`, "i"),
+  ];
+  for (const re of patterns) {
+    const match = html.match(re);
+    if (match) return decodeEntities(match[1]);
+  }
+  return null;
+};
+
+const classText = (html: string, classFragment: string) => {
+  const re = new RegExp(`<[^>]+class=["'][^"']*${classFragment}[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`, "i");
+  const match = html.match(re);
+  return match ? stripHtml(decodeEntities(match[1])) : null;
+};
+
+const extractParagraphs = (html: string) => {
+  const articleMatch = html.match(/<article(?:\s[^>]*)?>([\s\S]*?)<\/article>/i);
+  const mainMatch = html.match(/<main(?:\s[^>]*)?>([\s\S]*?)<\/main>/i);
+  const scope = articleMatch?.[1] || mainMatch?.[1] || html;
+  return [...scope.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi)]
+    .map((match) => stripHtml(decodeEntities(match[1])))
+    .filter((text) => text.length >= 40);
+};
+
 export const extractReadableArticle = async (url: string, userAgent = config.userAgent) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.fetchTimeoutMs);
@@ -234,21 +280,18 @@ export const extractReadableArticle = async (url: string, userAgent = config.use
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const html = await res.text();
-    const doc = new DOMParser().parseFromString(removeBoilerplate(html), "text/html");
-    const title = doc.querySelector("h1")?.textContent?.trim() || null;
+    const html = removeBoilerplate(await res.text());
+    const title = firstTagText(html, "h1");
     const subtitle =
-      doc.querySelector("h2")?.textContent?.trim() ||
-      doc.querySelector('[class*="subtitle"]')?.textContent?.trim() ||
-      doc.querySelector('[class*="entradilla"]')?.textContent?.trim() ||
+      firstTagText(html, "h2") ||
+      classText(html, "subtitle") ||
+      classText(html, "entradilla") ||
       null;
     const section =
-      doc.querySelector("meta[property='article:section']")?.getAttribute("content")?.trim() ||
-      doc.querySelector("meta[name='section']")?.getAttribute("content")?.trim() ||
+      metaContent(html, "article:section") ||
+      metaContent(html, "section") ||
       null;
-    const paragraphs = Array.from(doc.querySelectorAll("article p, main p, [role='main'] p, p"))
-      .map((el) => stripHtml(el.textContent || ""))
-      .filter((text) => text.length >= 40);
+    const paragraphs = extractParagraphs(html);
 
     const unique: string[] = [];
     const seen = new Set<string>();
@@ -332,15 +375,39 @@ export const jaccard = (a: Set<string>, b: Set<string>) => {
   return union === 0 ? 0 : intersection / union;
 };
 
+// Maps the live source schema (bias_label text / bias int -100..100 / bias_score -2..2)
+// onto the 5-bucket Spanish vocabulary the pipeline reasons with.
+export const biasBucketOf = (source: any): "izquierda" | "centroizquierda" | "centro" | "centroderecha" | "derecha" => {
+  const label = String(source?.bias_label ?? source?.political_lean ?? "").toUpperCase().replace(/\s+/g, "-");
+  const byLabel: Record<string, any> = {
+    "LEFT": "izquierda", "FAR-LEFT": "izquierda",
+    "CENTER-LEFT": "centroizquierda", "CENTRE-LEFT": "centroizquierda", "LEAN-LEFT": "centroizquierda",
+    "CENTER": "centro", "CENTRE": "centro",
+    "CENTER-RIGHT": "centroderecha", "CENTRE-RIGHT": "centroderecha", "LEAN-RIGHT": "centroderecha",
+    "RIGHT": "derecha", "FAR-RIGHT": "derecha",
+  };
+  if (byLabel[label]) return byLabel[label];
+  const direct = String(source?.bias ?? "").toLowerCase();
+  if (["izquierda", "centroizquierda", "centro", "centroderecha", "derecha"].includes(direct)) return direct as any;
+  const n = typeof source?.bias === "number" ? source.bias
+    : typeof source?.bias_score === "number" ? source.bias_score * 30
+    : null;
+  if (n === null) return "centro";
+  if (n <= -40) return "izquierda";
+  if (n <= -10) return "centroizquierda";
+  if (n < 10) return "centro";
+  if (n < 40) return "centroderecha";
+  return "derecha";
+};
+
 export const calculateBiasDistribution = (articles: Array<{ source_id: string | null }>, sourcesMap: Record<string, any>) => {
   const counts = { izquierda: 0, centroizquierda: 0, centro: 0, centroderecha: 0, derecha: 0 };
   let total = 0;
   for (const article of articles) {
     const source = article.source_id ? sourcesMap[article.source_id] : null;
-    if (source?.bias && counts[source.bias as keyof typeof counts] !== undefined) {
-      counts[source.bias as keyof typeof counts]++;
-      total++;
-    }
+    if (!source) continue;
+    counts[biasBucketOf(source)]++;
+    total++;
   }
   if (total === 0) return counts;
   return Object.fromEntries(
