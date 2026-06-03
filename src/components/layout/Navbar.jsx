@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import NotificationBell from '../NotificationBell';
+import { hasManagerAccess } from '../../utils/managerAccess';
 
 const SearchIcon = () => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -29,6 +30,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
   const [searchValue, setSearchValue] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchInputRef = useRef(null);
+  const canAccessManager = hasManagerAccess({ user, profile });
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -107,7 +109,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
 
               {user ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  {(profile?.role === 'manager' || profile?.role === 'admin_editor') && (
+                  {canAccessManager && (
                     <a href="/manager" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/manager'); }} style={{ fontWeight: 900, color: '#ff3333', fontFamily: 'var(--font-mono)' }}>MANAGER</a>
                   )}
                   <NotificationBell userId={user.id} navigate={navigate} />
@@ -157,7 +159,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
           <span onClick={() => goTo('/tools')}>HERRAMIENTAS</span>
           {user ? (
             <>
-              {(profile?.role === 'manager' || profile?.role === 'admin_editor') && (
+              {canAccessManager && (
                 <span onClick={() => goTo('/manager')} style={{ color: '#ff3333' }}>MANAGER</span>
               )}
               <span onClick={() => goTo('/account')}>MI CUENTA</span>

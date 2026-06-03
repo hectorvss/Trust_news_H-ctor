@@ -69,6 +69,14 @@ export default function ReviewQueue({ onEditStory }) {
 
   // Sintetizada = lista para revisar. Contrato: lista ⇢ consensus_narrative (o consenso_narrativo) !== null.
   const isSynth = (d) => !!(d.consensus_narrative || d.consenso_narrativo);
+  const isFailed = (d) => d.review_status === 'analysis_failed';
+  const isPublishable = (d) => {
+    const validation = d.editorial_validation || {};
+    const hasCoverage = (Number(d.coverage_left) || 0) + (Number(d.coverage_center) || 0) + (Number(d.coverage_right) || 0) > 0;
+    const figures = Array.isArray(d.cifras_clave) ? d.cifras_clave : [];
+    return isSynth(d) && hasCoverage && Array.isArray(d.articles) && d.articles.length > 0 &&
+      (figures.length > 0 || d.verificacion_info) && validation.ready !== false;
+  };
   const withSynthesis = drafts.filter(isSynth);
   const withoutSynthesis = drafts.length - withSynthesis.length;
 
@@ -210,6 +218,8 @@ export default function ReviewQueue({ onEditStory }) {
             const dist = toPctDistribution(d);
             const count = d.source_count || d.sources_count || 0;
             const hasSyn = isSynth(d);
+            const failed = isFailed(d);
+            const publishable = isPublishable(d);
             const busy = rowBusy === d.id;
             return (
               <div
@@ -275,11 +285,11 @@ export default function ReviewQueue({ onEditStory }) {
                   </button>
                   <button
                     onClick={() => quickApprove(d.id)}
-                    disabled={busy}
+                    disabled={busy || !publishable}
                     style={{
                       ...btnLabel, fontSize: '10px', padding: '10px 14px', background: '#16a34a',
                       color: 'white', border: 'none', borderRadius: 'var(--radius-sm)',
-                      cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1
+                      cursor: busy ? 'wait' : publishable ? 'pointer' : 'not-allowed', opacity: busy || !publishable ? 0.45 : 1
                     }}
                   >
                     {busy ? '…' : '✓ Publicar'}

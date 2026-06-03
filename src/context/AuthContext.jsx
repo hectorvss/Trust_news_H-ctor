@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { getEffectiveUserRole, hasManagerAccess } from '../utils/managerAccess';
 
 const AuthContext = createContext({});
 
@@ -97,12 +98,14 @@ export const AuthProvider = ({ children }) => {
     return { error };
   };
 
-  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor';
+  const effectiveRole = getEffectiveUserRole({ user, profile });
+  const isManager = hasManagerAccess({ user, profile });
 
   const value = {
     user,
     session,
     profile,
+    effectiveRole,
     loading,
     isManager,
     signUp,

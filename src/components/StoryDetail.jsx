@@ -219,7 +219,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
     setEditedStory(prev => ({ ...prev, [key]: val }));
   };
 
-  const isManager = userRole === 'manager';
+  const isManager = userRole === 'manager' || userRole === 'admin_editor';
 
   return (
     <div className="story-detail-overlay" style={{
@@ -356,7 +356,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                onChange={v => updateStory('title', v)} 
                isEditing={isEditing} 
                placeholder="Escribe el Título de la Noticia..."
-               style={{ fontSize: isMobile ? '40px' : isTablet ? '48px' : '56px', fontWeight: 800, letterSpacing: isMobile ? '-1.6px' : '-3.5px', lineHeight: '1.02', margin: 0, display: 'block' }} 
+               style={{ fontSize: isMobile ? '40px' : isTablet ? '48px' : '56px', fontWeight: 800, letterSpacing: isMobile ? '-1.6px' : '-3.5px', lineHeight: '1.02', margin: 0, display: 'block' }}
              />
           </h1>
 
@@ -1122,4 +1122,3 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 };
 
 export default StoryDetail;
-

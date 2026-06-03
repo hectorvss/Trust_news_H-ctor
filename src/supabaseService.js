@@ -260,9 +260,12 @@ const _biasFromSource = (s) => {
     return score <= -2 ? 'LEFT' : score === -1 ? 'LEAN_LEFT' : score === 0 ? 'CENTER' : score === 1 ? 'LEAN_RIGHT' : 'RIGHT';
   }
   return {
-    'LEFT': 'LEFT', 'CENTER-LEFT': 'LEAN_LEFT', 'LEAN_LEFT': 'LEAN_LEFT', 'CENTER': 'CENTER',
-    'CENTER-RIGHT': 'LEAN_RIGHT', 'LEAN_RIGHT': 'LEAN_RIGHT', 'RIGHT': 'RIGHT'
-  }[(s.bias_label || '').toUpperCase()] || 'CENTER';
+    'LEFT': 'LEFT', 'IZQUIERDA': 'LEFT',
+    'CENTER-LEFT': 'LEAN_LEFT', 'LEAN_LEFT': 'LEAN_LEFT', 'CENTROIZQUIERDA': 'LEAN_LEFT',
+    'CENTER': 'CENTER', 'CENTRO': 'CENTER',
+    'CENTER-RIGHT': 'LEAN_RIGHT', 'LEAN_RIGHT': 'LEAN_RIGHT', 'CENTRODERECHA': 'LEAN_RIGHT',
+    'RIGHT': 'RIGHT', 'DERECHA': 'RIGHT'
+  }[(s.bias_label || s.political_lean || s.bias || '').toUpperCase()] || 'CENTER';
 };
 
 export const mapSource = (s) => {
@@ -278,7 +281,7 @@ export const mapSource = (s) => {
     domain,
     logoUrl: s.logo_url || (domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null),
     biasRating,
-    biasLabel: s.bias_label || biasRating,
+    biasLabel: s.bias_label || s.political_lean || s.bias || biasRating,
     biasBucket,
     factuality: s.factuality,
     ownershipName: s.ownership || null,
@@ -868,7 +871,7 @@ export const removeFavorite = async (userId, storyId) => {
 export const fetchPipelineDrafts = async () => {
   const { data, error } = await supabase
     .from('stories')
-    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, blind_spot, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, is_auto_generated, pipeline_cluster_id')
+    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, blind_spot, cifras_clave, verificacion_info, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, review_status, editorial_validation, is_auto_generated, pipeline_cluster_id, cluster_id')
     .eq('status', 'draft')
     .eq('is_auto_generated', true)
     .order('source_count', { ascending: false })
@@ -881,12 +884,53 @@ export const fetchPipelineDrafts = async () => {
   return data || [];
 };
 
+const validateDraftForApproval = (story) => {
+  const missing = [];
+  const articles = Array.isArray(story?.articles) ? story.articles : [];
+  const figures = Array.isArray(story?.cifras_clave) ? story.cifras_clave : [];
+  const coverage = Number(story?.coverage_left || 0) + Number(story?.coverage_center || 0) + Number(story?.coverage_right || 0);
+  if (!story?.title) missing.push('title');
+  if (!story?.summary) missing.push('summary');
+  if (!articles.length) missing.push('articles');
+  if (coverage <= 0) missing.push('coverage');
+  if (!(story?.consensus_narrative || story?.consenso_narrativo)) missing.push('consensus_narrative');
+  if (!figures.length && !story?.verificacion_info) missing.push('cifras_clave_or_verificacion_info');
+  return { ready: missing.length === 0, missing };
+};
+
 export const approveDraftStory = async (storyId) => {
+  const { data: draft, error: fetchError } = await supabase
+    .from('stories')
+    .select('id, title, summary, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, cifras_clave, verificacion_info, articles, editorial_validation')
+    .eq('id', storyId)
+    .maybeSingle();
+
+  if (fetchError || !draft) {
+    console.error('Error loading draft before approval:', fetchError);
+    return false;
+  }
+
+  const validation = validateDraftForApproval(draft);
+  if (!validation.ready) {
+    console.error('Draft is not publishable:', validation.missing);
+    await supabase
+      .from('stories')
+      .update({
+        review_status: 'analysis_failed',
+        editorial_validation: { ready: false, missing: validation.missing, checked_at: new Date().toISOString() },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', storyId);
+    return false;
+  }
+
   const { error } = await supabase
     .from('stories')
     .update({
       status: 'published',
       cluster_status: 'approved',
+      review_status: 'approved',
+      editorial_validation: { ready: true, missing: [], checked_at: new Date().toISOString() },
       reviewed_at: new Date().toISOString(),
       published_at: new Date().toISOString()
     })
@@ -905,6 +949,7 @@ export const rejectDraftStory = async (storyId, reason = '') => {
     .update({
       status: 'rejected',
       cluster_status: 'rejected',
+      review_status: 'rejected',
       pipeline_rejected_reason: reason || null,
       reviewed_at: new Date().toISOString()
     })
@@ -937,17 +982,21 @@ export const fetchPipelineStats = async () => {
 
   const [
     sourcesActive, sourcesTotal, rawTotal, rawEmbedded,
-    clusters, draftsPending, published, jobs24h, jobErr24h
+    rawExtractionPending, clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published, jobs24h, jobErr24h
   ] = await Promise.all([
     countOf('sources', q => q.eq('activo', true)),
     countOf('sources'),
     countOf('raw_articles'),
-    countOf('raw_articles', q => q.not('embedding', 'is', null)),
+    countOf('raw_articles', q => q.eq('embedded', true)),
+    countOf('raw_articles', q => q.in('extraction_status', ['pending', 'failed'])),
     countOf('story_clusters'),
+    countOf('story_clusters', q => q.eq('status', 'refresh_pending')),
     countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true)),
+    countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true).eq('review_status', 'ready_for_review')),
+    countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true).eq('review_status', 'analysis_failed')),
     countOf('stories', q => q.eq('status', 'published')),
     countOf('ingestion_jobs', q => q.gte('created_at', since24h)),
-    countOf('ingestion_jobs', q => q.gte('created_at', since24h).eq('status', 'error')),
+    countOf('ingestion_jobs', q => q.gte('created_at', since24h).or('status.eq.failed,status.eq.error')),
   ]);
 
   let lastIngestAt = null;
@@ -957,8 +1006,8 @@ export const fetchPipelineStats = async () => {
 
   return {
     sourcesActive, sourcesTotal,
-    rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded),
-    clusters, draftsPending, published,
+    rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded), rawExtractionPending,
+    clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published,
     jobs24h, jobErr24h, jobOk24h: Math.max(0, jobs24h - jobErr24h),
     lastIngestAt,
   };
@@ -992,7 +1041,7 @@ export const fetchIngestionJobs = async (limit = 60) => {
 export const fetchSourcesHealth = async () => {
   const { data, error } = await supabase
     .from('sources')
-    .select('id, nombre, name, activo, active, rss_url, error_count, last_ingested_at, ultima_ingesta, articulos_ingestados, bias_label, pais, country')
+    .select('id, nombre, activo, rss_url, error_count, last_checked_at, last_error_at, articles_ingested, political_lean, bias, pais, country, source_status')
     .order('error_count', { ascending: false, nullsFirst: false });
   if (error) { console.error('fetchSourcesHealth:', error.message); return []; }
   const seen = new Set();
@@ -1001,14 +1050,15 @@ export const fetchSourcesHealth = async () => {
     if (seen.has(key)) return false; seen.add(key); return true;
   }).map(s => ({
     id: s.id,
-    name: s.nombre || s.name || s.id,
-    active: s.activo ?? s.active ?? false,
+    name: s.nombre || s.id,
+    active: s.activo ?? false,
     rssUrl: s.rss_url,
     errorCount: s.error_count || 0,
-    lastIngestedAt: s.last_ingested_at || s.ultima_ingesta || null,
-    ingested: s.articulos_ingestados || 0,
-    biasLabel: s.bias_label || null,
-    country: s.pais || s.country || null,
+    lastIngestedAt: s.last_checked_at || null,
+    ingested: s.articles_ingested || 0,
+    biasLabel: s.political_lean || s.bias || null,
+    country: s.country || s.pais || null,
+    status: s.source_status || null,
   }));
 };
 
@@ -1042,14 +1092,21 @@ export const fetchClusterArticles = async (cluster) => {
     .order('published_at', { ascending: false, nullsFirst: false })
     .limit(80);
   if (ids.length) query = query.in('id', ids);
-  else query = query.eq('cluster_uuid', cluster.id);
+  else query = query.eq('cluster_id', cluster.id);
   const { data, error } = await query;
   if (error) { console.error('fetchClusterArticles:', error.message); return []; }
   const sids = [...new Set((data || []).map(a => a.source_id).filter(Boolean))];
   const srcById = {};
   if (sids.length) {
-    const { data: srcs } = await supabase.from('sources').select('id, nombre, name, bias_label, logo_url, url').in('id', sids);
-    (srcs || []).forEach(s => { srcById[s.id] = { name: s.nombre || s.name || s.id, biasLabel: s.bias_label, logoUrl: s.logo_url, url: s.url }; });
+    const { data: srcs } = await supabase.from('sources').select('id, nombre, bias, political_lean, url').in('id', sids);
+    (srcs || []).forEach(s => {
+      let logoUrl = null;
+      try {
+        const domain = s.url ? new URL(s.url).hostname.replace(/^www\./, '') : null;
+        logoUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;
+      } catch { /* ignore */ }
+      srcById[s.id] = { name: s.nombre || s.id, biasLabel: s.political_lean || s.bias, logoUrl, url: s.url };
+    });
   }
   return (data || []).map(a => ({
     id: a.id,

@@ -12,6 +12,7 @@ import Plus from './ui/Plus';
 import PipelineDashboard from './manager/PipelineDashboard';
 import ClustersView from './manager/ClustersView';
 import ReviewQueue from './manager/ReviewQueue';
+import { hasAdminEditorAccess, hasManagerAccess } from '../utils/managerAccess';
 
 const BIAS_OPTIONS = ['LEFT', 'CENTER', 'RIGHT'];
 const TYPE_OPTIONS = ['REPORTAJE', 'OPINIÓN', 'ANÁLISIS', 'CRÓNICA', 'ENTREVISTA', 'EDITORIAL', 'BREAKING'];
@@ -40,7 +41,8 @@ const blankArticle = () => ({
 
 const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   const navigate = useNavigate();
-  const isManager = profile?.role === 'manager' || profile?.role === 'admin_editor';
+  const isManager = hasManagerAccess({ user, profile });
+  const isAdminEditorAccess = hasAdminEditorAccess({ user, profile });
   const [activeView, setActiveView] = useState('POSTS'); // POSTS, REVISIÓN, SECCIONES, DESTACADOS, USUARIOS, COMUNICACIÓN
   const [loading, setLoading] = useState(false);
   const [localStories, setLocalStories] = useState(stories || []);
@@ -801,7 +803,7 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
 
       {/* ─── USUARIOS ─── */}
       {activeView === 'USUARIOS' && (() => {
-        const isAdminEditor = profile?.role === 'admin_editor';
+        const isAdminEditor = isAdminEditorAccess;
         const filtered = adminUsers.filter(u => {
           if (!userFilter) return true;
           const term = userFilter.toLowerCase();

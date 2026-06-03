@@ -41,6 +41,7 @@ import {
   fetchSpecialSections
 } from './supabaseService';
 import AccessLimitModal from './components/AccessLimitModal';
+import { getEffectiveUserRole, hasManagerAccess } from './utils/managerAccess';
 
 const PageLoader = () => (
   <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 900, letterSpacing: '2px', opacity: 0.3 }}>
@@ -78,7 +79,9 @@ const App = () => {
   // Access & Usage Limits
   const [usageMetrics, setUsageMetrics] = useState({ articles_read: 0, reading_seconds: 0, read_article_ids: [] });
   const [accessModal, setAccessModal] = useState({ isOpen: false, mode: 'LIMIT' });
-  const isPremium = profile?.subscription_tier === 'premium' || profile?.role === 'manager' || profile?.role === 'admin_editor';
+  const effectiveRole = getEffectiveUserRole({ user, profile });
+  const canAccessManager = hasManagerAccess({ user, profile });
+  const isPremium = profile?.subscription_tier === 'premium' || canAccessManager;
   
   // Track Reading Time
   useEffect(() => {
@@ -590,7 +593,7 @@ const App = () => {
                       onSelectArticle={setSelectedArticle}
                       activeFilter={activeStoryFilter} setActiveFilter={setActiveStoryFilter}
                       activeTab={activeStoryTab} setActiveTab={setActiveStoryTab}
-                      userRole={profile?.role || 'reader'}
+                      userRole={effectiveRole}
                     />
                     </>
                   );
