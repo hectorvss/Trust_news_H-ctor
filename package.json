@@ -7,6 +7,7 @@
     "dev": "concurrently \"vite\" \"npm run backend\"",
     "build": "vite build",
     "test:pipeline": "node scripts/test-pipeline-contract.mjs",
+    "test:llm-contract": "node scripts/test-llm-contract.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "backend": "node server/index.js"

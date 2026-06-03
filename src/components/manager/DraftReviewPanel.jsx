@@ -87,6 +87,43 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
 
   const disabled = busy !== null;
   const storyImage = story?.image_url || story?.image || null;
+  const trace = review?.trace || {};
+  const generationMetadata = trace.generationMetadata || {};
+  const editorialValidation = trace.editorialValidation || {};
+  const llmTrace = trace.llm || generationMetadata.llm || {};
+  const evidence = trace.evidence || generationMetadata.evidence || {};
+  const evidenceQuality = trace.evidenceQuality || generationMetadata.evidence_quality || evidence.quality || {};
+  const claimsMatrix = Array.isArray(trace.claimsMatrix) ? trace.claimsMatrix : [];
+  const sourceTrace = Array.isArray(trace.sourceTrace) ? trace.sourceTrace : [];
+  const missingEvidence = Array.isArray(trace.missingEvidence) ? trace.missingEvidence : [];
+  const usedArticles = Array.isArray(evidence.used_articles) ? evidence.used_articles : [];
+  const omittedArticles = Array.isArray(evidence.omitted_articles) ? evidence.omitted_articles : [];
+  const validationErrors = Array.isArray(editorialValidation.errors) ? editorialValidation.errors : [];
+  const validationWarnings = Array.isArray(editorialValidation.warnings) ? editorialValidation.warnings : [];
+  const llmUsage = llmTrace.token_usage || {};
+  const evidenceScore = evidenceQuality.overall_score == null ? null : Math.round(Number(evidenceQuality.overall_score) * 100);
+
+  const pill = (label, value, tone = '#000') => (
+    <span
+      key={`${label}-${value}`}
+      style={{
+        display: 'inline-flex',
+        gap: '5px',
+        alignItems: 'center',
+        border: '1px solid #ddd',
+        borderRadius: 'var(--radius-sm)',
+        padding: '6px 8px',
+        fontFamily: fontMono,
+        fontSize: '10px',
+        fontWeight: 900,
+        color: tone,
+        background: '#fff'
+      }}
+    >
+      <span style={{ opacity: 0.45 }}>{label}</span>
+      <span>{value ?? '-'}</span>
+    </span>
+  );
 
   const backdrop = {
     position: 'fixed',
@@ -257,6 +294,64 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
             </section>
 
             <section style={{ marginBottom: '28px' }}>
+              <h3 style={sectionTitleStyle}>Trazabilidad editorial</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                {pill('evidencia', evidenceScore == null ? '-' : `${evidenceScore}%`, evidenceScore != null && evidenceScore < 35 ? '#dc2626' : '#000')}
+                {pill('modelo', llmTrace.model || '-')}
+                {pill('tokens', Number(llmUsage.input_tokens || 0) + Number(llmUsage.output_tokens || 0))}
+                {pill('salida', llmUsage.output_tokens || 0)}
+                {pill('intentos', Array.isArray(llmTrace.attempts) ? llmTrace.attempts.length : (llmTrace.llm_attempts || '-'))}
+                {pill('repair', llmTrace.repair_used ? 'si' : 'no', llmTrace.repair_used ? '#b45309' : '#000')}
+                {pill('prompt', llmTrace.prompt_version || generationMetadata.llm?.prompt_version || '-')}
+              </div>
+
+              {(validationErrors.length > 0 || validationWarnings.length > 0 || missingEvidence.length > 0) && (
+                <div
+                  style={{
+                    border: '1px dashed #bbb',
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#fafafa',
+                    padding: '12px 14px',
+                    fontSize: '11px',
+                    fontFamily: fontMono,
+                    lineHeight: 1.6,
+                    color: '#444'
+                  }}
+                >
+                  {validationErrors.length > 0 && <div><strong>Errores:</strong> {validationErrors.slice(0, 5).join(' | ')}</div>}
+                  {validationWarnings.length > 0 && <div><strong>Avisos:</strong> {validationWarnings.slice(0, 5).join(' | ')}</div>}
+                  {missingEvidence.length > 0 && <div><strong>Evidencia faltante:</strong> {missingEvidence.slice(0, 5).join(' | ')}</div>}
+                </div>
+              )}
+            </section>
+
+            <section style={{ marginBottom: '28px' }}>
+              <h3 style={sectionTitleStyle}>Cifras y claims</h3>
+              {(!Array.isArray(story.cifrasClave) || story.cifrasClave.length === 0) && claimsMatrix.length === 0 ? (
+                <div style={{ fontSize: '12px', fontFamily: fontMono, opacity: 0.55 }}>Sin cifras o claims referenciados.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {(Array.isArray(story.cifrasClave) ? story.cifrasClave : []).slice(0, 6).map((figure, index) => (
+                    <div key={`figure-${index}`} style={{ border: '1px solid #eee', borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1.4 }}>{figure.label || figure.value || figure.claim || '-'}</div>
+                      <div style={{ marginTop: '6px', fontSize: '10px', fontFamily: fontMono, opacity: 0.65 }}>
+                        article_id {figure.source_article_id || figure.article_id || '-'} · {figure.source || '-'} · confianza {figure.confidence || '-'}
+                      </div>
+                    </div>
+                  ))}
+                  {claimsMatrix.slice(0, 6).map((claim, index) => (
+                    <div key={`claim-${index}`} style={{ border: '1px solid #eee', borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1.4 }}>{claim.claim || claim.text || '-'}</div>
+                      <div style={{ marginTop: '6px', fontSize: '10px', fontFamily: fontMono, opacity: 0.65 }}>
+                        article_id {claim.source_article_id || claim.article_id || '-'} · {claim.source || '-'} · confianza {claim.confidence || '-'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section style={{ marginBottom: '28px' }}>
               <h3 style={sectionTitleStyle}>Analisis de cobertura</h3>
               <CoverageDetails story={review.story} sources={sources} />
             </section>
@@ -335,6 +430,46 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
                 </div>
               )}
             </section>
+
+            {(sourceTrace.length > 0 || usedArticles.length > 0 || omittedArticles.length > 0) && (
+              <section style={{ marginBottom: '28px' }}>
+                <h3 style={sectionTitleStyle}>Articulos usados vs omitidos</h3>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {sourceTrace.length > 0 && (
+                    <div style={{ border: 'var(--border-thin)', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
+                      <div style={{ ...btnLabel, fontSize: '9px', opacity: 0.5, marginBottom: '8px' }}>comparacion editorial</div>
+                      {sourceTrace.slice(0, 6).map((entry, index) => (
+                        <div key={`trace-${index}`} style={{ fontSize: '11px', lineHeight: 1.55, marginBottom: index < sourceTrace.length - 1 ? '6px' : 0 }}>
+                          <strong>{entry.source || entry.article_id || '-'}</strong>: {entry.angle || entry.reason || entry.diff || '-'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                    <div style={{ border: '1px solid #eee', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
+                      <div style={{ ...btnLabel, fontSize: '9px', opacity: 0.5, marginBottom: '8px' }}>usados en prompt</div>
+                      {usedArticles.length === 0 ? (
+                        <div style={{ fontSize: '11px', fontFamily: fontMono, opacity: 0.5 }}>Sin detalle.</div>
+                      ) : usedArticles.slice(0, 8).map((item, index) => (
+                        <div key={`used-${index}`} style={{ fontSize: '11px', lineHeight: 1.5, marginBottom: '5px' }}>
+                          {item.source || item.source_name || item.article_id || '-'} <span style={{ opacity: 0.5 }}>({item.reason || item.tier || 'evidence'})</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ border: '1px solid #eee', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
+                      <div style={{ ...btnLabel, fontSize: '9px', opacity: 0.5, marginBottom: '8px' }}>omitidos</div>
+                      {omittedArticles.length === 0 ? (
+                        <div style={{ fontSize: '11px', fontFamily: fontMono, opacity: 0.5 }}>Sin omisiones relevantes.</div>
+                      ) : omittedArticles.slice(0, 8).map((item, index) => (
+                        <div key={`omitted-${index}`} style={{ fontSize: '11px', lineHeight: 1.5, marginBottom: '5px' }}>
+                          {item.source || item.source_name || item.article_id || '-'} <span style={{ opacity: 0.5 }}>({item.reason || 'fuera del limite'})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section style={{ marginBottom: '28px' }}>
               <h3 style={sectionTitleStyle}>Articulos agrupados ({articles.length})</h3>

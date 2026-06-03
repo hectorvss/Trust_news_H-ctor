@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
 
     const sourceIds = [...new Set(articles.map((article) => article.source_id).filter(Boolean))];
     const { data: sources } = sourceIds.length
-      ? await db.from("sources").select("id, nombre, name, bias, factuality").in("id", sourceIds)
+      ? await db.from("sources").select("id, nombre, name, bias, bias_label, bias_score, political_lean, factuality, ownership, country, pais, language, source_scope, media_type, fact_check_score, bias_confidence").in("id", sourceIds)
       : { data: [] };
     const sourceMap: Record<string, any> = {};
     (sources || []).forEach((source: any) => { sourceMap[source.id] = source; });
@@ -99,19 +99,36 @@ Deno.serve(async (req) => {
       };
     });
 
-    let analysis: any = null;
+    let analysisResult: any = null;
     try {
-      analysis = await analyzeCluster(cluster, enrichedArticles, sourceMap);
+      analysisResult = await analyzeCluster(cluster, enrichedArticles, sourceMap);
     } catch (err) {
       await db.from("stories").update({
         review_status: "analysis_failed",
-        editorial_validation: { ready: false, missing: ["valid_ai_json"], error: String(err).slice(0, 500), checked_at: new Date().toISOString() },
+        editorial_validation: {
+          ready: false,
+          missing: ["valid_ai_json"],
+          errors: [String(err).slice(0, 500)],
+          checked_at: new Date().toISOString(),
+        },
+        generation_metadata: {
+          llm: {
+            status: "exception",
+            error: String(err).slice(0, 500),
+            checked_at: new Date().toISOString(),
+          },
+        },
         updated_at: new Date().toISOString(),
       }).eq("id", draft.id);
       failed++;
       continue;
     }
-    if (!analysis) continue;
+    if (!analysisResult) continue;
+
+    const analysis = analysisResult.payload || analysisResult;
+    const llmValidation = analysisResult.validation || { ready: true, errors: [], warnings: [], missing: [] };
+    const llmTrace = analysisResult.trace || {};
+    const evidencePack = analysisResult.evidencePack || null;
 
     const consensusNarrative = analysis.consenso_narrativo || [
       analysis.perspectivas_info?.izquierda || "Sin cobertura",
@@ -129,8 +146,53 @@ Deno.serve(async (req) => {
       coverage_right: draft.coverage_right,
     };
     const validation = validateEditorialStory(nextStory);
+    const combinedValidation = {
+      ready: Boolean(validation.ready && llmValidation.ready),
+      missing: [...new Set([...(validation.missing || []), ...(llmValidation.missing || [])])],
+      errors: [...(llmValidation.errors || [])],
+      warnings: [...(llmValidation.warnings || [])],
+      checked_at: new Date().toISOString(),
+      evidence_pack_hash: llmTrace.evidence_pack_hash || evidencePack?.evidence_pack_hash || null,
+    };
     if (body.dry_run) {
       analyzed++;
+      continue;
+    }
+
+    if (!combinedValidation.ready) {
+      await db.from("stories").update({
+        review_status: "analysis_failed",
+        editorial_validation: combinedValidation,
+        generation_metadata: {
+          llm: {
+            status: "schema_failed",
+            model: llmTrace.model || config.anthropicModel,
+            prompt_version: llmTrace.prompt_version,
+            token_usage: llmTrace.token_usage,
+            attempts: llmTrace.llm_attempts,
+            repair_used: Boolean(llmTrace.repair_used),
+            validation_errors: combinedValidation.errors,
+            validation_warnings: combinedValidation.warnings,
+          },
+          evidence: llmTrace.evidence || null,
+        },
+        updated_at: new Date().toISOString(),
+      }).eq("id", draft.id);
+      await db.from("story_clusters").update({
+        analysis: {
+          evidence_pack_summary: evidencePack ? {
+            hash: evidencePack.evidence_pack_hash,
+            quality: evidencePack.evidence_quality,
+            used_article_count: evidencePack.articles?.length || 0,
+            omitted_article_count: evidencePack.omitted_articles?.length || 0,
+          } : null,
+          llm_validation: combinedValidation,
+          claims_matrix: analysis.claims_matrix || [],
+          source_trace: analysis.source_trace || [],
+        },
+        updated_at: new Date().toISOString(),
+      }).eq("id", clusterId);
+      failed++;
       continue;
     }
 
@@ -169,14 +231,43 @@ Deno.serve(async (req) => {
       })(analysis.perspectivas_info),
       perspectives: analysis.perspectivas_info || {},
       articles: analysis.articles?.length ? analysis.articles : draft.articles,
-      review_status: validation.ready ? "ready_for_review" : "analysis_failed",
-      editorial_validation: validation,
+      review_status: "ready_for_review",
+      editorial_validation: combinedValidation,
+      generation_metadata: {
+        llm: {
+          status: "completed",
+          model: llmTrace.model || config.anthropicModel,
+          prompt_version: llmTrace.prompt_version,
+          token_usage: llmTrace.token_usage,
+          attempts: llmTrace.llm_attempts,
+          repair_used: Boolean(llmTrace.repair_used),
+          validation_errors: combinedValidation.errors,
+          validation_warnings: combinedValidation.warnings,
+          confidence: analysis.llm_confidence || null,
+        },
+        evidence: llmTrace.evidence || null,
+        claims_matrix: analysis.claims_matrix || [],
+        missing_evidence: analysis.missing_evidence || [],
+        evidence_quality: analysis.evidence_quality || null,
+        source_trace: analysis.source_trace || [],
+      },
       pipeline_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", draft.id);
 
     await db.from("story_clusters").update({
-      analysis,
+      analysis: {
+        story_draft: analysis,
+        evidence_pack_summary: evidencePack ? {
+          hash: evidencePack.evidence_pack_hash,
+          quality: evidencePack.evidence_quality,
+          used_articles: llmTrace.evidence?.used_articles || [],
+          omitted_articles: llmTrace.evidence?.omitted_articles || [],
+        } : null,
+        claims_matrix: analysis.claims_matrix || [],
+        source_trace: analysis.source_trace || [],
+        llm_validation: combinedValidation,
+      },
       updated_at: new Date().toISOString(),
     }).eq("id", clusterId);
 

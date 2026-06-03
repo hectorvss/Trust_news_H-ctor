@@ -65,6 +65,23 @@ const checks = [
       "blocked_reason",
       "event_signature",
       "entity_fingerprint",
+      "generation_metadata",
+      "editorial_validation",
+      "claims_matrix",
+      "evidence_pack_summary",
+    ],
+  },
+  {
+    name: "llm route builds compact evidence and validates tool output",
+    file: "supabase/functions/_shared/llm.ts",
+    mustInclude: [
+      "buildEvidencePack",
+      "compactArticleEvidence",
+      "estimateEvidenceTokens",
+      "submit_editorial_story_draft",
+      "tool_choice",
+      "repairTrustNewsDraft",
+      "evidence_pack_hash",
     ],
   },
   {
@@ -75,6 +92,18 @@ const checks = [
       "parserUsed",
       "paywallDetected",
       "blockedReason",
+      "Trazabilidad editorial",
+      "Cifras y claims",
+      "Articulos usados vs omitidos",
+    ],
+  },
+  {
+    name: "manager dashboard exposes llm cost and blocked drafts",
+    file: "src/components/manager/PipelineDashboard.jsx",
+    mustInclude: [
+      "Tokens LLM 24h",
+      "Repairs LLM",
+      "Bloqueos LLM",
     ],
   },
   {

@@ -77,6 +77,19 @@ export default function ReviewQueue({ onEditStory }) {
     return isSynth(d) && hasCoverage && Array.isArray(d.articles) && d.articles.length > 0 &&
       (figures.length > 0 || d.verificacion_info) && validation.ready !== false;
   };
+  const reviewState = (d) => {
+    const validation = d.editorial_validation || {};
+    const meta = d.generation_metadata || {};
+    const llm = meta.llm || {};
+    const evidenceScore = Number(meta?.evidence?.quality?.overall_score ?? meta?.evidence_quality?.overall_score ?? 1);
+    if (d.review_status === 'analysis_failed') return { label: 'FALLO ANALISIS', color: '#dc2626' };
+    if (Array.isArray(validation.errors) && validation.errors.length) return { label: 'FALLO SCHEMA', color: '#dc2626' };
+    if (llm.repair_used) return { label: 'REPAIR APLICADO', color: '#b45309' };
+    if (evidenceScore < 0.35) return { label: 'EVIDENCIA BAJA', color: '#b45309' };
+    if (isPublishable(d)) return { label: 'LISTA REVISION', color: '#16a34a' };
+    if (isSynth(d)) return { label: 'INCOMPLETA', color: '#555' };
+    return { label: 'SIN SINTESIS', color: '#777' };
+  };
   const withSynthesis = drafts.filter(isSynth);
   const withoutSynthesis = drafts.length - withSynthesis.length;
 
@@ -221,6 +234,7 @@ export default function ReviewQueue({ onEditStory }) {
             const failed = isFailed(d);
             const publishable = isPublishable(d);
             const busy = rowBusy === d.id;
+            const state = reviewState(d);
             return (
               <div
                 key={d.id}
@@ -245,6 +259,15 @@ export default function ReviewQueue({ onEditStory }) {
                   {hasSyn
                     ? <span style={{ fontSize: '11px', fontFamily: fontMono, fontWeight: 900, color: '#16a34a' }}>✓ sintetizada</span>
                     : <span style={{ fontSize: '11px', fontFamily: fontMono, fontWeight: 900, opacity: 0.55 }}>🟡 en análisis</span>}
+                  <span style={{
+                    fontSize: '10px',
+                    fontFamily: fontMono,
+                    fontWeight: 900,
+                    letterSpacing: '0.7px',
+                    color: state.color
+                  }}>
+                    {state.label}
+                  </span>
                 </div>
 
                 {/* title */}

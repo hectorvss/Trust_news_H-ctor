@@ -1,0 +1,44 @@
+{
+  "title": "El Gobierno anuncia nuevas medidas energéticas con respuesta desigual",
+  "category": "POLÍTICA",
+  "summary": "El paquete energético anunciado por el Gobierno genera apoyo parcial entre los socios parlamentarios y críticas de la oposición, mientras los medios consultados divergen sobre su impacto fiscal y social.",
+  "full_content": "El Gobierno ha presentado un paquete de medidas energéticas que busca contener costes y acelerar inversiones. La cobertura de los medios analizados coincide en que la iniciativa tendrá efectos presupuestarios relevantes, pero discrepa en el alcance social, la viabilidad técnica y la lectura política. Las fuentes progresistas enfatizan el alivio a hogares vulnerables, las conservadoras subrayan el coste público y las centristas apuntan a la necesidad de evaluar ejecución, financiación y calendario. La evidencia disponible permite identificar cifras, claims y actores principales, aunque faltan documentos técnicos completos.",
+  "factuality": "SEGURA",
+  "consensus": "MEDIO",
+  "impact": "MEDIO",
+  "desglose": "Medidas y reacción.",
+  "contexto": "Contexto suficiente.",
+  "perspectivas_info": "Perspectivas suficientes.",
+  "consenso_narrativo": "Izquierda | Centro | Derecha",
+  "blind_spot": "Faltan datos.",
+  "cifras_clave": [],
+  "verificacion_info": "No hay cifras verificables.",
+  "origen_info": "Anuncio institucional.",
+  "impacto_social": "Impacto social medio.",
+  "impacto_sistemico": "Impacto sistemico medio.",
+  "documentos_info": [],
+  "protagonistas_info": "Gobierno y oposición.",
+  "preguntas_info": "Preguntas abiertas.",
+  "analytical_snippet": "Snippet.",
+  "articles": [
+    {
+      "article_id": "art-1",
+      "source": "El Pais",
+      "url": "https://example.com/pais/energia",
+      "bias": "LEAN_LEFT",
+      "title": "El Gobierno activa un paquete energético",
+      "summary": "Destaca el alivio social.",
+      "angle": "Protección social",
+      "tone": "positivo",
+      "diff": "Difiere en coste.",
+      "whyOpened": "Aporta contexto."
+    }
+  ],
+  "evidence_quality": {
+    "overall_score": 0.72
+  },
+  "claims_matrix": [],
+  "missing_evidence": [],
+  "llm_confidence": "medium",
+  "source_trace": []
+}

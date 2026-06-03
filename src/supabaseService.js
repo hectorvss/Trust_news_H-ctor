@@ -206,6 +206,8 @@ const mapStory = (s) => {
     impactoSocial: Array.isArray(s.impacto_social) ? s.impacto_social.join('\n') : (s.impacto_social || ''),
     impactoSistemico: Array.isArray(s.impacto_sistemico) ? s.impacto_sistemico.join('\n') : (s.impacto_sistemico || ''),
     consensoNarrativo: s.consenso_narrativo,
+    generationMetadata: s.generation_metadata || {},
+    editorialValidation: s.editorial_validation || {},
     factCheck: s.fact_check,
     blindSpot: s.blind_spot,
     mediosAnalizados: Array.isArray(s.medios_analizados) ? s.medios_analizados : [],
@@ -871,7 +873,7 @@ export const removeFavorite = async (userId, storyId) => {
 export const fetchPipelineDrafts = async () => {
   const { data, error } = await supabase
     .from('stories')
-    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, blind_spot, cifras_clave, verificacion_info, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, review_status, editorial_validation, is_auto_generated, pipeline_cluster_id, cluster_id')
+    .select('id, title, category, summary, image_url, source_count, sources_count, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, blind_spot, cifras_clave, verificacion_info, articles, medios_analizados, generated_at, pipeline_generated_at, cluster_status, review_status, editorial_validation, generation_metadata, is_auto_generated, pipeline_cluster_id, cluster_id')
     .eq('status', 'draft')
     .eq('is_auto_generated', true)
     .order('source_count', { ascending: false })
@@ -889,19 +891,29 @@ const validateDraftForApproval = (story) => {
   const articles = Array.isArray(story?.articles) ? story.articles : [];
   const figures = Array.isArray(story?.cifras_clave) ? story.cifras_clave : [];
   const coverage = Number(story?.coverage_left || 0) + Number(story?.coverage_center || 0) + Number(story?.coverage_right || 0);
+  const validation = story?.editorial_validation || {};
+  const metadata = story?.generation_metadata || {};
+  const llm = metadata.llm || {};
+  const evidenceScore = Number(metadata?.evidence?.quality?.overall_score ?? metadata?.evidence_quality?.overall_score ?? 1);
   if (!story?.title) missing.push('title');
   if (!story?.summary) missing.push('summary');
   if (!articles.length) missing.push('articles');
   if (coverage <= 0) missing.push('coverage');
   if (!(story?.consensus_narrative || story?.consenso_narrativo)) missing.push('consensus_narrative');
   if (!figures.length && !story?.verificacion_info) missing.push('cifras_clave_or_verificacion_info');
+  if (story?.review_status === 'analysis_failed') missing.push('analysis_failed');
+  if (validation.ready === false) missing.push(...(validation.missing || ['editorial_validation']));
+  if (Array.isArray(validation.errors) && validation.errors.length) missing.push('schema_errors');
+  if (llm.status && llm.status !== 'completed') missing.push('llm_not_completed');
+  if (evidenceScore < 0.35 && !(metadata.missing_evidence || []).length) missing.push('weak_evidence_without_explanation');
+  if (figures.some((figure) => figure?.value && !(figure.source_article_id || figure.article_id))) missing.push('unreferenced_figures');
   return { ready: missing.length === 0, missing };
 };
 
 export const approveDraftStory = async (storyId) => {
   const { data: draft, error: fetchError } = await supabase
     .from('stories')
-    .select('id, title, summary, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, cifras_clave, verificacion_info, articles, editorial_validation')
+    .select('id, title, summary, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, cifras_clave, verificacion_info, articles, editorial_validation, generation_metadata, review_status')
     .eq('id', storyId)
     .maybeSingle();
 
@@ -917,7 +929,7 @@ export const approveDraftStory = async (storyId) => {
       .from('stories')
       .update({
         review_status: 'analysis_failed',
-        editorial_validation: { ready: false, missing: validation.missing, checked_at: new Date().toISOString() },
+        editorial_validation: { ready: false, missing: validation.missing, errors: validation.missing, checked_at: new Date().toISOString() },
         updated_at: new Date().toISOString()
       })
       .eq('id', storyId);
@@ -1009,12 +1021,37 @@ export const fetchPipelineStats = async () => {
     .from('ingestion_jobs').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (lastJob) lastIngestAt = lastJob.created_at;
 
+  const { data: recentGenerated } = await supabase
+    .from('stories')
+    .select('generation_metadata, review_status, updated_at')
+    .eq('is_auto_generated', true)
+    .gte('updated_at', since24h)
+    .limit(300);
+  const llmStats = (recentGenerated || []).reduce((acc, row) => {
+    const llm = row.generation_metadata?.llm || {};
+    const usage = llm.token_usage || {};
+    acc.inputTokens += Number(usage.input_tokens || 0);
+    acc.outputTokens += Number(usage.output_tokens || 0);
+    acc.cacheReadTokens += Number(usage.cache_read_input_tokens || 0);
+    if (llm.repair_used) acc.repairs += 1;
+    if (Array.isArray(llm.validation_errors) && llm.validation_errors.length) acc.schemaFailures += 1;
+    if (row.review_status === 'analysis_failed') acc.blockedDrafts += 1;
+    return acc;
+  }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0 });
+
   return {
     sourcesActive, sourcesTotal,
     rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded), rawExtractionPending,
     contentExtracted, contentPaywalled, contentBlocked, lowQualityExtractions,
     clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published,
     jobs24h, jobErr24h, jobOk24h: Math.max(0, jobs24h - jobErr24h),
+    llmTokens24h: llmStats.inputTokens + llmStats.outputTokens,
+    llmInputTokens24h: llmStats.inputTokens,
+    llmOutputTokens24h: llmStats.outputTokens,
+    llmCacheReadTokens24h: llmStats.cacheReadTokens,
+    llmRepairs24h: llmStats.repairs,
+    llmSchemaFailures24h: llmStats.schemaFailures,
+    llmBlockedDrafts24h: llmStats.blockedDrafts,
     lastIngestAt,
   };
 };
@@ -1153,5 +1190,22 @@ export const fetchDraftReview = async (storyId) => {
     cluster = c || null;
   }
   const articles = cluster ? await fetchClusterArticles(cluster) : [];
-  return { story: mapStory(story), cluster, articles };
+  const generationMetadata = story.generation_metadata || {};
+  const clusterAnalysis = cluster?.analysis || {};
+  return {
+    story: mapStory(story),
+    cluster,
+    articles,
+    trace: {
+      generationMetadata,
+      editorialValidation: story.editorial_validation || {},
+      clusterAnalysis,
+      evidence: generationMetadata.evidence || clusterAnalysis.evidence_pack_summary || null,
+      evidenceQuality: generationMetadata.evidence_quality || generationMetadata.evidence?.quality || clusterAnalysis.evidence_pack_summary?.quality || null,
+      claimsMatrix: generationMetadata.claims_matrix || clusterAnalysis.claims_matrix || [],
+      sourceTrace: generationMetadata.source_trace || clusterAnalysis.source_trace || [],
+      missingEvidence: generationMetadata.missing_evidence || [],
+      llm: generationMetadata.llm || {},
+    },
+  };
 };

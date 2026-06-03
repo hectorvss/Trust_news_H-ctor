@@ -71,6 +71,25 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    const { data: recentStories } = await db
+      .from("stories")
+      .select("generation_metadata, review_status, updated_at")
+      .eq("is_auto_generated", true)
+      .gte("updated_at", since24h)
+      .limit(300);
+
+    const llmStats = (recentStories || []).reduce((acc: any, row: any) => {
+      const llm = row.generation_metadata?.llm || {};
+      const usage = llm.token_usage || {};
+      acc.inputTokens += Number(usage.input_tokens || 0);
+      acc.outputTokens += Number(usage.output_tokens || 0);
+      acc.cacheReadTokens += Number(usage.cache_read_input_tokens || 0);
+      if (llm.repair_used) acc.repairs += 1;
+      if (Array.isArray(llm.validation_errors) && llm.validation_errors.length) acc.schemaFailures += 1;
+      if (row.review_status === "analysis_failed") acc.blockedDrafts += 1;
+      return acc;
+    }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0 });
+
     return jsonResponse({
       ok: true,
       sourcesActive,
@@ -98,6 +117,13 @@ Deno.serve(async (req) => {
       jobsFailed24h,
       runsFailed24h,
       jobsOk24h: Math.max(0, jobs24h - jobsFailed24h),
+      llmTokens24h: llmStats.inputTokens + llmStats.outputTokens,
+      llmInputTokens24h: llmStats.inputTokens,
+      llmOutputTokens24h: llmStats.outputTokens,
+      llmCacheReadTokens24h: llmStats.cacheReadTokens,
+      llmRepairs24h: llmStats.repairs,
+      llmSchemaFailures24h: llmStats.schemaFailures,
+      llmBlockedDrafts24h: llmStats.blockedDrafts,
       lastIngestAt: lastJob?.created_at || null,
     });
   } catch (error) {

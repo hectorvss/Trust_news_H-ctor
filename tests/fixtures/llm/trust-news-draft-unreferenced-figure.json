@@ -1,0 +1,52 @@
+{
+  "title": "El Gobierno anuncia nuevas medidas energéticas con respuesta desigual",
+  "category": "POLÍTICA",
+  "summary": "El paquete energético anunciado por el Gobierno genera apoyo parcial entre los socios parlamentarios y críticas de la oposición, mientras los medios consultados divergen sobre su impacto fiscal y social.",
+  "full_content": "El Gobierno ha presentado un paquete de medidas energéticas que busca contener costes y acelerar inversiones. La cobertura de los medios analizados coincide en que la iniciativa tendrá efectos presupuestarios relevantes, pero discrepa en el alcance social, la viabilidad técnica y la lectura política. Las fuentes progresistas enfatizan el alivio a hogares vulnerables, las conservadoras subrayan el coste público y las centristas apuntan a la necesidad de evaluar ejecución, financiación y calendario. La evidencia disponible permite identificar cifras, claims y actores principales, aunque faltan documentos técnicos completos.",
+  "factuality": "MIXTA",
+  "consensus": "MEDIO",
+  "impact": "MEDIO",
+  "desglose": "Medidas, reacción política, coste fiscal y calendario de aplicación.",
+  "contexto": "La medida llega tras varios meses de presión sobre precios energéticos y negociación presupuestaria.",
+  "perspectivas_info": "Izquierda: protección social. Centro: equilibrio fiscal y ejecución. Derecha: coste e intervención.",
+  "consenso_narrativo": "La izquierda lo presenta como escudo social | El centro pide cautela sobre la ejecución | La derecha lo lee como gasto e intervencionismo",
+  "blind_spot": "Faltan análisis independientes sobre impacto por renta y territorio.",
+  "cifras_clave": [
+    {
+      "label": "Coste estimado del paquete",
+      "value": "1.200 millones de euros",
+      "source": "El Pais",
+      "url": "https://example.com/pais/energia",
+      "confidence": "medium"
+    }
+  ],
+  "verificacion_info": "La cifra de coste aparece en una fuente y debe verificarse.",
+  "origen_info": "Anuncio institucional.",
+  "impacto_social": "Puede afectar a hogares vulnerables.",
+  "impacto_sistemico": "Puede alterar incentivos fiscales.",
+  "documentos_info": [],
+  "protagonistas_info": "Gobierno y oposición.",
+  "preguntas_info": "¿Cuál será el coste final?",
+  "analytical_snippet": "La noticia combina coste fiscal y disputa narrativa.",
+  "articles": [
+    {
+      "article_id": "art-1",
+      "source": "El Pais",
+      "url": "https://example.com/pais/energia",
+      "bias": "LEAN_LEFT",
+      "title": "El Gobierno activa un paquete energético",
+      "summary": "Destaca el alivio social y el calendario de medidas.",
+      "angle": "Protección social",
+      "tone": "positivo",
+      "diff": "Prioriza beneficiarios frente a coste fiscal.",
+      "whyOpened": "Aporta cifra principal."
+    }
+  ],
+  "evidence_quality": {
+    "overall_score": 0.72
+  },
+  "claims_matrix": [],
+  "missing_evidence": [],
+  "llm_confidence": "medium",
+  "source_trace": []
+}
