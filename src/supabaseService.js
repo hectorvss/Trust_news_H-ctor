@@ -982,13 +982,18 @@ export const fetchPipelineStats = async () => {
 
   const [
     sourcesActive, sourcesTotal, rawTotal, rawEmbedded,
-    rawExtractionPending, clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published, jobs24h, jobErr24h
+    rawExtractionPending, contentExtracted, contentPaywalled, contentBlocked, lowQualityExtractions,
+    clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published, jobs24h, jobErr24h
   ] = await Promise.all([
     countOf('sources', q => q.eq('activo', true)),
     countOf('sources'),
     countOf('raw_articles'),
     countOf('raw_articles', q => q.eq('embedded', true)),
     countOf('raw_articles', q => q.in('extraction_status', ['pending', 'failed'])),
+    countOf('article_content', q => q.eq('extraction_status', 'completed')),
+    countOf('article_content', q => q.eq('paywall_detected', true)),
+    countOf('article_content', q => q.not('blocked_reason', 'is', null)),
+    countOf('article_content', q => q.lt('extraction_quality_score', 0.35).not('extraction_status', 'eq', 'skipped_policy')),
     countOf('story_clusters'),
     countOf('story_clusters', q => q.eq('status', 'refresh_pending')),
     countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true)),
@@ -1007,6 +1012,7 @@ export const fetchPipelineStats = async () => {
   return {
     sourcesActive, sourcesTotal,
     rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded), rawExtractionPending,
+    contentExtracted, contentPaywalled, contentBlocked, lowQualityExtractions,
     clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published,
     jobs24h, jobErr24h, jobOk24h: Math.max(0, jobs24h - jobErr24h),
     lastIngestAt,
@@ -1041,7 +1047,7 @@ export const fetchIngestionJobs = async (limit = 60) => {
 export const fetchSourcesHealth = async () => {
   const { data, error } = await supabase
     .from('sources')
-    .select('id, nombre, activo, rss_url, error_count, last_checked_at, last_error_at, articles_ingested, political_lean, bias, pais, country, source_status')
+    .select('id, nombre, activo, rss_url, error_count, last_checked_at, last_error_at, articles_ingested, political_lean, bias, pais, country, source_status, source_scope, fact_check_score, bias_confidence')
     .order('error_count', { ascending: false, nullsFirst: false });
   if (error) { console.error('fetchSourcesHealth:', error.message); return []; }
   const seen = new Set();
@@ -1059,6 +1065,9 @@ export const fetchSourcesHealth = async () => {
     biasLabel: s.political_lean || s.bias || null,
     country: s.country || s.pais || null,
     status: s.source_status || null,
+    scope: s.source_scope || null,
+    factCheckScore: s.fact_check_score ?? null,
+    biasConfidence: s.bias_confidence ?? null,
   }));
 };
 
@@ -1088,7 +1097,7 @@ export const fetchClusterArticles = async (cluster) => {
   if (!cluster) return [];
   const ids = Array.isArray(cluster.article_ids) ? cluster.article_ids : [];
   let query = supabase.from('raw_articles')
-    .select('id, title, titulo, url, excerpt, content_excerpt, summary, source_id, published_at, fecha_publicacion, image_url, imagen_url, bias, language')
+    .select('id, title, titulo, url, excerpt, content_excerpt, summary, source_id, published_at, fecha_publicacion, image_url, imagen_url, bias, language, event_signature, entity_fingerprint, article_content(extraction_quality_score, parser_used, content_source, paywall_detected, blocked_reason)')
     .order('published_at', { ascending: false, nullsFirst: false })
     .limit(80);
   if (ids.length) query = query.in('id', ids);
@@ -1108,7 +1117,9 @@ export const fetchClusterArticles = async (cluster) => {
       srcById[s.id] = { name: s.nombre || s.id, biasLabel: s.political_lean || s.bias, logoUrl, url: s.url };
     });
   }
-  return (data || []).map(a => ({
+  return (data || []).map(a => {
+    const content = Array.isArray(a.article_content) ? a.article_content[0] : a.article_content;
+    return ({
     id: a.id,
     title: a.title || a.titulo || '(sin título)',
     url: a.url,
@@ -1117,8 +1128,16 @@ export const fetchClusterArticles = async (cluster) => {
     image: a.image_url || a.imagen_url || null,
     bias: a.bias || null,
     language: a.language || null,
+    eventSignature: a.event_signature || null,
+    entityFingerprint: a.entity_fingerprint || null,
+    extractionQualityScore: content?.extraction_quality_score ?? null,
+    parserUsed: content?.parser_used || null,
+    contentSource: content?.content_source || null,
+    paywallDetected: Boolean(content?.paywall_detected),
+    blockedReason: content?.blocked_reason || null,
     source: srcById[a.source_id] || { name: '—' },
-  }));
+    });
+  });
 };
 
 // Full review payload for one auto-generated draft: the mapped story + its

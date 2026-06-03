@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { data: articles } = await db
       .from("raw_articles")
-      .select("id, source_id, title, excerpt, author, embedding, url, image_url, published_at, structured_data, article_content(content_text, content_excerpt, extracted_claims, extracted_figures, extracted_documents, extracted_quotes, extracted_entities, extracted_tone)")
+      .select("id, source_id, title, excerpt, author, embedding, url, image_url, published_at, structured_data, event_signature, entity_fingerprint, article_content(content_text, content_excerpt, resolved_title, subtitle, lead, canonical_url, byline, section, published_at, modified_at, tags, images, outbound_links, extracted_claims, extracted_figures, extracted_documents, extracted_quotes, extracted_entities, extracted_tone, extraction_quality_score, parser_used, content_source, paywall_detected, blocked_reason)")
       .in("id", cluster.article_ids || [])
       .order("published_at", { ascending: false });
     if (!articles?.length) continue;
@@ -68,16 +68,33 @@ Deno.serve(async (req) => {
       const content = Array.isArray(article.article_content) ? article.article_content[0] : article.article_content;
       return {
         ...article,
+        title: content?.resolved_title || article.title,
+        author: content?.byline || article.author,
+        published_at: content?.published_at || article.published_at,
+        url: content?.canonical_url || article.url,
         content_text: content?.content_text || null,
         content_excerpt: content?.content_excerpt || null,
         structured_data: {
           ...(article.structured_data || {}),
+          subtitle: content?.subtitle || article.structured_data?.subtitle || null,
+          lead: content?.lead || article.structured_data?.lead || null,
+          section: content?.section || article.structured_data?.section || null,
+          tags: content?.tags || [],
+          images: content?.images || [],
+          outbound_links: content?.outbound_links || [],
           claims: content?.extracted_claims || [],
           figures: content?.extracted_figures || [],
           documents: content?.extracted_documents || [],
           quotes: content?.extracted_quotes || [],
           entities: content?.extracted_entities || [],
           tone: content?.extracted_tone || null,
+          extraction_quality_score: content?.extraction_quality_score || 0,
+          parser_used: content?.parser_used || null,
+          content_source: content?.content_source || null,
+          paywall_detected: Boolean(content?.paywall_detected),
+          blocked_reason: content?.blocked_reason || null,
+          event_signature: article.event_signature || null,
+          entity_fingerprint: article.entity_fingerprint || null,
         },
       };
     });

@@ -1,5 +1,11 @@
 import { db } from "../_shared/supabase.ts";
-import { config, extractReadableArticle, truncate } from "../_shared/pipeline.ts";
+import {
+  config,
+  entityFingerprintFromSignals,
+  eventSignatureFromArticle,
+  extractReadableArticle,
+  truncate,
+} from "../_shared/pipeline.ts";
 import { jsonResponse, handleCors } from "../_shared/http.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
@@ -16,7 +22,7 @@ Deno.serve(async (req) => {
   try {
     const { data: pending, error } = await db
       .from("raw_articles")
-      .select("id, source_id, title, excerpt, url, extraction_status, ingested_at")
+      .select("id, source_id, title, excerpt, url, extraction_status, ingested_at, published_at")
       .in("extraction_status", ["pending", "failed"])
       .order("ingested_at", { ascending: true })
       .limit(config.extractionMaxPerRun);
@@ -48,13 +54,26 @@ Deno.serve(async (req) => {
           extraction_method: "excerpt_only",
           content_text: null,
           content_excerpt: truncate(article.excerpt, config.excerptMaxChars),
+          extraction_quality_score: article.excerpt ? 0.15 : 0,
+          parser_used: "excerpt_only",
+          content_source: "rss_excerpt",
+          blocked_reason: "source_full_content_disabled",
           permission_basis: "source_full_content_disabled",
           updated_at: new Date().toISOString(),
         });
+        const structured = { policy: "source_full_content_disabled" };
         await db.from("raw_articles").update({
           extraction_status: "skipped_policy",
           pipeline_status: "extracted",
           extracted_at: new Date().toISOString(),
+          structured_data: structured,
+          entity_fingerprint: entityFingerprintFromSignals(structured, article.title || ""),
+          event_signature: eventSignatureFromArticle({
+            title: article.title,
+            excerpt: article.excerpt,
+            published_at: article.published_at,
+            structured_data: structured,
+          }),
         }).eq("id", article.id);
         skipped++;
         continue;
@@ -63,10 +82,51 @@ Deno.serve(async (req) => {
       try {
         const extractedArticle = await extractReadableArticle(article.url, config.userAgent);
         const structured = extractedArticle.structured || {};
+        const extractionStatus = extractedArticle.contentText
+          ? "completed"
+          : extractedArticle.blockedReason === "paywall_or_subscription_wall"
+            ? "blocked"
+            : "empty";
+        const structuredData = {
+          subtitle: extractedArticle.subtitle,
+          lead: extractedArticle.lead,
+          section: extractedArticle.section,
+          byline: extractedArticle.byline,
+          published_at: extractedArticle.publishedAt,
+          modified_at: extractedArticle.modifiedAt,
+          tags: extractedArticle.tags || [],
+          images: extractedArticle.images || [],
+          outbound_links: extractedArticle.outboundLinks || [],
+          extraction_quality_score: extractedArticle.extractionQualityScore,
+          parser_used: extractedArticle.parserUsed,
+          content_source: extractedArticle.contentSource,
+          paywall_detected: extractedArticle.paywallDetected,
+          blocked_reason: extractedArticle.blockedReason,
+          ...structured,
+        };
+        const entityFingerprint = entityFingerprintFromSignals(structuredData, extractedArticle.resolvedTitle || article.title || "");
+        const eventSignature = eventSignatureFromArticle({
+          title: extractedArticle.resolvedTitle || article.title,
+          excerpt: extractedArticle.contentExcerpt || article.excerpt,
+          published_at: extractedArticle.publishedAt || article.published_at,
+          structured_data: structuredData,
+        });
+
         await db.from("article_content").upsert({
           article_id: article.id,
-          extraction_status: extractedArticle.contentText ? "completed" : "empty",
+          extraction_status: extractionStatus,
           extraction_method: "readable_html",
+          resolved_title: extractedArticle.resolvedTitle || extractedArticle.title || article.title || null,
+          subtitle: extractedArticle.subtitle || null,
+          lead: extractedArticle.lead || null,
+          canonical_url: extractedArticle.canonicalUrl || article.url,
+          byline: extractedArticle.byline || null,
+          section: extractedArticle.section || null,
+          published_at: extractedArticle.publishedAt || article.published_at || null,
+          modified_at: extractedArticle.modifiedAt || null,
+          tags: extractedArticle.tags || [],
+          images: extractedArticle.images || [],
+          outbound_links: extractedArticle.outboundLinks || [],
           content_text: extractedArticle.contentText || null,
           content_excerpt: extractedArticle.contentExcerpt || article.excerpt || null,
           word_count: extractedArticle.wordCount,
@@ -76,19 +136,22 @@ Deno.serve(async (req) => {
           extracted_figures: structured.figures || [],
           extracted_quotes: structured.quotes || [],
           extracted_documents: structured.documents || [],
+          extraction_quality_score: extractedArticle.extractionQualityScore || 0,
+          parser_used: extractedArticle.parserUsed,
+          content_source: extractedArticle.contentSource,
+          paywall_detected: Boolean(extractedArticle.paywallDetected),
+          blocked_reason: extractedArticle.blockedReason || null,
           permission_basis: "source_full_content_enabled",
           robots_checked: false,
           updated_at: new Date().toISOString(),
         });
         await db.from("raw_articles").update({
-          extraction_status: extractedArticle.contentText ? "completed" : "empty",
+          extraction_status: extractionStatus,
           pipeline_status: "extracted",
           extracted_at: new Date().toISOString(),
-          structured_data: {
-            subtitle: extractedArticle.subtitle,
-            section: extractedArticle.section,
-            ...structured,
-          },
+          structured_data: structuredData,
+          entity_fingerprint: entityFingerprint,
+          event_signature: eventSignature,
         }).eq("id", article.id);
         extracted++;
       } catch (err) {
@@ -97,6 +160,9 @@ Deno.serve(async (req) => {
           extraction_status: "failed",
           extraction_method: "readable_html",
           error_message: String(err).slice(0, 500),
+          parser_used: "readable_html",
+          content_source: "exception",
+          blocked_reason: String(err).slice(0, 500),
           updated_at: new Date().toISOString(),
         });
         await db.from("raw_articles").update({

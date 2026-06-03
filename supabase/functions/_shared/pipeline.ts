@@ -232,6 +232,14 @@ const removeBoilerplate = (html: string) =>
     .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
     .replace(/<nav[\s\S]*?<\/nav>/gi, " ");
 
+const domainOf = (rawUrl: string) => {
+  try {
+    return new URL(rawUrl).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "";
+  }
+};
+
 const firstTagText = (html: string, tag: string) => {
   const match = html.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
   return match ? stripHtml(decodeEntities(match[1])) : null;
@@ -249,19 +257,181 @@ const metaContent = (html: string, name: string) => {
   return null;
 };
 
+const metaList = (html: string, name: string) =>
+  [...html.matchAll(new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, "gi"))]
+    .map((match) => decodeEntities(match[1]))
+    .filter(Boolean);
+
+const attrValue = (tag: string, attr: string) => {
+  const match = tag.match(new RegExp(`\\s${attr}=["']([^"']+)["']`, "i"));
+  return match ? decodeEntities(match[1]) : null;
+};
+
 const classText = (html: string, classFragment: string) => {
   const re = new RegExp(`<[^>]+class=["'][^"']*${classFragment}[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`, "i");
   const match = html.match(re);
   return match ? stripHtml(decodeEntities(match[1])) : null;
 };
 
-const extractParagraphs = (html: string) => {
-  const articleMatch = html.match(/<article(?:\s[^>]*)?>([\s\S]*?)<\/article>/i);
-  const mainMatch = html.match(/<main(?:\s[^>]*)?>([\s\S]*?)<\/main>/i);
-  const scope = articleMatch?.[1] || mainMatch?.[1] || html;
-  return [...scope.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi)]
+const blockByClass = (html: string, fragments: string[]) => {
+  for (const fragment of fragments) {
+    const re = new RegExp(`<([a-z0-9]+)[^>]+class=["'][^"']*${fragment}[^"']*["'][^>]*>([\\s\\S]*?)<\\/\\1>`, "i");
+    const match = html.match(re);
+    if (match?.[2]) return match[2];
+  }
+  return null;
+};
+
+const extractParagraphsFromScope = (scope: string) =>
+  [...scope.matchAll(/<(?:p|li)(?:\s[^>]*)?>([\s\S]*?)<\/(?:p|li)>/gi)]
     .map((match) => stripHtml(decodeEntities(match[1])))
-    .filter((text) => text.length >= 40);
+    .filter((text) => text.length >= 35 && !/^(publicidad|newsletter|suscr[ií]bete|leer m[aá]s)$/i.test(text));
+
+const jsonLdBlocks = (html: string) =>
+  [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
+    .flatMap((match) => {
+      try {
+        const parsed = JSON.parse(decodeEntities(match[1]).trim());
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [];
+      }
+    });
+
+const flattenJsonLd = (node: any): any[] => {
+  if (!node) return [];
+  if (Array.isArray(node)) return node.flatMap(flattenJsonLd);
+  const graph = Array.isArray(node["@graph"]) ? node["@graph"].flatMap(flattenJsonLd) : [];
+  return [node, ...graph];
+};
+
+const findArticleJsonLd = (html: string) => {
+  const nodes = jsonLdBlocks(html).flatMap(flattenJsonLd);
+  return nodes.find((node) => {
+    const type = Array.isArray(node["@type"]) ? node["@type"].join(" ") : String(node["@type"] || "");
+    return /NewsArticle|Article|Reportage|BlogPosting/i.test(type);
+  }) || null;
+};
+
+const jsonLdText = (value: any): string | null => {
+  if (!value) return null;
+  if (typeof value === "string") return stripHtml(value);
+  if (Array.isArray(value)) return value.map(jsonLdText).filter(Boolean).join(", ") || null;
+  if (typeof value === "object") return jsonLdText(value.name || value.headline || value.text);
+  return null;
+};
+
+const jsonLdDate = (value: any): string | null => {
+  const raw = jsonLdText(value);
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const absoluteUrl = (baseUrl: string, href: string | null) => {
+  if (!href) return null;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+};
+
+const extractImages = (html: string, baseUrl: string) => {
+  const images: Array<{ url: string; alt: string | null }> = [];
+  const seen = new Set<string>();
+  for (const raw of [metaContent(html, "og:image"), metaContent(html, "twitter:image")]) {
+    const url = absoluteUrl(baseUrl, raw);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      images.push({ url, alt: null });
+    }
+  }
+  for (const match of html.matchAll(/<img[^>]+>/gi)) {
+    const src = attrValue(match[0], "src") || attrValue(match[0], "data-src") || attrValue(match[0], "data-original");
+    const url = absoluteUrl(baseUrl, src);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      images.push({ url, alt: attrValue(match[0], "alt") });
+    }
+    if (images.length >= 12) break;
+  }
+  return images;
+};
+
+const extractOutboundLinks = (html: string, baseUrl: string) => {
+  const baseHost = domainOf(baseUrl);
+  const links: Array<{ url: string; text: string }> = [];
+  const seen = new Set<string>();
+  for (const match of html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const url = absoluteUrl(baseUrl, decodeEntities(match[1]));
+    if (!url || seen.has(url) || domainOf(url) === baseHost) continue;
+    seen.add(url);
+    links.push({ url, text: truncate(stripHtml(match[2]), 120) || "" });
+    if (links.length >= 20) break;
+  }
+  return links;
+};
+
+const sourceRules: Array<{ domain: RegExp; containers: string[]; parser: string }> = [
+  { domain: /elpais\.com$/, containers: ["a_c", "articulo-cuerpo", "article_body"], parser: "elpais_rules" },
+  { domain: /elmundo\.es$/, containers: ["ue-c-article__body", "article__body", "ue-l-article__body"], parser: "elmundo_rules" },
+  { domain: /abc\.es$/, containers: ["voc-d-article", "article-body", "cuerpo"], parser: "abc_rules" },
+  { domain: /eldiario\.es$/, containers: ["article-text", "story-content", "body"], parser: "eldiario_rules" },
+  { domain: /lavanguardia\.com$/, containers: ["article-modules", "article-content", "story-leaf-body"], parser: "lavanguardia_rules" },
+  { domain: /elconfidencial\.com$/, containers: ["news-body", "article-body", "EC_articulo"], parser: "elconfidencial_rules" },
+  { domain: /20minutos\.es$/, containers: ["article-text", "article-content", "entry-content"], parser: "20minutos_rules" },
+  { domain: /rtve\.es$/, containers: ["article-text", "body-text", "contenido"], parser: "rtve_rules" },
+];
+
+const detectPaywall = (html: string) =>
+  /paywall|premium|solo para suscriptores|contenido exclusivo|suscr[ií]bete para continuar|reg[ií]strate para leer/i.test(html);
+
+const chooseReadableScope = (html: string, url: string) => {
+  const domain = domainOf(url);
+  const rule = sourceRules.find((entry) => entry.domain.test(domain));
+  if (rule) {
+    const scope = blockByClass(html, rule.containers);
+    if (scope) return { scope, parserUsed: rule.parser, contentSource: "source_rule" };
+  }
+  const articleMatch = html.match(/<article(?:\s[^>]*)?>([\s\S]*?)<\/article>/i);
+  if (articleMatch?.[1]) return { scope: articleMatch[1], parserUsed: "generic_article", contentSource: "article_tag" };
+  const mainMatch = html.match(/<main(?:\s[^>]*)?>([\s\S]*?)<\/main>/i);
+  if (mainMatch?.[1]) return { scope: mainMatch[1], parserUsed: "generic_main", contentSource: "main_tag" };
+  return { scope: html, parserUsed: "paragraph_fallback", contentSource: "page_fallback" };
+};
+
+const scoreExtraction = (args: {
+  wordCount: number;
+  paragraphCount: number;
+  hasTitle: boolean;
+  hasAuthor: boolean;
+  hasDate: boolean;
+  paywallDetected: boolean;
+  blockedReason: string | null;
+}) => {
+  if (args.blockedReason) return 0;
+  let score = 0;
+  if (args.wordCount >= 900) score += 0.42;
+  else if (args.wordCount >= 500) score += 0.34;
+  else if (args.wordCount >= 220) score += 0.24;
+  else if (args.wordCount >= 80) score += 0.12;
+  score += Math.min(0.2, args.paragraphCount * 0.025);
+  if (args.hasTitle) score += 0.1;
+  if (args.hasAuthor) score += 0.08;
+  if (args.hasDate) score += 0.08;
+  if (args.paywallDetected) score -= 0.18;
+  return Number(Math.max(0, Math.min(1, score)).toFixed(3));
+};
+
+const parseTags = (html: string, articleJsonLd: any) => {
+  const keywords = jsonLdText(articleJsonLd?.keywords);
+  const tags = [
+    ...(keywords ? keywords.split(",") : []),
+    ...metaList(html, "article:tag"),
+    ...metaList(html, "keywords").flatMap((value) => value.split(",")),
+  ].map((tag) => tag.trim()).filter((tag) => tag.length >= 2);
+  return Array.from(new Set(tags)).slice(0, 20);
 };
 
 export const extractReadableArticle = async (url: string, userAgent = config.userAgent) => {
@@ -278,20 +448,83 @@ export const extractReadableArticle = async (url: string, userAgent = config.use
       },
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const blockedReason = `HTTP ${res.status}`;
+      return {
+        title: null,
+        resolvedTitle: null,
+        subtitle: null,
+        lead: null,
+        canonicalUrl: url,
+        byline: null,
+        section: null,
+        publishedAt: null,
+        modifiedAt: null,
+        tags: [],
+        images: [],
+        outboundLinks: [],
+        contentText: "",
+        contentExcerpt: null,
+        wordCount: 0,
+        charCount: 0,
+        structured: extractStructuredSignals(""),
+        extractionQualityScore: 0,
+        parserUsed: "fetch",
+        contentSource: "http_error",
+        paywallDetected: false,
+        blockedReason,
+      };
+    }
 
-    const html = removeBoilerplate(await res.text());
+    const rawHtml = await res.text();
+    const articleJsonLd = findArticleJsonLd(rawHtml);
+    const html = removeBoilerplate(rawHtml);
+    const canonicalUrl =
+      absoluteUrl(url, attrValue(html.match(/<link[^>]+rel=["']canonical["'][^>]*>/i)?.[0] || "", "href")) ||
+      metaContent(html, "og:url") ||
+      url;
     const title = firstTagText(html, "h1");
+    const resolvedTitle =
+      jsonLdText(articleJsonLd?.headline) ||
+      metaContent(html, "og:title") ||
+      metaContent(html, "twitter:title") ||
+      title;
     const subtitle =
+      jsonLdText(articleJsonLd?.description) ||
+      metaContent(html, "og:description") ||
+      metaContent(html, "twitter:description") ||
       firstTagText(html, "h2") ||
       classText(html, "subtitle") ||
       classText(html, "entradilla") ||
       null;
+    const lead = classText(html, "entradilla") || classText(html, "lead") || subtitle || null;
     const section =
+      jsonLdText(articleJsonLd?.articleSection) ||
       metaContent(html, "article:section") ||
       metaContent(html, "section") ||
       null;
-    const paragraphs = extractParagraphs(html);
+    const byline =
+      jsonLdText(articleJsonLd?.author) ||
+      metaContent(html, "article:author") ||
+      metaContent(html, "author") ||
+      classText(html, "author") ||
+      classText(html, "byline") ||
+      null;
+    const publishedAt =
+      jsonLdDate(articleJsonLd?.datePublished) ||
+      jsonLdDate(metaContent(html, "article:published_time")) ||
+      jsonLdDate(metaContent(html, "date")) ||
+      null;
+    const modifiedAt =
+      jsonLdDate(articleJsonLd?.dateModified) ||
+      jsonLdDate(metaContent(html, "article:modified_time")) ||
+      null;
+    const paywallDetected = detectPaywall(rawHtml);
+    const articleBody = jsonLdText(articleJsonLd?.articleBody);
+    const chosen = chooseReadableScope(html, url);
+    const paragraphs = articleBody && articleBody.length > 400
+      ? articleBody.split(/\n{2,}|(?<=[.!?])\s+(?=[A-Z])/).map((part) => part.trim()).filter((part) => part.length >= 35)
+      : extractParagraphsFromScope(chosen.scope);
 
     const unique: string[] = [];
     const seen = new Set<string>();
@@ -304,22 +537,52 @@ export const extractReadableArticle = async (url: string, userAgent = config.use
     }
 
     const contentText = truncate(unique.join("\n\n"), config.fullContentMaxChars) || "";
+    const wordCount = contentText ? contentText.split(/\s+/).filter(Boolean).length : 0;
+    const blockedReason =
+      !contentText && paywallDetected ? "paywall_or_subscription_wall" :
+      !contentText ? "empty_or_unreadable_html" :
+      null;
+    const structured = extractStructuredSignals(contentText);
+    const extractionQualityScore = scoreExtraction({
+      wordCount,
+      paragraphCount: unique.length,
+      hasTitle: Boolean(resolvedTitle || title),
+      hasAuthor: Boolean(byline),
+      hasDate: Boolean(publishedAt),
+      paywallDetected,
+      blockedReason,
+    });
+
     return {
       title,
+      resolvedTitle,
       subtitle,
+      lead,
+      canonicalUrl,
+      byline,
       section,
+      publishedAt,
+      modifiedAt,
+      tags: parseTags(html, articleJsonLd),
+      images: extractImages(html, canonicalUrl),
+      outboundLinks: extractOutboundLinks(chosen.scope, canonicalUrl),
       contentText,
       contentExcerpt: truncate(contentText, config.excerptMaxChars),
-      wordCount: contentText ? contentText.split(/\s+/).filter(Boolean).length : 0,
+      wordCount,
       charCount: contentText.length,
-      structured: extractStructuredSignals(contentText),
+      structured,
+      extractionQualityScore,
+      parserUsed: articleBody && articleBody.length > 400 ? "json_ld_article_body" : chosen.parserUsed,
+      contentSource: articleBody && articleBody.length > 400 ? "json_ld" : chosen.contentSource,
+      paywallDetected,
+      blockedReason,
     };
   } finally {
     clearTimeout(timer);
   }
 };
 
-export const extractStructuredSignals = (text: string) => {
+export const extractStructuredSignalsLegacy = (text: string) => {
   const figures = Array.from(text.matchAll(/\b\d+(?:[.,]\d+)?\s?(?:%|euros?|millones?|miles?|personas?|votos?|años?|meses?|días?)\b/gi))
     .slice(0, 12)
     .map((match) => ({ value: match[0], context: text.slice(Math.max(0, match.index! - 80), match.index! + 120).trim() }));
@@ -341,6 +604,68 @@ export const extractStructuredSignals = (text: string) => {
     .map((claim) => ({ claim }));
 
   return { entities, figures, quotes, documents, claims };
+};
+
+export const extractStructuredSignals = (text: string) => {
+  const figures = Array.from(text.matchAll(/\b\d+(?:[.,]\d+)?\s?(?:%|euros?|millones?|miles?|personas?|votos?|anos?|a\u00f1os?|meses?|dias?|d\u00edas?)\b/gi))
+    .slice(0, 12)
+    .map((match) => ({ value: match[0], context: text.slice(Math.max(0, match.index! - 80), match.index! + 120).trim() }));
+  const quotes = Array.from(text.matchAll(/["\u201c\u201d]([^"\u201c\u201d]{25,240})["\u201c\u201d]/g))
+    .slice(0, 8)
+    .map((match) => ({ quote: match[1] }));
+  const entities = Array.from(new Set(Array.from(text.matchAll(/\b[A-Z\u00c1\u00c9\u00cd\u00d3\u00da\u00d1][\w\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1-]+(?:\s+[A-Z\u00c1\u00c9\u00cd\u00d3\u00da\u00d1][\w\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1-]+){0,3}\b/g))
+    .map((match) => match[0])
+    .filter((value) => value.length > 3)))
+    .slice(0, 30)
+    .map((name) => ({ name }));
+  const documents = Array.from(text.matchAll(/\b(?:BOE|informe|sentencia|decreto|ley|resoluci[o\u00f3]n|documento|expediente|contrato|auto judicial)\b[^.]{0,180}/gi))
+    .slice(0, 10)
+    .map((match) => ({ name: match[0].trim() }));
+  const claims = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => /\b(?:asegura|afirma|denuncia|sostiene|critica|acusa|promete|confirma|niega|advierte|estima)\b/i.test(sentence))
+    .slice(0, 12)
+    .map((claim) => ({ claim }));
+
+  return { entities, figures, quotes, documents, claims };
+};
+
+const normalizeFingerprintToken = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+export const entityFingerprintFromSignals = (signals: any, title = "") => {
+  const entities = Array.isArray(signals?.entities)
+    ? signals.entities
+        .map((entry: any) => normalizeFingerprintToken(entry?.name || entry))
+        .filter((entry: string) => entry.length >= 4)
+    : [];
+  const titleTokens = [...tokenSet(title)].slice(0, 8);
+  return Array.from(new Set([...entities, ...titleTokens])).sort().slice(0, 24).join("|");
+};
+
+export const eventSignatureFromArticle = (article: {
+  title?: string | null;
+  excerpt?: string | null;
+  published_at?: string | null;
+  structured_data?: any;
+}) => {
+  const text = normalizeFingerprintToken([article.title, article.excerpt].filter(Boolean).join(" "));
+  const coreTerms = [...tokenSet(text)]
+    .filter((token) => !["ultima", "directo", "noticia", "noticias", "espana", "mundo"].includes(token))
+    .slice(0, 10);
+  const date = article.published_at ? new Date(article.published_at) : null;
+  const day = date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : "unknown-day";
+  const fingerprint = entityFingerprintFromSignals(article.structured_data || {}, article.title || "");
+  return [day, coreTerms.slice(0, 6).sort().join("-"), fingerprint.split("|").slice(0, 6).join("-")]
+    .filter(Boolean)
+    .join("::")
+    .slice(0, 300);
 };
 
 export const cosineSimilarity = (a: number[] | null | undefined, b: number[] | null | undefined) => {

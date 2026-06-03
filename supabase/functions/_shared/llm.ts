@@ -67,6 +67,8 @@ export const analyzeCluster = async (
   const systemPrompt = `Eres un analista editorial de Trust News especializado en el panorama informativo español. Analiza artículos que tratan la misma noticia, compara enfoques ideológicos y redacta TODOS los apartados editoriales.
 
 Reglas:
+- Usa extraction_quality_score, paywall_detected y blocked_reason para ponderar la evidencia; si un medio esta bloqueado o con poco texto, no lo trates como prueba fuerte.
+- Separa hechos observados, interpretaciones de los medios, claims en disputa, cifras, citas, documentos y preguntas abiertas.
 - Devuelve ÚNICAMENTE JSON válido.
 - No inventes cifras, citas, documentos ni fuentes. Si no hay dato suficiente, dilo explícitamente en verificacion_info o preguntas_info.
 - No copies texto largo de los medios: sintetiza y atribuye.
@@ -136,7 +138,7 @@ Estructura obligatoria:
         `Título: ${article.title || ""}`,
         `Excerpt: ${(article.excerpt || "").slice(0, 500)}`,
         `Texto extraído: ${(article.content_text || article.content_excerpt || "").slice(0, 1800)}`,
-        `Señales: ${JSON.stringify(article.structured_data || {}).slice(0, 1200)}`,
+        `Señales estructuradas y calidad: ${JSON.stringify(article.structured_data || {}).slice(0, 1800)}`,
         "",
       ].join("\n");
     }),

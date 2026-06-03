@@ -14,13 +14,57 @@ import {
 import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
-const articleSimilarity = (a: any, b: any) => {
-  if (a.embedding && b.embedding) return cosineSimilarity(a.embedding, b.embedding);
-  return jaccard(
-    tokenSet([a.title, a.excerpt].filter(Boolean).join(" ")),
-    tokenSet([b.title, b.excerpt].filter(Boolean).join(" ")),
-  );
+const tokenOverlap = (a?: string | null, b?: string | null) =>
+  jaccard(tokenSet(a || ""), tokenSet(b || ""));
+
+const fingerprintOverlap = (a?: string | null, b?: string | null) => {
+  if (!a || !b) return 0;
+  const left = new Set(a.split("|").filter(Boolean));
+  const right = new Set(b.split("|").filter(Boolean));
+  return jaccard(left, right);
 };
+
+const temporalAffinity = (a?: string | null, b?: string | null) => {
+  if (!a || !b) return 0.5;
+  const at = new Date(a).getTime();
+  const bt = new Date(b).getTime();
+  if (Number.isNaN(at) || Number.isNaN(bt)) return 0.5;
+  const hours = Math.abs(at - bt) / 3600000;
+  if (hours <= 12) return 1;
+  if (hours <= 36) return 0.75;
+  if (hours <= config.clusterWindowHours) return 0.45;
+  return 0;
+};
+
+const eventAffinity = (a?: string | null, b?: string | null) => {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const [aDay, aTerms, aEntities] = a.split("::");
+  const [bDay, bTerms, bEntities] = b.split("::");
+  const dayScore = aDay && bDay && aDay === bDay ? 0.2 : 0;
+  return dayScore + tokenOverlap(aTerms, bTerms) * 0.35 + tokenOverlap(aEntities, bEntities) * 0.45;
+};
+
+const articleSimilarity = (a: any, b: any) => {
+  const embedding = a.embedding && b.embedding ? cosineSimilarity(a.embedding, b.embedding) : null;
+  const text = tokenOverlap([a.title, a.excerpt].filter(Boolean).join(" "), [b.title, b.excerpt].filter(Boolean).join(" "));
+  const entities = fingerprintOverlap(a.entity_fingerprint, b.entity_fingerprint);
+  const event = eventAffinity(a.event_signature, b.event_signature);
+  const time = temporalAffinity(a.published_at, b.published_at);
+
+  if (embedding !== null) {
+    return embedding * 0.5 + text * 0.18 + entities * 0.16 + event * 0.12 + time * 0.04;
+  }
+  return text * 0.42 + entities * 0.28 + event * 0.22 + time * 0.08;
+};
+
+const sameEditorialEvent = (a: any, b: any) =>
+  articleSimilarity(a, b) >= config.clusterSimilarityHigh ||
+  (
+    eventAffinity(a.event_signature, b.event_signature) >= 0.62 &&
+    fingerprintOverlap(a.entity_fingerprint, b.entity_fingerprint) >= 0.35 &&
+    temporalAffinity(a.published_at, b.published_at) >= 0.45
+  );
 
 const clusterArticles = (articles: any[]) => {
   const clusterOf = new Array(articles.length).fill(-1);
@@ -33,7 +77,7 @@ const clusterArticles = (articles: any[]) => {
     clusterOf[i] = clusterIdx;
     for (let j = i + 1; j < articles.length; j++) {
       if (clusterOf[j] !== -1) continue;
-      if (articleSimilarity(articles[i], articles[j]) >= config.clusterSimilarityHigh) {
+      if (sameEditorialEvent(articles[i], articles[j])) {
         clusters[clusterIdx].push(articles[j]);
         clusterOf[j] = clusterIdx;
       }
@@ -56,7 +100,7 @@ const scoreCluster = (articleCount: number, sourceCount: number, publishedDates:
 const recalcCluster = async (clusterId: string, articleIds: string[], forcedStatus?: string) => {
   const { data: articles } = await db
     .from("raw_articles")
-    .select("id, source_id, title, excerpt, embedding, published_at")
+    .select("id, source_id, title, excerpt, embedding, published_at, event_signature, entity_fingerprint")
     .in("id", articleIds);
 
   const sourceIds = [...new Set((articles || []).map((article: any) => article.source_id).filter(Boolean))];
@@ -76,6 +120,14 @@ const recalcCluster = async (clusterId: string, articleIds: string[], forcedStat
     .sort();
 
   const title = generateClusterTitle(articles || []);
+  const topicKeywords = Array.from(new Set((articles || [])
+    .flatMap((article: any) => [
+      ...(article.entity_fingerprint || "").split("|"),
+      ...(article.event_signature || "").split("::").flatMap((part: string) => part.split("-")),
+    ])
+    .map((item: string) => item.trim())
+    .filter((item: string) => item.length >= 4)))
+    .slice(0, 30);
   const status = forcedStatus || (sourceIds.length >= config.clusterMinSourcesReady ? "ready" : "forming");
   const lastSeenAt = new Date().toISOString();
   const coverage = calculateCoverage(biasDistribution);
@@ -85,6 +137,7 @@ const recalcCluster = async (clusterId: string, articleIds: string[], forcedStat
     id: clusterId,
     title,
     topic_summary: title,
+    topic_keywords: topicKeywords,
     article_ids: articleIds,
     article_count: articleIds.length,
     source_count: sourceIds.length,
@@ -123,7 +176,7 @@ Deno.serve(async (req) => {
   const windowStart = new Date(Date.now() - config.clusterWindowHours * 3600 * 1000).toISOString();
   const { data: pending, error } = await db
     .from("raw_articles")
-    .select("id, source_id, title, excerpt, embedding, published_at, url")
+    .select("id, source_id, title, excerpt, embedding, published_at, url, event_signature, entity_fingerprint")
     .eq("embedded", true)
     .eq("clustered", false)
     .gte("ingested_at", windowStart)
@@ -141,7 +194,7 @@ Deno.serve(async (req) => {
   const recentWindow = new Date(Date.now() - config.clusterExistingWindowHours * 3600 * 1000).toISOString();
   const { data: existingClusters } = await db
     .from("story_clusters")
-    .select("id, article_ids, centroid_embedding, status, source_count, updated_at, story_id")
+    .select("id, title, topic_summary, topic_keywords, article_ids, centroid_embedding, status, source_count, updated_at, story_id, window_end")
     .in("status", ["forming", "ready", "materialized", "refresh_pending", "promoted"])
     .gte("updated_at", recentWindow);
 
@@ -156,8 +209,22 @@ Deno.serve(async (req) => {
     for (const cluster of existingClusters || []) {
       if (!cluster.centroid_embedding) continue;
       const score = articleSimilarity(
-        { embedding: parseVector(article.embedding), title: article.title, excerpt: article.excerpt },
-        { embedding: parseVector(cluster.centroid_embedding) },
+        {
+          embedding: parseVector(article.embedding),
+          title: article.title,
+          excerpt: article.excerpt,
+          published_at: article.published_at,
+          event_signature: article.event_signature,
+          entity_fingerprint: article.entity_fingerprint,
+        },
+        {
+          embedding: parseVector(cluster.centroid_embedding),
+          title: cluster.title || cluster.topic_summary,
+          excerpt: Array.isArray(cluster.topic_keywords) ? cluster.topic_keywords.join(" ") : "",
+          published_at: cluster.window_end,
+          event_signature: Array.isArray(cluster.topic_keywords) ? `::${cluster.topic_keywords.join("-")}::${cluster.topic_keywords.join("-")}` : null,
+          entity_fingerprint: Array.isArray(cluster.topic_keywords) ? cluster.topic_keywords.join("|") : null,
+        },
       );
       if (score > bestScore && score >= config.clusterSimilarityLow) {
         bestScore = score;

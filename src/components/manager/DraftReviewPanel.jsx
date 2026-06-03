@@ -400,6 +400,25 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
                         >
                           {article.title} {'->'}
                         </a>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '6px',
+                            marginTop: '8px',
+                            fontSize: '9px',
+                            fontFamily: fontMono,
+                            letterSpacing: '0.6px',
+                            textTransform: 'uppercase',
+                            color: '#555'
+                          }}
+                        >
+                          <span>calidad {article.extractionQualityScore == null ? '-' : Math.round(article.extractionQualityScore * 100)}</span>
+                          {article.parserUsed && <span>{article.parserUsed}</span>}
+                          {article.contentSource && <span>{article.contentSource}</span>}
+                          {article.paywallDetected && <span style={{ color: '#b45309', fontWeight: 900 }}>paywall</span>}
+                          {article.blockedReason && <span style={{ color: '#dc2626', fontWeight: 900 }}>{article.blockedReason}</span>}
+                        </div>
                       </div>
                     </div>
                   ))}
