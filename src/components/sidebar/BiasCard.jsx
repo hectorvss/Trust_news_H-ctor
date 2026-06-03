@@ -13,7 +13,7 @@ const BiasCard = ({ navigate }) => {
       </div>
 
       <button 
-        onClick={() => navigate('/bias')}
+        onClick={() => navigate('/mi-sesgo')}
         style={{ 
           width: '100%', 
           padding: '16px', 

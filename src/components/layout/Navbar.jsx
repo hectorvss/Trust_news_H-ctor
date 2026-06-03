@@ -96,6 +96,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
               </div>
 
               <a href="/local" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/local'); }}>LOCAL</a>
+              <a href="/bias" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/bias'); }}>BLINDSPOT</a>
               <a href="/discover" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/discover'); }}>DESCUBRIR</a>
               <a href="/pricing" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
               <a href="/tools" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/tools'); }}>HERRAMIENTAS</a>
@@ -150,6 +151,7 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
             </span>
           ))}
           <span onClick={() => goTo('/local')}>LOCAL</span>
+          <span onClick={() => goTo('/bias')}>BLINDSPOT</span>
           <span onClick={() => goTo('/discover')}>DESCUBRIR</span>
           <span onClick={() => goTo('/pricing')}>PRECIOS</span>
           <span onClick={() => goTo('/tools')}>HERRAMIENTAS</span>

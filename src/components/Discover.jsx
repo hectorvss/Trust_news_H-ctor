@@ -105,7 +105,7 @@ const Discover = ({ navigate, setActiveCategory }) => {
           { l: 'MI FEED', go: () => navigate('/') },
           { l: 'DESCUBRIR', go: null },
           { l: 'GUARDADAS', go: () => navigate('/favorites') },
-          { l: 'MIS SESGOS', go: () => navigate('/bias') }
+          { l: 'MIS SESGOS', go: () => navigate('/mi-sesgo') }
         ].map(t => (
           <span key={t.l} onClick={t.go || undefined} style={{ padding: '12px 0', fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', cursor: t.go ? 'pointer' : 'default', borderBottom: !t.go ? '2px solid black' : '2px solid transparent', opacity: !t.go ? 1 : 0.4, whiteSpace: 'nowrap' }}>
             {t.l}

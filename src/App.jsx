@@ -22,6 +22,7 @@ const Auth = lazy(() => import('./components/Auth'));
 const DailySummary = lazy(() => import('./components/DailySummary'));
 const FavoritesView = lazy(() => import('./components/FavoritesView'));
 const BiasAnalysis = lazy(() => import('./components/BiasAnalysis'));
+const BlindspotFeed = lazy(() => import('./components/BlindspotFeed'));
 const SearchResults = lazy(() => import('./components/SearchResults'));
 const LocalNews = lazy(() => import('./components/LocalNews'));
 const Discover = lazy(() => import('./components/Discover'));
@@ -534,7 +535,17 @@ const App = () => {
               />
             </div>
           } />
-          <Route path="/bias" element={<BiasAnalysis onBack={() => navigate('/')} />} />
+          <Route path="/bias" element={
+            <BlindspotFeed
+              stories={stories}
+              appConfig={appConfig}
+              onSelectStory={onSelectStory}
+              favStoryIds={favStoryIds}
+              toggleFavorite={toggleFavorite}
+              openShare={openShare}
+            />
+          } />
+          <Route path="/mi-sesgo" element={<BiasAnalysis onBack={() => navigate('/')} />} />
           <Route path="/story/:id" element={
             <div className="container route-container" style={{ padding: '60px 24px', background: 'white' }}>
                 {(() => {
