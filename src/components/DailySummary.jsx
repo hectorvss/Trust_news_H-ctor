@@ -4,6 +4,7 @@ import { useBreakpoint } from '../hooks/useBreakpoint';
 
 const DailySummary = ({ onBack, stories = [] }) => {
   const { isMobile } = useBreakpoint();
+  const topOffset = 72;
   const totalSources = stories.reduce((acc, s) => acc + (s.sourceCount || 0), 0);
   const recentStories = stories.slice(0, 6);
   const top3Stories = stories.slice(0, 3);
@@ -48,7 +49,7 @@ const DailySummary = ({ onBack, stories = [] }) => {
       paddingBottom: '200px',
       fontFamily: 'var(--font-heading)'
     }}>
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '4px', background: '#eee', zIndex: 1000 }}>
+      <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, width: '100%', height: '4px', background: '#eee', zIndex: 1000 }}>
         <div style={{ width: '100%', height: '100%', background: 'black' }} />
       </div>
 

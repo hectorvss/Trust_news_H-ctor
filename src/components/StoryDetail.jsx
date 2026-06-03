@@ -6,6 +6,7 @@ import ShareModal from './ShareModal';
 import Plus from './ui/Plus';
 import { saveStory, buildSourceIndex } from '../supabaseService';
 import { CoverageDetails, SourceTag, SourceLogo, toBucket, MiniBiasBar } from './coverage';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 
 const InlineEdit = ({ text, onChange, isEditing, tag = 'span', style = {}, multiline = false, placeholder = 'Añadir texto...' }) => {
   if (!isEditing) {
@@ -78,6 +79,7 @@ const InlineSelect = ({ text, onChange, options, isEditing, style = {} }) => {
 
 const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArticle, activeFilter, setActiveFilter, activeTab, setActiveTab, isFavorite, onToggleFavorite, onShare, userRole }) => {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useBreakpoint();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(!story || !story.id); // Default to editing if it's a new story
   const [editedStory, setEditedStory] = useState({});
@@ -221,14 +223,15 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 
   return (
     <div className="story-detail-overlay" style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'white', zIndex: 2000, overflowY: 'auto',
+      position: 'fixed', top: '72px', left: 0, right: 0, bottom: 0,
+      background: 'white', zIndex: 2000, overflowY: 'auto', boxSizing: 'border-box',
       animation: 'fadeIn 0.3s ease-out'
     }}>
       <Helmet>
         <title>{editedStory?.title || 'Noticia'} | TNE</title>
         <meta name="description" content={editedStory?.summary || 'Lee la cobertura completa de esta noticia en Trust News España.'} />
       </Helmet>
+      <div style={{ maxWidth: 'var(--content-width)', margin: '0 auto', padding: isMobile ? '16px 16px 48px' : isTablet ? '24px 24px 56px' : '32px 32px 72px' }}>
       
       {/* MANAGER FLOATING SAVE BAR */}
       {isManager && showManagerBar && (
@@ -274,30 +277,30 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
       )}
 
       {/* 1. PRIMARY INTELLIGENCE INDICATORS (TOP HEADER) */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', borderBottom: 'var(--border-thin)', paddingBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span onClick={onBack} style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '24px' }}>← REGRESAR</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', flexWrap: 'wrap', gap: '16px', marginBottom: isMobile ? '24px' : '32px', borderBottom: 'var(--border-thin)', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
+          <span onClick={onBack} style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: isMobile ? '8px' : '24px', whiteSpace: 'nowrap' }}>← REGRESAR</span>
           
-          <div style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
+          <div style={{ padding: isMobile ? '8px 12px' : '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>SECCIÓN:</span>
             <InlineSelect text={editedStory.category || 'POLÍTICA'} options={['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE']} onChange={v => updateStory('category', v)} isEditing={isEditing} />
           </div>
-          <div style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
+          <div style={{ padding: isMobile ? '8px 12px' : '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>FACTUALIDAD:</span>
             <InlineSelect text={editedStory.factuality || 'ALTA'} options={['ALTA', 'MIXTA', 'BAJA']} onChange={v => updateStory('factuality', v)} isEditing={isEditing} />
           </div>
-          <div style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
+          <div style={{ padding: isMobile ? '8px 12px' : '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>CONSENSO:</span>
             <InlineSelect text={editedStory.consensus || 'MEDIO'} options={['ALTO', 'MEDIO', 'BAJO', 'POLARIZADO']} onChange={v => updateStory('consensus', v)} isEditing={isEditing} />
           </div>
-          <div style={{ padding: '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
+          <div style={{ padding: isMobile ? '8px 12px' : '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>IMPACTO:</span>
             <InlineSelect text={editedStory.impact || 'ALTO'} options={['ALTO', 'MEDIO', 'BAJO']} onChange={v => updateStory('impact', v)} isEditing={isEditing} />
           </div>
 
         </div>
         
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: isMobile ? '14px' : '20px', alignItems: 'center', alignSelf: isMobile ? 'flex-end' : 'center' }}>
           {copied && (
             <span style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '-8px', animation: 'fadeInOut 2s forwards', letterSpacing: '1px' }}>
               ENLACE COPIADO
@@ -342,10 +345,10 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
         </div>
       </div>
 
-      <div className="layout-split" style={{ alignItems: 'flex-start', gap: '60px' }}>
+      <div className="layout-split" style={{ alignItems: 'flex-start', gap: isTablet ? '32px' : '60px' }}>
         
         {/* MAIN CONTENT AREA */}
-        <div className="main-content" style={{ flex: '0 0 65%' }}>
+        <div className="main-content" style={{ flex: '0 0 65%', padding: 0 }}>
           
           <h1 style={{ marginBottom: '32px' }}>
              <InlineEdit 
@@ -353,7 +356,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                onChange={v => updateStory('title', v)} 
                isEditing={isEditing} 
                placeholder="Escribe el Título de la Noticia..."
-               style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3.5px', lineHeight: '1.0', margin: 0, display: 'block' }} 
+               style={{ fontSize: isMobile ? '40px' : isTablet ? '48px' : '56px', fontWeight: 800, letterSpacing: isMobile ? '-1.6px' : '-3.5px', lineHeight: '1.02', margin: 0, display: 'block' }} 
              />
           </h1>
 
@@ -983,7 +986,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 
         {/* SIDEBAR AREA (Sticky Navigation) */}
         <div className="sidebar" style={{ 
-          flex: '0 0 30%', borderLeft: 'var(--border-thin)', paddingLeft: '40px', position: 'sticky', top: '40px', alignSelf: 'flex-start', height: 'fit-content'
+          flex: '0 0 30%', borderLeft: isTablet ? 'none' : 'var(--border-thin)', paddingLeft: isTablet ? 0 : '40px', paddingTop: isTablet ? '12px' : 0, position: 'sticky', top: isMobile ? '16px' : '40px', alignSelf: 'flex-start', height: 'fit-content'
         }}>
           
           {/* CONSENSO (Dynamic) */}
@@ -1113,8 +1116,10 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 
         </div>
       </div>
+      </div>
     </div>
   );
 };
 
 export default StoryDetail;
+

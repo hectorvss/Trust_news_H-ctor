@@ -4,6 +4,7 @@ import { useBreakpoint } from '../hooks/useBreakpoint';
 const StoryReader = ({ article, onBack }) => {
   const [scrollPct, setScrollPct] = useState(0);
   const { isMobile } = useBreakpoint();
+  const topOffset = 72;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -39,12 +40,12 @@ const StoryReader = ({ article, onBack }) => {
   return (
     <div className="story-reader" style={{ background: 'var(--color-bg)', color: 'var(--color-primary)', minHeight: '100vh', paddingBottom: '200px', fontFamily: 'var(--font-heading)' }}>
       {/* Progress bar */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '3px', background: '#eee', zIndex: 1000 }}>
+      <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, width: '100%', height: '3px', background: '#eee', zIndex: 1000 }}>
         <div style={{ width: `${scrollPct}%`, height: '100%', background: 'black', transition: 'width 0.1s linear' }} />
       </div>
 
       {/* Top navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `20px ${px}px`, borderBottom: 'var(--border-thin)', position: 'sticky', top: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(15px)', zIndex: 999, flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `20px ${px}px`, borderBottom: 'var(--border-thin)', position: 'sticky', top: `${topOffset}px`, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(15px)', zIndex: 999, flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '32px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span onClick={onBack} style={{ cursor: 'pointer', fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px', padding: '8px 16px', border: 'var(--border-thin)', borderRadius: 'var(--radius-pill)' }}>
             ← Volver
@@ -67,7 +68,7 @@ const StoryReader = ({ article, onBack }) => {
       </div>
 
       {/* Main content */}
-      <div style={{ maxWidth: '1200px', margin: `${isMobile ? 40 : 100}px auto 0`, padding: `0 ${px}px` }}>
+      <div style={{ maxWidth: '1200px', margin: `${isMobile ? 32 : 72}px auto 0`, padding: `0 ${px}px` }}>
 
         <div style={{ marginBottom: isMobile ? 48 : 100 }}>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', fontSize: isMobile ? '11px' : '14px', fontWeight: 900, opacity: 0.6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px', flexWrap: 'wrap' }}>

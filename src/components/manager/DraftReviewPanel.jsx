@@ -36,6 +36,7 @@ const normalizeBias = (raw) => {
 
 export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejected, onEdit }) {
   const { isMobile } = useBreakpoint();
+  const topOffset = 72;
   const [loaded, setLoaded] = useState(null);
   const [busy, setBusy] = useState(null);
 
@@ -89,14 +90,17 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
 
   const backdrop = {
     position: 'fixed',
-    inset: 0,
+    top: topOffset,
+    right: 0,
+    bottom: 0,
+    left: 0,
     background: 'rgba(0,0,0,0.45)',
     zIndex: 2999
   };
 
   const panel = {
     position: 'fixed',
-    top: 0,
+    top: topOffset,
     right: 0,
     bottom: 0,
     width: isMobile ? '100vw' : 'min(560px, 92vw)',
