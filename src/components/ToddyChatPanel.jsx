@@ -313,11 +313,20 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
                   </div>
                   {item.role === 'assistant' && item.sources_used?.length > 0 && (
                     <div style={{ marginTop: '7px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {item.sources_used.slice(0, 4).map((source) => (
-                        <span key={`${item.id}-${source.article_id}`} style={{ border: '1px solid #d6d0c3', padding: '4px 6px', fontSize: '10px', fontFamily: 'var(--font-mono)', background: '#fff' }}>
-                          {source.source}
-                        </span>
-                      ))}
+                      {item.sources_used.slice(0, 8).map((source) => {
+                        const label = `${source.source}${source.article_id ? ` #${String(source.article_id).slice(0, 8)}` : ''}`;
+                        const quality = source.extraction_quality != null ? ` q${Number(source.extraction_quality).toFixed(2)}` : '';
+                        const chipStyle = { border: '1px solid #d6d0c3', padding: '4px 6px', fontSize: '10px', fontFamily: 'var(--font-mono)', background: '#fff', color: '#111', textDecoration: 'none' };
+                        return source.url ? (
+                          <a key={`${item.id}-${source.article_id}`} href={source.url} target="_blank" rel="noreferrer" style={chipStyle}>
+                            {label}{quality}
+                          </a>
+                        ) : (
+                          <span key={`${item.id}-${source.article_id}`} style={chipStyle}>
+                            {label}{quality}
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

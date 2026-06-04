@@ -43,7 +43,16 @@ const core = 'api/_toddyCore.js';
   'token_usage',
   'consume_ai_credits',
   'generation_trace',
-  'bias_distribution'
+  'bias_distribution',
+  'article_content(content_text',
+  'fetchEvidenceArticles',
+  'evidence_articles',
+  'evidence_coverage',
+  'summarizeEvidenceCoverage',
+  'relevanceScore',
+  'conversationHistory',
+  'Historial reciente',
+  'Fuentes usadas:'
 ].forEach((needle) => assertIncludes(core, needle));
 
 [
@@ -100,7 +109,9 @@ const core = 'api/_toddyCore.js';
   'verificando claims',
   'redactando respuesta',
   'free usado',
-  'COMPRAR'
+  'COMPRAR',
+  'extraction_quality',
+  'target="_blank"'
 ].forEach((needle) => {
   const target = needle === 'PREGUNTAR A TODDY' || needle === 'ToddyChatPanel'
     ? 'src/components/StoryDetail.jsx'

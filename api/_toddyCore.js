@@ -30,6 +30,12 @@ const STATUS_STEPS = [
   'redactando respuesta'
 ];
 
+const DEPTH_CONTEXT_LIMITS = {
+  basic: { excerpt: 700, fullText: 0, maxEvidenceArticles: 6 },
+  deep: { excerpt: 1200, fullText: 700, maxEvidenceArticles: 10 },
+  source_audit: { excerpt: 1600, fullText: 1000, maxEvidenceArticles: 14 }
+};
+
 export function createSupabaseAdmin() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -84,6 +90,49 @@ function compactText(value, max = 900) {
   return `${text.slice(0, max - 1).trim()}…`;
 }
 
+function asPlainText(value, max = 1200) {
+  if (value == null) return null;
+  if (typeof value === 'string') return compactText(value, max);
+  if (Array.isArray(value)) {
+    return compactText(value.map((item) => asPlainText(item, Math.ceil(max / Math.max(value.length, 1)))).filter(Boolean).join(' | '), max);
+  }
+  if (typeof value === 'object') {
+    const text = Object.entries(value)
+      .map(([key, val]) => `${key}: ${typeof val === 'object' ? asPlainText(val, 260) : val}`)
+      .join(' | ');
+    return compactText(text, max);
+  }
+  return compactText(String(value), max);
+}
+
+function tokenize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 3);
+}
+
+function relevanceScore(article, query) {
+  const queryTerms = new Set(tokenize(query));
+  if (!queryTerms.size) return 0;
+  const haystack = tokenize([
+    article.title,
+    article.headline,
+    article.excerpt,
+    article.content_excerpt,
+    article.lead,
+    article.summary,
+    article.event_signature,
+    article.entity_fingerprint,
+    asPlainText(article.claims, 500),
+    asPlainText(article.figures, 500),
+    asPlainText(article.entities, 500)
+  ].filter(Boolean).join(' '));
+  return haystack.reduce((score, token) => score + (queryTerms.has(token) ? 1 : 0), 0);
+}
+
 function extractArrayField(value, maxItems = 8) {
   if (!value) return [];
   if (Array.isArray(value)) return value.slice(0, maxItems);
@@ -112,7 +161,127 @@ function pickSegmentTrace(story) {
   };
 }
 
-export async function buildToddyStoryContext(supabase, storyId, depth = 'basic') {
+async function fetchClusterContext(supabase, story) {
+  const clusterId = story.pipeline_cluster_id || story.cluster_id;
+  let query = supabase
+    .from('story_clusters')
+    .select('id,title,topic_summary,topic_keywords,article_ids,article_count,source_count,bias_distribution,coverage_left,coverage_center,coverage_right,confidence_score,diversity_score,freshness_score,synthesis_score,status,window_start,window_end,analysis')
+    .limit(1);
+
+  query = clusterId ? query.eq('id', clusterId) : query.eq('story_id', story.id);
+  const { data, error } = await query.maybeSingle();
+  if (error) return null;
+  return data || null;
+}
+
+function compactRawArticle(article, sourceProfile, depth, question) {
+  const content = Array.isArray(article.article_content) ? article.article_content[0] : article.article_content;
+  const limits = DEPTH_CONTEXT_LIMITS[depth] || DEPTH_CONTEXT_LIMITS.basic;
+  const title = content?.resolved_title || article.title;
+  const excerpt = content?.content_excerpt || article.excerpt || article.summary || null;
+  const selectedText = limits.fullText > 0 ? compactText(content?.content_text, limits.fullText) : null;
+  const sourceName = sourceProfile?.nombre || sourceProfile?.name || article.source_name || article.source_id || 'Fuente';
+
+  return {
+    article_id: String(article.id),
+    source: sourceName,
+    source_profile: {
+      bias: sourceProfile?.political_lean || sourceProfile?.bias_label || sourceProfile?.bias || null,
+      bias_score: sourceProfile?.bias_score ?? null,
+      factuality: sourceProfile?.factuality || null,
+      country: sourceProfile?.country || sourceProfile?.pais || null,
+      language: sourceProfile?.language || null,
+      scope: sourceProfile?.source_scope || null,
+      fact_check_score: sourceProfile?.fact_check_score ?? null,
+      bias_confidence: sourceProfile?.bias_confidence ?? null
+    },
+    title,
+    subtitle: content?.subtitle || null,
+    lead: compactText(content?.lead, 500),
+    url: content?.canonical_url || article.url,
+    author: content?.byline || article.author,
+    published_at: content?.published_at || article.published_at,
+    section: content?.section || null,
+    excerpt: compactText(excerpt, limits.excerpt),
+    selected_text: selectedText,
+    event_signature: article.event_signature || content?.event_signature || null,
+    entity_fingerprint: article.entity_fingerprint || content?.entity_fingerprint || null,
+    extraction: {
+      status: content?.extraction_status || article.extraction_status || null,
+      quality: content?.extraction_quality_score ?? 0,
+      parser_used: content?.parser_used || null,
+      content_source: content?.content_source || null,
+      paywall_detected: Boolean(content?.paywall_detected),
+      blocked_reason: content?.blocked_reason || null
+    },
+    tags: extractArrayField(content?.tags, 8),
+    entities: extractArrayField(content?.extracted_entities, 10),
+    claims: extractArrayField(content?.extracted_claims || article.structured_data?.claims, 8),
+    figures: extractArrayField(content?.extracted_figures || article.structured_data?.figures, 8),
+    quotes: extractArrayField(content?.extracted_quotes || article.structured_data?.quotes, 5),
+    documents: extractArrayField(content?.extracted_documents || article.structured_data?.documents, 6),
+    outbound_links: extractArrayField(content?.outbound_links, 6),
+    tone: content?.extracted_tone || article.structured_data?.tone || null,
+    relevance: relevanceScore({ ...article, ...content, claims: content?.extracted_claims, figures: content?.extracted_figures, entities: content?.extracted_entities }, question)
+  };
+}
+
+async function fetchEvidenceArticles(supabase, story, cluster, depth, question) {
+  const ids = Array.isArray(cluster?.article_ids) ? cluster.article_ids : [];
+  let query = supabase
+    .from('raw_articles')
+    .select('id,source_id,title,excerpt,author,url,image_url,published_at,language,structured_data,event_signature,entity_fingerprint,cluster_id,extraction_status,article_content(content_text,content_excerpt,resolved_title,subtitle,lead,canonical_url,byline,section,published_at,modified_at,tags,images,outbound_links,extracted_claims,extracted_figures,extracted_documents,extracted_quotes,extracted_entities,extracted_tone,extraction_status,extraction_quality_score,parser_used,content_source,paywall_detected,blocked_reason)')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .limit(40);
+
+  if (ids.length) query = query.in('id', ids);
+  else if (cluster?.id) query = query.eq('cluster_id', cluster.id);
+  else return [];
+
+  const { data: rawArticles, error } = await query;
+  if (error || !rawArticles?.length) return [];
+
+  const sourceIds = [...new Set(rawArticles.map((article) => article.source_id).filter(Boolean))];
+  const sourceMap = {};
+  if (sourceIds.length) {
+    const { data: sources } = await supabase
+      .from('sources')
+      .select('id,nombre,name,bias,bias_label,bias_score,political_lean,factuality,ownership,country,pais,language,source_scope,media_type,fact_check_score,bias_confidence')
+      .in('id', sourceIds);
+    (sources || []).forEach((source) => { sourceMap[source.id] = source; });
+  }
+
+  const limits = DEPTH_CONTEXT_LIMITS[depth] || DEPTH_CONTEXT_LIMITS.basic;
+  return rawArticles
+    .map((article) => compactRawArticle(article, sourceMap[article.source_id] || {}, depth, question))
+    .sort((a, b) => {
+      const scoreA = (a.relevance * 3) + Number(a.extraction.quality || 0) + (a.claims.length ? 0.5 : 0) + (a.figures.length ? 0.5 : 0);
+      const scoreB = (b.relevance * 3) + Number(b.extraction.quality || 0) + (b.claims.length ? 0.5 : 0) + (b.figures.length ? 0.5 : 0);
+      return scoreB - scoreA;
+    })
+    .slice(0, limits.maxEvidenceArticles);
+}
+
+function summarizeEvidenceCoverage(evidenceArticles, storyArticles) {
+  const all = evidenceArticles.length ? evidenceArticles : storyArticles;
+  const sources = new Set(all.map((article) => article.source).filter(Boolean));
+  const blocked = evidenceArticles.filter((article) => article.extraction?.blocked_reason || article.extraction?.paywall_detected);
+  const claims = evidenceArticles.reduce((sum, article) => sum + (article.claims?.length || 0), 0);
+  const figures = evidenceArticles.reduce((sum, article) => sum + (article.figures?.length || 0), 0);
+  const avgQuality = evidenceArticles.length
+    ? evidenceArticles.reduce((sum, article) => sum + Number(article.extraction?.quality || 0), 0) / evidenceArticles.length
+    : null;
+  return {
+    source_count: sources.size,
+    evidence_article_count: evidenceArticles.length,
+    claims_count: claims,
+    figures_count: figures,
+    blocked_or_paywalled_count: blocked.length,
+    average_extraction_quality: avgQuality == null ? null : Number(avgQuality.toFixed(3))
+  };
+}
+
+export async function buildToddyStoryContext(supabase, storyId, depth = 'basic', question = '') {
   const { data: story, error } = await supabase
     .from('stories')
     .select('id,status,title,summary,full_content,category,location,published_at,updated_at,bias,source_count,sources_count,articles,consenso_narrativo,consensus_narrative,blind_spot,cifras_clave,verificacion_info,origen_info,impacto_social,impacto_sistemico,documentos_info,protagonistas_info,preguntas_info,analytical_snippet,generation_metadata,editorial_validation,coverage_left,coverage_center,coverage_right,pipeline_cluster_id,cluster_id')
@@ -134,6 +303,8 @@ export async function buildToddyStoryContext(supabase, storyId, depth = 'basic')
   };
 
   const trace = pickSegmentTrace(story);
+  const cluster = await fetchClusterContext(supabase, story);
+  const evidenceArticles = await fetchEvidenceArticles(supabase, story, cluster, depth, question);
   const context = {
     story: {
       id: story.id,
@@ -151,26 +322,59 @@ export async function buildToddyStoryContext(supabase, storyId, depth = 'basic')
       consenso_narrativo: compactText(story.consenso_narrativo || story.consensus_narrative, 1000),
       blind_spot: compactText(story.blind_spot, 700),
       verificacion: compactText(story.verificacion_info, 900),
-      origen: compactText(story.origen_info, 700),
+      origen: asPlainText(story.origen_info, 700),
       impacto_social: compactText(story.impacto_social, 700),
       impacto_sistemico: compactText(story.impacto_sistemico, 700),
-      protagonistas: compactText(story.protagonistas_info, 700),
-      preguntas_abiertas: compactText(story.preguntas_info, 700)
+      protagonistas: asPlainText(story.protagonistas_info, 700),
+      preguntas_abiertas: asPlainText(story.preguntas_info, 700)
     },
+    cluster: cluster ? {
+      id: cluster.id,
+      title: cluster.title,
+      topic_summary: compactText(cluster.topic_summary, 900),
+      topic_keywords: cluster.topic_keywords || [],
+      article_count: cluster.article_count,
+      source_count: cluster.source_count,
+      status: cluster.status,
+      window_start: cluster.window_start,
+      window_end: cluster.window_end,
+      scores: {
+        confidence: cluster.confidence_score ?? null,
+        diversity: cluster.diversity_score ?? null,
+        freshness: cluster.freshness_score ?? null,
+        synthesis: cluster.synthesis_score ?? null
+      },
+      analysis: cluster.analysis || null
+    } : null,
     bias_distribution: biasDistribution,
     cifras_clave: extractArrayField(story.cifras_clave, 10),
     documentos: extractArrayField(story.documentos_info, 8),
     articles,
+    evidence_articles: evidenceArticles,
+    evidence_coverage: summarizeEvidenceCoverage(evidenceArticles, articles),
     source_count: story.source_count || story.sources_count || articles.length,
     editorial_validation: story.editorial_validation || {},
     generation_trace: trace
   };
 
-  return { story, context, sourcesUsed: articles.map((a) => ({ article_id: a.article_id, source: a.source, url: a.url, bias: a.bias })) };
+  const sourceTrace = (evidenceArticles.length ? evidenceArticles : articles)
+    .map((a) => ({
+      article_id: a.article_id,
+      source: a.source,
+      url: a.url,
+      bias: a.bias || a.source_profile?.bias || null,
+      extraction_quality: a.extraction?.quality ?? null
+    }));
+
+  return { story, context, sourcesUsed: sourceTrace };
 }
 
-function buildToddyPrompt(context, message, depth) {
+function buildToddyPrompt(context, message, depth, conversationHistory = []) {
   const depthPolicy = TODDY_DEPTHS[depth] || TODDY_DEPTHS.basic;
+  const history = conversationHistory
+    .slice(-8)
+    .map((item) => `${item.role === 'assistant' ? 'Toddy' : 'Usuario'}: ${compactText(item.content, 420)}`)
+    .join('\n');
   return [
     {
       role: 'user',
@@ -183,9 +387,13 @@ function buildToddyPrompt(context, message, depth) {
         '- Responde en español claro y natural.',
         '- No inventes datos. Si falta evidencia, dilo explícitamente.',
         '- Cita fuentes de forma compacta usando nombre del medio y article_id cuando hables de claims, cifras o diferencias.',
+        '- Cuando uses cifras, citas o claims, incluye una referencia concreta entre parentesis: fuente + article_id.',
+        '- Si la pregunta no esta cubierta por el contexto, responde con lo disponible y marca claramente que falta.',
+        '- En deep/source_audit, termina con "Fuentes usadas:" cuando hayas usado articulos concretos.',
         '- Distingue hechos, interpretaciones y dudas abiertas.',
         '- No modifiques la noticia ni publiques nada: sólo explica la story ya publicada.',
         '',
+        history ? `Historial reciente:\n${history}\n` : '',
         'Contexto JSON:',
         JSON.stringify(context),
         '',
@@ -195,7 +403,7 @@ function buildToddyPrompt(context, message, depth) {
   ];
 }
 
-async function callAnthropic({ context, message, depth }) {
+async function callAnthropic({ context, message, depth, conversationHistory = [] }) {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not configured');
   }
@@ -209,10 +417,10 @@ async function callAnthropic({ context, message, depth }) {
     },
     body: JSON.stringify({
       model: DEFAULT_MODEL,
-      max_tokens: depth === 'basic' ? 650 : depth === 'deep' ? 1100 : 1500,
+      max_tokens: depth === 'basic' ? 800 : depth === 'deep' ? 1400 : 1900,
       temperature: 0.2,
       system: 'Eres Toddy, el agente de Trust News. Ayudas al lector a entender una noticia publicada usando sólo evidencia editorial y fuentes proporcionadas.',
-      messages: buildToddyPrompt(context, message, depth)
+      messages: buildToddyPrompt(context, message, depth, conversationHistory)
     })
   });
 
@@ -350,7 +558,7 @@ export async function handleToddyPost(req, res) {
   if (!storyId || !message) return res.status(400).json({ error: 'story_id_and_message_required' });
   if (!TODDY_DEPTHS[depth]) return res.status(400).json({ error: 'invalid_depth' });
 
-  const { story, context, sourcesUsed, error } = await buildToddyStoryContext(supabase, storyId, depth);
+  const { story, context, sourcesUsed, error } = await buildToddyStoryContext(supabase, storyId, depth, message);
   if (error) return res.status(error === 'story_not_published' ? 403 : 404).json({ error });
 
   const profile = await loadProfile(supabase, user.id);
@@ -381,6 +589,7 @@ export async function handleToddyPost(req, res) {
     depth,
     status: 'completed'
   });
+  const conversationHistory = await getConversationMessages(supabase, conversation.id);
 
   setSseHeaders(res);
   for (const state of STATUS_STEPS) {
@@ -389,7 +598,7 @@ export async function handleToddyPost(req, res) {
   }
 
   try {
-    const llm = await callAnthropic({ context, message, depth });
+    const llm = await callAnthropic({ context, message, depth, conversationHistory });
     const { data: assistantMessage, error: insertError } = await supabase
       .from('toddy_messages')
       .insert({
