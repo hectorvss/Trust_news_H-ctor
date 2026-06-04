@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
 
   let embedded = 0;
   let skipped = 0;
+  let failed = 0;
   for (let i = 0; i < pending.length; i += config.embedBatchSize) {
     const batch = pending.slice(i, i + config.embedBatchSize);
     const prepared = batch.map((row: any) => ({
@@ -49,33 +50,56 @@ Deno.serve(async (req) => {
       skipped += prepared.length - vectorRows.length;
       continue;
     }
-    const vectors = vectorRows.length ? await embedBatch(vectorRows.map((entry) => entry.input as string)) : [];
+    let vectors: any[] = [];
+    try {
+      vectors = vectorRows.length
+        ? (await embedBatch(vectorRows.map((entry) => entry.input as string)) || [])
+        : [];
+    } catch (e) {
+      // Whole batch failed (e.g. OpenAI 5xx) — leave these rows pending for retry,
+      // never mark them embedded with a null vector.
+      console.error("embedBatch failed:", String(e).slice(0, 200));
+      failed += vectorRows.length;
+      continue;
+    }
 
     let vectorIndex = 0;
     for (const entry of prepared) {
       const row = entry.row;
-      const vector = entry.input ? vectors?.[vectorIndex++] || null : null;
-      if (!vector) {
-        await db.from("raw_articles").update({
+      if (!entry.input) {
+        // Genuinely nothing to embed → mark done so it does not requeue forever.
+        const { error: uerr } = await db.from("raw_articles").update({
           embedded: true,
           pipeline_status: "embedded",
         }).eq("id", row.id);
-        skipped++;
+        uerr ? failed++ : skipped++;
         continue;
       }
-      await db.from("raw_articles").update({
+      const vector = vectors?.[vectorIndex++] || null;
+      if (!vector) {
+        // Embedding missing this run → leave pending (do NOT poison as embedded).
+        failed++;
+        continue;
+      }
+      const { error: uerr } = await db.from("raw_articles").update({
         embedding: toVectorLiteral(vector),
         embedded: true,
         pipeline_status: "embedded",
       }).eq("id", row.id);
-      embedded++;
+      if (uerr) {
+        // Write failed (e.g. dimension mismatch) — keep pending, surface it.
+        console.error("embedding write failed:", uerr.message);
+        failed++;
+      } else {
+        embedded++;
+      }
     }
   }
 
-  await finishRun(runId, "completed", {
+  await finishRun(runId, embedded === 0 && failed > 0 ? "failed" : "completed", {
     items_in: pending.length,
     items_out: embedded,
-    metadata: { skipped, dryRun: Boolean(body.dry_run) },
+    metadata: { skipped, failed, dryRun: Boolean(body.dry_run) },
   });
-  return jsonResponse({ ok: true, embedded, skipped });
+  return jsonResponse({ ok: true, embedded, skipped, failed });
 });

@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
   }
 
   let materialized = 0;
+  let failed = 0;
   for (const cluster of clusters) {
     const { data: articles } = await db
       .from("raw_articles")
@@ -166,22 +167,28 @@ Deno.serve(async (req) => {
       continue;
     }
     const { error: insertError } = await db.from("stories").insert(story);
-    if (insertError) throw insertError;
+    if (insertError) {
+      // One bad cluster must not abort the whole batch (was: `throw insertError`).
+      console.error(`materialize cluster ${cluster.id} failed:`, insertError.message);
+      failed++;
+      continue;
+    }
 
-    await db.from("story_clusters").update({
+    const { error: updError } = await db.from("story_clusters").update({
       story_id: story.id,
       status: "materialized",
       materialized_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", cluster.id);
+    if (updError) console.error(`cluster ${cluster.id} status update failed:`, updError.message);
 
     materialized++;
   }
 
-  await finishRun(runId, "completed", {
+  await finishRun(runId, materialized === 0 && failed > 0 ? "failed" : "completed", {
     items_in: clusters.length,
     items_out: materialized,
-    metadata: { dryRun: Boolean(body.dry_run) },
+    metadata: { failed, dryRun: Boolean(body.dry_run) },
   });
-  return jsonResponse({ ok: true, materialized });
+  return jsonResponse({ ok: true, materialized, failed });
 });
