@@ -8,6 +8,7 @@
     "build": "vite build",
     "test:pipeline": "node scripts/test-pipeline-contract.mjs",
     "test:llm-contract": "node scripts/test-llm-contract.mjs",
+    "test:toddy-contract": "node scripts/test-toddy-contract.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "backend": "node server/index.js"

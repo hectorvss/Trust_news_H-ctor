@@ -1071,6 +1071,24 @@ export const fetchPipelineStats = async () => {
     return acc;
   }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0, segmentIncomplete: 0 });
 
+  const { data: toddyRows } = await supabase
+    .from('toddy_messages')
+    .select('role, depth, credits_charged, token_usage, status, created_at')
+    .gte('created_at', since24h)
+    .limit(1000);
+  const toddyStats = (toddyRows || []).reduce((acc, row) => {
+    if (row.role !== 'assistant') return acc;
+    const usage = row.token_usage || {};
+    acc.responses += 1;
+    acc.credits += Number(row.credits_charged || 0);
+    acc.inputTokens += Number(usage.input_tokens || 0);
+    acc.outputTokens += Number(usage.output_tokens || 0);
+    if (row.credits_charged === 0) acc.free += 1;
+    if (row.status === 'low_confidence') acc.lowConfidence += 1;
+    if (row.depth) acc.depths[row.depth] = (acc.depths[row.depth] || 0) + 1;
+    return acc;
+  }, { responses: 0, credits: 0, inputTokens: 0, outputTokens: 0, free: 0, lowConfidence: 0, depths: {} });
+
   return {
     sourcesActive, sourcesTotal,
     rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded), rawExtractionPending,
@@ -1085,6 +1103,12 @@ export const fetchPipelineStats = async () => {
     llmSchemaFailures24h: llmStats.schemaFailures,
     llmBlockedDrafts24h: llmStats.blockedDrafts,
     llmSegmentIncomplete24h: llmStats.segmentIncomplete,
+    toddyResponses24h: toddyStats.responses,
+    toddyCredits24h: toddyStats.credits,
+    toddyTokens24h: toddyStats.inputTokens + toddyStats.outputTokens,
+    toddyFreeUsed24h: toddyStats.free,
+    toddyLowConfidence24h: toddyStats.lowConfidence,
+    toddyDepthDistribution24h: toddyStats.depths,
     lastIngestAt,
   };
 };

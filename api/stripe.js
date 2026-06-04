@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -39,6 +39,38 @@ export default async function handler(req, res) {
         subscription_data: { metadata: { user_id: user_id } },
       });
       
+      return res.status(200).json({ id: session.id, url: session.url });
+    }
+
+    if (type === 'ai_credits') {
+      const { pack = 'medium', user_id, email } = req.body;
+      const packs = {
+        small: { credits: Number(process.env.AI_CREDITS_SMALL_AMOUNT || 25), price: process.env.STRIPE_PRICE_AI_CREDITS_SMALL },
+        medium: { credits: Number(process.env.AI_CREDITS_MEDIUM_AMOUNT || 100), price: process.env.STRIPE_PRICE_AI_CREDITS_MEDIUM },
+        large: { credits: Number(process.env.AI_CREDITS_LARGE_AMOUNT || 300), price: process.env.STRIPE_PRICE_AI_CREDITS_LARGE }
+      };
+      const selectedPack = packs[pack];
+
+      if (!selectedPack?.price) {
+        return res.status(400).json({ error: `Invalid AI credit pack: ${pack}. Check Stripe price env vars.` });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{ price: selectedPack.price, quantity: 1 }],
+        mode: 'payment',
+        success_url: `${req.headers.origin}/account?ai_credits=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin}/pricing?ai_credits=canceled`,
+        customer_email: email,
+        client_reference_id: user_id,
+        metadata: {
+          user_id,
+          purchase_type: 'ai_credits',
+          pack,
+          credits: String(selectedPack.credits)
+        }
+      });
+
       return res.status(200).json({ id: session.id, url: session.url });
     }
 

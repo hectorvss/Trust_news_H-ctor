@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import BiasBar from './BiasBar';
 import ShareModal from './ShareModal';
 import Plus from './ui/Plus';
+import ToddyChatPanel from './ToddyChatPanel';
 import { saveStory, buildSourceIndex } from '../supabaseService';
 import { CoverageDetails, SourceTag, SourceLogo, toBucket, MiniBiasBar } from './coverage';
 import { useBreakpoint } from '../hooks/useBreakpoint';
@@ -87,6 +88,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
   const [isSaving, setIsSaving] = useState(false);
   const [infoSubTab, setInfoSubTab] = useState('GENERAL');
   const [showManagerBar, setShowManagerBar] = useState(true);
+  const [showToddy, setShowToddy] = useState(false);
   const [sourceIndex, setSourceIndex] = useState({});
   const [coverageView, setCoverageView] = useState('COMPARE'); // LEFT | CENTER | RIGHT | COMPARE
 
@@ -306,6 +308,26 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
             <span style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginRight: '-8px', animation: 'fadeInOut 2s forwards', letterSpacing: '1px' }}>
               ENLACE COPIADO
             </span>
+          )}
+
+          {!isEditing && (editedStory.status || 'published') === 'published' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowToddy(true); }}
+              style={{
+                border: '1px solid #111',
+                background: '#111',
+                color: '#fff',
+                padding: isMobile ? '9px 10px' : '10px 14px',
+                fontSize: '11px',
+                fontWeight: 900,
+                fontFamily: 'var(--font-mono)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                letterSpacing: '0'
+              }}
+            >
+              PREGUNTAR A TODDY
+            </button>
           )}
           
           {/* 1. HEART ICON (Like) */}
@@ -1118,6 +1140,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
         </div>
       </div>
       </div>
+      <ToddyChatPanel story={editedStory} open={showToddy} onClose={() => setShowToddy(false)} />
     </div>
   );
 };
