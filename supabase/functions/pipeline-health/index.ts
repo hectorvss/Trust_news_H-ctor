@@ -5,6 +5,20 @@ Deno.serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
+  // Auth gate (audit #10): only the service role (cron) or a manager/admin user.
+  // Previously public → anyone could scrape token spend, backlog and failure rates.
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  let authorized = Boolean(token) && token === serviceKey;
+  if (!authorized && token) {
+    const { data: { user } } = await db.auth.getUser(token);
+    if (user) {
+      const { data: prof } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      authorized = prof?.role === "manager" || prof?.role === "admin_editor";
+    }
+  }
+  if (!authorized) return jsonResponse({ error: "unauthorized" }, 401);
+
   const count = async (table: string, query?: (q: any) => any) => {
     let q = db.from(table).select("*", { count: "exact", head: true });
     if (query) q = query(q);
