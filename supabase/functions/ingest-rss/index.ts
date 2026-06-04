@@ -1,5 +1,5 @@
 import { db } from "../_shared/supabase.ts";
-import { config, extractArticleMetadata, normalizeUrl, parseRssFeed, sha256 } from "../_shared/pipeline.ts";
+import { config, normalizeUrl, parseRssFeed, sha256 } from "../_shared/pipeline.ts";
 import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
@@ -39,20 +39,10 @@ const processSource = async (source: any, dryRun = false) => {
         continue;
       }
 
-      let enriched = { ...item, url: normalizedUrl };
-      if (!enriched.excerpt || !enriched.imageUrl) {
-        const meta = await extractArticleMetadata(normalizedUrl, config.userAgent);
-        if (meta) {
-          enriched = {
-            ...enriched,
-            title: enriched.title || meta.title,
-            excerpt: meta.excerpt || enriched.excerpt,
-            imageUrl: enriched.imageUrl || meta.imageUrl,
-            author: enriched.author || meta.author,
-            publishedAt: enriched.publishedAt || meta.publishedAt,
-          };
-        }
-      }
+      // Full content / image / author enrichment is deferred to the
+      // extract-article-content stage. Doing a second 8s network fetch PER ITEM
+      // here serialized every run into Edge-function timeouts (audit #3).
+      const enriched = { ...item, url: normalizedUrl };
 
       if (dryRun) {
         fresh++;
@@ -140,10 +130,21 @@ Deno.serve(async (req) => {
   if (error) return jsonResponse({ error: error.message }, 500);
 
   const activeSources = (sources || []).filter((source) => source.rss_url);
-  const results = [];
-  for (const source of activeSources) {
-    results.push(await processSource(source, Boolean(body.dry_run)));
-  }
+  const results: any[] = [];
+  // Bounded concurrency + wall-clock deadline: one slow feed can't stall the run,
+  // and we stop launching new sources before the Edge time limit (audit #3).
+  const deadline = Date.now() + Number(Deno.env.get("PIPELINE_INGEST_DEADLINE_MS") ?? 50000);
+  const concurrency = Math.max(1, config.ingestConcurrency);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < activeSources.length && Date.now() < deadline) {
+      const source = activeSources[cursor++];
+      results.push(await processSource(source, Boolean(body.dry_run)));
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, activeSources.length || 1) }, () => worker()),
+  );
 
   return jsonResponse({
     ok: true,
