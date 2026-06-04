@@ -213,7 +213,7 @@ const Pricing = ({ onBack }) => {
       price: '4.90EUR',
       credits: 60,
       bestFor: 'Para lectores que quieren preguntar en varias noticias.',
-      savings: '60 simples / 20 deep / 12 auditorias',
+      savings: 'Coste ajustado por tokens reales',
       unit: '0.082EUR por credito'
     },
     {
@@ -222,7 +222,7 @@ const Pricing = ({ onBack }) => {
       price: '11.90EUR',
       credits: 180,
       bestFor: 'El pack mas rentable para uso semanal.',
-      savings: '180 simples / 60 deep / 36 auditorias',
+      savings: 'Mejor coste por credito para uso frecuente',
       unit: '0.066EUR por credito',
       featured: true
     },
@@ -232,7 +232,7 @@ const Pricing = ({ onBack }) => {
       price: '24.90EUR',
       credits: 500,
       bestFor: 'Para seguir noticias vivas y hacer auditoria de fuentes.',
-      savings: '500 simples / 166 deep / 100 auditorias',
+      savings: 'Maxima autonomia para noticias vivas',
       unit: '0.050EUR por credito'
     }
   ];
@@ -408,7 +408,7 @@ const Pricing = ({ onBack }) => {
             Compra creditos IA cuando quieras.
           </h2>
           <p style={{ fontSize: isMobile ? '16px' : '21px', opacity: 0.62, maxWidth: '900px', lineHeight: '1.35', margin: 0 }}>
-            Toddy consume creditos segun profundidad: 1 credito para una explicacion simple, 3 para analisis completo y 5 para auditoria fuerte de fuentes, sesgo, claims y documentos.
+            Toddy estima el coste segun la profundidad que elijas, pero el cargo final se ajusta con decimales al uso real de tokens: contexto leido, evidencia consultada y longitud de la respuesta.
           </p>
         </div>
 

@@ -509,7 +509,7 @@ const TabBilling = ({ profile, user }) => {
                <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.45, letterSpacing: '1px', marginBottom: '18px' }}>TODDY IA</div>
                <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-2px', lineHeight: 1, marginBottom: '10px' }}>{aiCredits}<span style={{ fontSize: '20px', marginLeft: '8px' }}>creditos</span></div>
                <p style={{ fontSize: '14px', lineHeight: 1.5, opacity: 0.72, margin: 0 }}>
-                  Usa Toddy para preguntar por una noticia publicada. Basic consume 1 credito, Deep consume 3 y Audit consume 5. El plan gratis mantiene una consulta por noticia.
+                  Usa Toddy para preguntar por una noticia publicada. El coste se estima por profundidad y se ajusta con decimales al uso real de tokens. El plan gratis mantiene una consulta por noticia.
                </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -707,9 +707,9 @@ const TabStats = ({ user }) => {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1px', background: '#ddd', border: '1px solid #ddd' }}>
                {[
-                 ['Basic', aiUsage?.depthDistribution?.basic || 0, '1 credito'],
-                 ['Deep', aiUsage?.depthDistribution?.deep || 0, '3 creditos'],
-                 ['Audit', aiUsage?.depthDistribution?.source_audit || 0, '5 creditos'],
+                 ['Basic', aiUsage?.depthDistribution?.basic || 0, 'coste variable'],
+                 ['Deep', aiUsage?.depthDistribution?.deep || 0, 'coste variable'],
+                 ['Audit', aiUsage?.depthDistribution?.source_audit || 0, 'coste variable'],
                  ['Ultimo uso', aiUsage?.lastUsedAt ? new Date(aiUsage.lastUsedAt).toLocaleDateString('es-ES') : 'N/A', 'Toddy']
                ].map(([label, value, sub]) => (
                  <div key={label} style={{ background: '#fff', padding: '22px' }}>

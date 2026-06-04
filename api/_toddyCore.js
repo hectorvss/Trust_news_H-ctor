@@ -2,19 +2,22 @@ import { createClient } from '@supabase/supabase-js';
 
 export const TODDY_DEPTHS = {
   basic: {
-    credits: 1,
+    estimate: 0.45,
+    minBalance: 0.15,
     label: 'Respuesta breve',
     maxArticles: 6,
     instruction: 'Responde de forma clara, breve y pedagógica. Prioriza explicación simple y contexto mínimo.'
   },
   deep: {
-    credits: 3,
+    estimate: 0.95,
+    minBalance: 0.25,
     label: 'Análisis completo',
     maxArticles: 10,
     instruction: 'Responde con análisis completo: hechos, contexto, actores, cifras, consenso, sesgos y dudas abiertas.'
   },
   source_audit: {
-    credits: 5,
+    estimate: 1.65,
+    minBalance: 0.35,
     label: 'Auditoría de fuentes',
     maxArticles: 14,
     instruction: 'Audita fuentes: compara sesgos, claims, cifras, omisiones, documentos y diferencias editoriales.'
@@ -35,6 +38,43 @@ const DEPTH_CONTEXT_LIMITS = {
   deep: { excerpt: 1200, fullText: 700, maxEvidenceArticles: 10 },
   source_audit: { excerpt: 1600, fullText: 1000, maxEvidenceArticles: 14 }
 };
+
+const CREDIT_POLICY = {
+  base: {
+    basic: 0.18,
+    deep: 0.38,
+    source_audit: 0.62
+  },
+  inputTokensPerCredit: Number(process.env.TODDY_INPUT_TOKENS_PER_CREDIT || 16000),
+  outputTokensPerCredit: Number(process.env.TODDY_OUTPUT_TOKENS_PER_CREDIT || 5500),
+  minimumCharge: Number(process.env.TODDY_MIN_CREDIT_CHARGE || 0.15),
+  maximumCharge: {
+    basic: Number(process.env.TODDY_MAX_BASIC_CREDITS || 1.25),
+    deep: Number(process.env.TODDY_MAX_DEEP_CREDITS || 2.75),
+    source_audit: Number(process.env.TODDY_MAX_AUDIT_CREDITS || 4.95)
+  }
+};
+
+function roundCredits(value) {
+  return Math.max(0, Math.round(Number(value || 0) * 100) / 100);
+}
+
+function estimateCredits(depth) {
+  return TODDY_DEPTHS[depth]?.estimate || TODDY_DEPTHS.basic.estimate;
+}
+
+function minimumBalanceForDepth(depth) {
+  return TODDY_DEPTHS[depth]?.minBalance || TODDY_DEPTHS.basic.minBalance;
+}
+
+function calculateCreditsFromUsage(depth, tokenUsage = {}) {
+  const input = Number(tokenUsage.input_tokens || 0);
+  const output = Number(tokenUsage.output_tokens || 0);
+  const base = CREDIT_POLICY.base[depth] ?? CREDIT_POLICY.base.basic;
+  const raw = base + (input / CREDIT_POLICY.inputTokensPerCredit) + (output / CREDIT_POLICY.outputTokensPerCredit);
+  const capped = Math.min(raw, CREDIT_POLICY.maximumCharge[depth] ?? CREDIT_POLICY.maximumCharge.basic);
+  return roundCredits(Math.max(CREDIT_POLICY.minimumCharge, capped));
+}
 
 export function createSupabaseAdmin() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -545,7 +585,11 @@ export async function handleToddyGet(req, res) {
     credits: profile.ai_credit_balance || 0,
     is_paid: isPaidProfile(profile),
     free_available: !isPaidProfile(profile) && !freeUsed,
-    depth_costs: Object.fromEntries(Object.entries(TODDY_DEPTHS).map(([key, value]) => [key, value.credits]))
+    credit_policy: {
+      estimated_costs: Object.fromEntries(Object.entries(TODDY_DEPTHS).map(([key]) => [key, estimateCredits(key)])),
+      minimum_balances: Object.fromEntries(Object.entries(TODDY_DEPTHS).map(([key]) => [key, minimumBalanceForDepth(key)])),
+      token_based: true
+    }
   });
 }
 
@@ -563,15 +607,15 @@ export async function handleToddyPost(req, res) {
 
   const profile = await loadProfile(supabase, user.id);
   const paid = isPaidProfile(profile);
-  const creditsNeeded = paid ? TODDY_DEPTHS[depth].credits : 0;
+  const estimatedCredits = paid ? estimateCredits(depth) : 0;
   const freeUsed = await hasUsedFreeStoryAnswer(supabase, user.id, storyId);
 
   if (!paid && freeUsed) {
     return res.status(402).json({ error: 'free_limit_used', message: 'La consulta gratuita de Toddy para esta noticia ya se ha usado.' });
   }
 
-  if (paid && (profile.ai_credit_balance || 0) < creditsNeeded) {
-    return res.status(402).json({ error: 'insufficient_credits', credits_required: creditsNeeded, credits_available: profile.ai_credit_balance || 0 });
+  if (paid && Number(profile.ai_credit_balance || 0) < estimatedCredits) {
+    return res.status(402).json({ error: 'insufficient_credits', credits_required: estimatedCredits, credits_available: profile.ai_credit_balance || 0 });
   }
 
   const conversation = await getOrCreateConversation(supabase, user.id, storyId, story.title);
@@ -599,6 +643,8 @@ export async function handleToddyPost(req, res) {
 
   try {
     const llm = await callAnthropic({ context, message, depth, conversationHistory });
+    const calculatedCredits = paid ? calculateCreditsFromUsage(depth, llm.tokenUsage) : 0;
+    const creditsCharged = paid ? roundCredits(Math.min(calculatedCredits, Number(profile.ai_credit_balance || 0))) : 0;
     const { data: assistantMessage, error: insertError } = await supabase
       .from('toddy_messages')
       .insert({
@@ -611,7 +657,7 @@ export async function handleToddyPost(req, res) {
         thinking_states: STATUS_STEPS,
         sources_used: sourcesUsed,
         token_usage: llm.tokenUsage,
-        credits_charged: creditsNeeded,
+        credits_charged: creditsCharged,
         model: llm.model,
         status: llm.confidence < 0.75 ? 'low_confidence' : 'completed',
         confidence: llm.confidence
@@ -621,14 +667,14 @@ export async function handleToddyPost(req, res) {
 
     if (insertError) throw insertError;
 
-    if (creditsNeeded > 0) {
+    if (creditsCharged > 0) {
       const { data: consumed, error: consumeError } = await supabase.rpc('consume_ai_credits', {
         p_user_id: user.id,
-        p_amount: creditsNeeded,
+        p_amount: creditsCharged,
         p_reason: `toddy_${depth}`,
         p_story_id: storyId,
         p_message_id: assistantMessage.id,
-        p_metadata: { model: llm.model, prompt_version: TODDY_PROMPT_VERSION, token_usage: llm.tokenUsage }
+        p_metadata: { model: llm.model, prompt_version: TODDY_PROMPT_VERSION, token_usage: llm.tokenUsage, credit_policy: CREDIT_POLICY, calculated_credits: calculatedCredits }
       });
       if (consumeError || consumed !== true) throw consumeError || new Error('credit_consume_failed');
     } else {
@@ -646,7 +692,9 @@ export async function handleToddyPost(req, res) {
     writeSse(res, 'done', {
       conversation_id: conversation.id,
       message_id: assistantMessage.id,
-      credits_charged: creditsNeeded,
+      credits_charged: creditsCharged,
+      estimated_credits: estimatedCredits,
+      calculated_credits: calculatedCredits,
       sources_used: sourcesUsed,
       token_usage: llm.tokenUsage,
       model: llm.model

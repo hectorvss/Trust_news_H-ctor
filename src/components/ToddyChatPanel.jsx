@@ -11,9 +11,9 @@ const QUICK_PROMPTS = [
 ];
 
 const DEPTHS = [
-  { id: 'basic', label: 'Basic', credits: 1 },
-  { id: 'deep', label: 'Deep', credits: 3 },
-  { id: 'source_audit', label: 'Audit', credits: 5 }
+  { id: 'basic', label: 'Basic', description: 'Explicacion clara y corta' },
+  { id: 'deep', label: 'Deep', description: 'Contexto, cifras y sesgo' },
+  { id: 'source_audit', label: 'Audit', description: 'Auditoria fuerte de fuentes' }
 ];
 
 const STATUS_COPY = {
@@ -49,13 +49,14 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
   const [isPaid, setIsPaid] = useState(false);
   const [message, setMessage] = useState('');
   const [depth, setDepth] = useState('basic');
+  const [creditPolicy, setCreditPolicy] = useState({ estimated_costs: { basic: 0.45, deep: 0.95, source_audit: 1.65 }, token_based: true });
   const [status, setStatus] = useState('');
   const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
 
-  const depthCost = useMemo(() => DEPTHS.find((d) => d.id === depth)?.credits || 1, [depth]);
+  const estimatedCost = useMemo(() => Number(creditPolicy?.estimated_costs?.[depth] || 0.45), [creditPolicy, depth]);
   const canAsk = Boolean(user && session?.access_token && !loading);
 
   useEffect(() => {
@@ -74,6 +75,7 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
         setCredits(payload.credits || profile?.ai_credit_balance || 0);
         setFreeAvailable(Boolean(payload.free_available));
         setIsPaid(Boolean(payload.is_paid));
+        setCreditPolicy(payload.credit_policy || creditPolicy);
       } catch (err) {
         setError(err.message);
       }
@@ -182,7 +184,7 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
       setStreamingText('');
       setStatus('');
       setFreeAvailable(false);
-      if (finalMeta?.credits_charged) setCredits((current) => Math.max(0, current - finalMeta.credits_charged));
+      if (finalMeta?.credits_charged) setCredits((current) => Math.max(0, Number((current - finalMeta.credits_charged).toFixed(2))));
       if (fetchProfile && user?.id) fetchProfile(user.id);
     } catch (err) {
       setError(err.message);
@@ -195,7 +197,7 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
 
   if (!open) return null;
 
-  const needsCredits = isPaid && credits < depthCost;
+  const needsCredits = isPaid && credits < estimatedCost;
   const freeBlocked = !isPaid && !freeAvailable && messages.some((m) => m.role === 'assistant');
 
   return (
@@ -255,27 +257,37 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
           </div>
         ) : (
           <>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid #d8d3c6', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-              {DEPTHS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setDepth(item.id)}
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #d8d3c6', display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'center' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 900, opacity: 0.45, letterSpacing: '1px' }}>
+                  PROFUNDIDAD DE RAZONAMIENTO
+                </span>
+                <select
+                  value={depth}
+                  onChange={(e) => setDepth(e.target.value)}
                   style={{
-                    border: depth === item.id ? '1px solid #111' : '1px solid #d6d0c3',
-                    background: depth === item.id ? '#fff' : 'transparent',
-                    padding: '8px 10px',
+                    width: '100%',
+                    border: '1px solid #111',
+                    background: '#fff',
+                    padding: '10px 11px',
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '10px',
+                    fontSize: '11px',
                     fontWeight: 900,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    outline: 'none'
                   }}
                 >
-                  {item.label} {item.credits}c
-                </button>
-              ))}
+                  {DEPTHS.map((item) => (
+                    <option key={item.id} value={item.id}>{item.label} - {item.description}</option>
+                  ))}
+                </select>
+              </label>
               <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 900, opacity: 0.62 }}>
-                {isPaid ? `${credits} creditos` : freeAvailable ? '1 free' : 'free usado'}
+                {isPaid ? `${Number(credits).toFixed(2)} creditos` : freeAvailable ? '1 free' : 'free usado'}
               </span>
+              <div style={{ gridColumn: '1 / -1', fontFamily: 'var(--font-mono)', fontSize: '9px', lineHeight: 1.45, opacity: 0.48 }}>
+                Coste estimado {estimatedCost.toFixed(2)} creditos. El cargo final se ajusta automaticamente al uso real de tokens.
+              </div>
             </div>
 
             <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>

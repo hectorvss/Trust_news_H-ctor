@@ -26,6 +26,15 @@ const migration = 'migrations/023_toddy_ai_agent.sql';
   'toddy_story_metrics'
 ].forEach((needle) => assertIncludes(migration, needle));
 
+const fractionalMigration = 'migrations/024_toddy_fractional_credits.sql';
+[
+  'numeric(12,2)',
+  'drop function if exists public.grant_ai_credits',
+  'drop function if exists public.consume_ai_credits',
+  'round(p_amount::numeric, 2)',
+  'round(coalesce(p_amount, 0)::numeric, 2)'
+].forEach((needle) => assertIncludes(fractionalMigration, needle));
+
 const core = 'api/_toddyCore.js';
 [
   'TODDY_DEPTHS',
@@ -52,7 +61,12 @@ const core = 'api/_toddyCore.js';
   'relevanceScore',
   'conversationHistory',
   'Historial reciente',
-  'Fuentes usadas:'
+  'Fuentes usadas:',
+  'calculateCreditsFromUsage',
+  'CREDIT_POLICY',
+  'estimated_credits',
+  'calculated_credits',
+  'Math.min(calculatedCredits'
 ].forEach((needle) => assertIncludes(core, needle));
 
 [
@@ -99,6 +113,10 @@ const core = 'api/_toddyCore.js';
 [
   'PREGUNTAR A TODDY',
   'ToddyChatPanel',
+  'toddyFloat',
+  'toddyBlink',
+  'toddyLook',
+  'aria-label="Preguntar a Toddy"',
   'Explicamelo simple',
   'Que sesgo hay',
   'Que dicen las fuentes',
@@ -111,9 +129,12 @@ const core = 'api/_toddyCore.js';
   'free usado',
   'COMPRAR',
   'extraction_quality',
-  'target="_blank"'
+  'target="_blank"',
+  'PROFUNDIDAD DE RAZONAMIENTO',
+  'Coste estimado',
+  'uso real de tokens'
 ].forEach((needle) => {
-  const target = needle === 'PREGUNTAR A TODDY' || needle === 'ToddyChatPanel'
+  const target = ['PREGUNTAR A TODDY', 'ToddyChatPanel', 'toddyFloat', 'toddyBlink', 'toddyLook', 'aria-label="Preguntar a Toddy"'].includes(needle)
     ? 'src/components/StoryDetail.jsx'
     : 'src/components/ToddyChatPanel.jsx';
   assertIncludes(target, needle);
