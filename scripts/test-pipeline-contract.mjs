@@ -107,6 +107,17 @@ const checks = [
     ],
   },
   {
+    name: "materialization derives category and location from cluster context",
+    file: "supabase/functions/materialize-cluster/index.ts",
+    mustInclude: [
+      "inferCategory",
+      "inferLocation",
+      "DEPORTES",
+      "ECONOMIA",
+      "INTERNACIONAL",
+    ],
+  },
+  {
     name: "category contract is canonical across app and service",
     file: "src/supabaseService.js",
     mustInclude: [

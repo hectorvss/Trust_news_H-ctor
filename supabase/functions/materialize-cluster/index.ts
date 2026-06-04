@@ -3,17 +3,64 @@ import { biasBucketOf, config, pickMainImage } from "../_shared/pipeline.ts";
 import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
+const normalizeText = (value: unknown) =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const inferCategory = (cluster: any, articles: any[]) => {
+  const haystack = normalizeText([
+    cluster.title,
+    cluster.topic_summary,
+    ...articles.map((article) => article.title),
+    ...articles.map((article) => article.content_excerpt || article.excerpt),
+  ].join(" "));
+  if (/(futbol|baloncesto|tenis|ciclismo|motors?port|deporte)/.test(haystack)) return "DEPORTES";
+  if (/(econom|ibex|bolsa|banco|fmi|inflacion|mercados?|finanzas|macro)/.test(haystack)) return "ECONOMIA";
+  if (/(tecnolog|inteligencia artificial|ia | llm|startup|ciber|software|datos)/.test(haystack)) return "TECNOLOGIA";
+  if (/(internacional|gaza|ucrania|ucran|otan|bruselas|ee\\.uu|eeuu|europa|mundo|conflicto)/.test(haystack)) return "INTERNACIONAL";
+  if (/(clima|medio ambiente|sequ[ií]a|agua|energia verde|renovable|emisiones|ecolog)/.test(haystack)) return "MEDIO AMBIENTE";
+  if (/(salud|sanidad|medicina|hospital|primaria|covid|epidem)/.test(haystack)) return "SOCIEDAD";
+  if (/(cultura|arte|cine|musica|libro|teatro|festival|museo)/.test(haystack)) return "CULTURA";
+  if (/(vivienda|alquiler|hipoteca|sueldo|empleo|paro|trabajo)/.test(haystack)) return "ECONOMIA";
+  if (/(eleccion|gobierno|congreso|senado|ley|partido|presupuesto|reforma)/.test(haystack)) return "POLITICA";
+  return "SOCIEDAD";
+};
+
+const inferLocation = (articles: any[]) => {
+  const countries = new Set(
+    articles
+      .map((article) => normalizeText(article.country || article.source_country || article.source?.country || article.source?.pais))
+      .filter(Boolean),
+  );
+  if (countries.size === 1) {
+    const only = Array.from(countries)[0];
+    if (only.includes("espana")) return "España";
+    if (only.includes("france")) return "Francia";
+    if (only.includes("germany")) return "Alemania";
+    if (only.includes("united kingdom") || only.includes("reino unido")) return "Reino Unido";
+    if (only.includes("qatar")) return "Qatar";
+    if (only.includes("united states") || only.includes("estados unidos")) return "Estados Unidos";
+    return only.charAt(0).toUpperCase() + only.slice(1);
+  }
+  if (countries.size > 1) return "Internacional";
+  return "España";
+};
+
 const buildStoryPayload = (cluster: any, articles: any[]) => {
   const sourceIds = [...new Set(articles.map((article) => article.source_id).filter(Boolean))];
+  const category = inferCategory(cluster, articles);
+  const location = inferLocation(articles);
   return {
     id: crypto.randomUUID(),
-    category: "SOCIEDAD",
+    category,
     title: cluster.title || cluster.topic_summary || "Sin título",
     summary: `Cobertura agrupada de ${articles.length} artículos sobre el mismo evento.`,
     image_url: pickMainImage(articles),
     author: "Trust News",
     time_label: "Reciente",
-    location: "España",
+    location,
     source_count: sourceIds.length,
     sources_count: sourceIds.length,
     source_ids: sourceIds,
