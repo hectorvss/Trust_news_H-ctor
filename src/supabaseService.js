@@ -1,5 +1,25 @@
 import { supabase } from './supabaseClient';
 
+const CATEGORY_ALIASES = {
+  'ECONOMÍA': ['ECONOMÍA', 'FINANZAS'],
+  'SOCIEDAD': ['SOCIEDAD', 'SOCIAL'],
+  'DEPORTES': ['DEPORTES', 'DEPORTE'],
+};
+
+export const normalizeCategory = (value) => {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw) return 'SOCIEDAD';
+  if (raw === 'FINANZAS') return 'ECONOMÍA';
+  if (raw === 'SOCIAL') return 'SOCIEDAD';
+  if (raw === 'DEPORTE') return 'DEPORTES';
+  return raw;
+};
+
+const categoryQueryValues = (value) => {
+  const canonical = normalizeCategory(value);
+  return CATEGORY_ALIASES[canonical] || [canonical];
+};
+
 // ==========================================
 // READING HISTORY
 // ==========================================================
@@ -185,7 +205,7 @@ const mapStory = (s) => {
     id: s.id,
     title: s.title,
     summary: s.summary,
-    category: s.category || 'SOCIAL',
+    category: normalizeCategory(s.category || 'SOCIEDAD'),
     image: s.image_url || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800',
     time: s.time_label || 'recientemente',
     location: s.location || 'España',
@@ -331,7 +351,7 @@ export const fetchStories = async (category = 'TODO') => {
     .order('created_at', { ascending: false });
 
   if (category !== 'TODO' && category !== 'PARA TI' && category !== 'PARA_TI' && category) {
-    query = query.ilike('category', category);
+    query = query.in('category', categoryQueryValues(category));
   }
 
   let { data, error } = await query;
@@ -455,7 +475,7 @@ export const saveStory = async (storyData) => {
   // Convert camelCase frontend mapped object back to snake_case
   const dbPayload = {
     title: storyData.title,
-    category: storyData.category,
+    category: normalizeCategory(storyData.category),
     summary: storyData.summary || '',
     time_label: storyData.time || storyData.time_label || 'Reciente',
     image_url: storyData.image || storyData.image_url || '',
@@ -883,7 +903,10 @@ export const fetchPipelineDrafts = async () => {
     console.error('Error fetching pipeline drafts:', error);
     return [];
   }
-  return data || [];
+  return (data || []).map((story) => ({
+    ...story,
+    category: normalizeCategory(story.category),
+  }));
 };
 
 const validateDraftForApproval = (story) => {

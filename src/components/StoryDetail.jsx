@@ -7,6 +7,7 @@ import Plus from './ui/Plus';
 import { saveStory, buildSourceIndex } from '../supabaseService';
 import { CoverageDetails, SourceTag, SourceLogo, toBucket, MiniBiasBar } from './coverage';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { normalizeCategory } from '../supabaseService';
 
 const InlineEdit = ({ text, onChange, isEditing, tag = 'span', style = {}, multiline = false, placeholder = 'Añadir texto...' }) => {
   if (!isEditing) {
@@ -283,7 +284,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
           
           <div style={{ padding: isMobile ? '8px 12px' : '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>SECCIÓN:</span>
-            <InlineSelect text={editedStory.category || 'POLÍTICA'} options={['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE']} onChange={v => updateStory('category', v)} isEditing={isEditing} />
+            <InlineSelect text={normalizeCategory(editedStory.category || 'POLÍTICA')} options={['POLÍTICA', 'ECONOMÍA', 'SOCIEDAD', 'TECNOLOGÍA', 'DEPORTES', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE', 'CIENCIA', 'SUCESOS', 'VIVIENDA']} onChange={v => updateStory('category', v)} isEditing={isEditing} />
           </div>
           <div style={{ padding: isMobile ? '8px 12px' : '8px 20px', background: '#f5f5f5', borderRadius: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', gap: '8px' }}>
             <span style={{ opacity: 0.3 }}>FACTUALIDAD:</span>

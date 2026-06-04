@@ -250,7 +250,7 @@ export default function ReviewQueue({ onEditStory }) {
                     ...btnLabel, fontSize: '9px', padding: '4px 9px', background: '#000', color: 'white',
                     borderRadius: 'var(--radius-sm)'
                   }}>
-                    {d.category || 'SOCIAL'}
+                    {d.category || 'SOCIEDAD'}
                   </span>
                   <span style={{ fontSize: '11px', fontFamily: fontMono, opacity: 0.6 }}>
                     {count} fuentes

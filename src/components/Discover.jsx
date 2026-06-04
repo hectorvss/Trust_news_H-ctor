@@ -7,7 +7,7 @@ const FOLLOWS_KEY = 'tne_follows';
 const loadFollows = () => { try { return new Set(JSON.parse(localStorage.getItem(FOLLOWS_KEY) || '[]')); } catch { return new Set(); } };
 const saveFollows = (set) => localStorage.setItem(FOLLOWS_KEY, JSON.stringify([...set]));
 
-const TOPICS = ['POLÍTICA', 'FINANZAS', 'INTERNACIONAL', 'TECNOLOGÍA', 'SOCIAL', 'CULTURA', 'DEPORTE', 'CLIMA', 'SANIDAD', 'VIVIENDA', 'INMIGRACIÓN', 'ENERGÍA'];
+const TOPICS = ['POLÍTICA', 'ECONOMÍA', 'INTERNACIONAL', 'TECNOLOGÍA', 'SOCIEDAD', 'CULTURA', 'DEPORTES', 'CIENCIA', 'CLIMA', 'SANIDAD', 'VIVIENDA', 'INMIGRACIÓN', 'ENERGÍA', 'SUCESOS'];
 const PLACES = ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Bilbao', 'Galicia', 'Andalucía', 'Cataluña', 'País Vasco', 'Bruselas', 'Ucrania', 'Gaza'];
 const PEOPLE = ['Pedro Sánchez', 'Alberto Núñez Feijóo', 'Santiago Abascal', 'Yolanda Díaz', 'Isabel Díaz Ayuso', 'Carlos Mazón', 'Úrsula von der Leyen', 'Donald Trump'];
 

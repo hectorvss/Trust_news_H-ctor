@@ -107,6 +107,40 @@ const checks = [
     ],
   },
   {
+    name: "category contract is canonical across app and service",
+    file: "src/supabaseService.js",
+    mustInclude: [
+      "normalizeCategory",
+      "ECONOMÍA",
+      "SOCIEDAD",
+      "DEPORTES",
+    ],
+  },
+  {
+    name: "main app exposes canonical category set",
+    file: "src/App.jsx",
+    mustInclude: [
+      "ECONOMÍA",
+      "SOCIEDAD",
+      "DEPORTES",
+      "CIENCIA",
+      "SUCESOS",
+      "VIVIENDA",
+    ],
+  },
+  {
+    name: "story detail editor exposes canonical category set",
+    file: "src/components/StoryDetail.jsx",
+    mustInclude: [
+      "ECONOMÍA",
+      "SOCIEDAD",
+      "DEPORTES",
+      "CIENCIA",
+      "SUCESOS",
+      "VIVIENDA",
+    ],
+  },
+  {
     name: "ingest function reads active RSS sources",
     file: "supabase/functions/ingest-rss/index.ts",
     mustInclude: [

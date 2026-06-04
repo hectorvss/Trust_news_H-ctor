@@ -42,6 +42,7 @@ import {
 } from './supabaseService';
 import AccessLimitModal from './components/AccessLimitModal';
 import { getEffectiveUserRole, hasManagerAccess } from './utils/managerAccess';
+import { normalizeCategory } from './supabaseService';
 
 const PageLoader = () => (
   <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 900, letterSpacing: '2px', opacity: 0.3 }}>
@@ -281,7 +282,7 @@ const App = () => {
     navigate(`/story/${storyId}`);
   };
 
-  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE'];
+  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'ECONOMÍA', 'SOCIEDAD', 'TECNOLOGÍA', 'DEPORTES', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE', 'CIENCIA', 'SUCESOS', 'VIVIENDA'];
 
   // Stories from Supabase (single source of truth)
   const searchParams = new URLSearchParams(location.search);
@@ -292,8 +293,11 @@ const App = () => {
   let finalStories = activeCategory === 'TODO' 
     ? rawSource 
     : (activeCategory === 'PARA_TI' || activeCategory === 'PARA TI'
-        ? rawSource.filter(s => s.category && ['FINANZAS', 'TECNOLOGÍA', 'POLÍTICA'].includes(s.category.toUpperCase()))
-        : rawSource.filter(s => s.category && s.category.toUpperCase() === activeCategory.toUpperCase()));
+        ? rawSource.filter(s => {
+            const cat = normalizeCategory(s.category);
+            return ['ECONOMÍA', 'TECNOLOGÍA', 'POLÍTICA', 'DEPORTES', 'SOCIEDAD'].includes(cat);
+          })
+        : rawSource.filter(s => normalizeCategory(s.category) === normalizeCategory(activeCategory)));
 
   if (activeCity) {
     const term = activeCity.toLowerCase();
