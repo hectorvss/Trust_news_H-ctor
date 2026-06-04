@@ -35,8 +35,8 @@ export default async function handler(req, res) {
         cancel_url: `${req.headers.origin}/pricing`,
         customer_email: email,
         client_reference_id: user_id,
-        metadata: { user_id: user_id },
-        subscription_data: { metadata: { user_id: user_id } },
+        metadata: { user_id: user_id, plan_slug },
+        subscription_data: { metadata: { user_id: user_id, plan_slug } },
       });
       
       return res.status(200).json({ id: session.id, url: session.url });
@@ -45,9 +45,9 @@ export default async function handler(req, res) {
     if (type === 'ai_credits') {
       const { pack = 'medium', user_id, email } = req.body;
       const packs = {
-        small: { credits: Number(process.env.AI_CREDITS_SMALL_AMOUNT || 25), price: process.env.STRIPE_PRICE_AI_CREDITS_SMALL },
-        medium: { credits: Number(process.env.AI_CREDITS_MEDIUM_AMOUNT || 100), price: process.env.STRIPE_PRICE_AI_CREDITS_MEDIUM },
-        large: { credits: Number(process.env.AI_CREDITS_LARGE_AMOUNT || 300), price: process.env.STRIPE_PRICE_AI_CREDITS_LARGE }
+        small: { credits: Number(process.env.AI_CREDITS_SMALL_AMOUNT || 60), price: process.env.STRIPE_PRICE_AI_CREDITS_SMALL },
+        medium: { credits: Number(process.env.AI_CREDITS_MEDIUM_AMOUNT || 180), price: process.env.STRIPE_PRICE_AI_CREDITS_MEDIUM },
+        large: { credits: Number(process.env.AI_CREDITS_LARGE_AMOUNT || 500), price: process.env.STRIPE_PRICE_AI_CREDITS_LARGE }
       };
       const selectedPack = packs[pack];
 

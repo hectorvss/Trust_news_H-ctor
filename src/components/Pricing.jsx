@@ -9,6 +9,7 @@ const Pricing = ({ onBack }) => {
   const { isMobile, isTablet } = useBreakpoint();
   const [isAnnual, setIsAnnual] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [creditLoading, setCreditLoading] = useState(null);
 
   const handleSubscribe = async (planSlug) => {
     if (planSlug === 'free') {
@@ -49,6 +50,39 @@ const Pricing = ({ onBack }) => {
     }
   };
 
+  const handleBuyCredits = async (packSlug) => {
+    if (!user) {
+      alert('Por favor inicia sesion o crea una cuenta primero.');
+      navigate('/auth');
+      return;
+    }
+
+    setCreditLoading(packSlug);
+    try {
+      const response = await fetch('/api/stripe?type=ai_credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pack: packSlug,
+          user_id: user.id,
+          email: user.email
+        })
+      });
+
+      const session = await response.json();
+      if (session.url) {
+        window.location.href = session.url;
+      } else {
+        alert('Error al iniciar la compra de creditos IA.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al conectar con el servidor de pagos.');
+    } finally {
+      setCreditLoading(null);
+    }
+  };
+
   const plans = {
     free: {
       name: 'ESTANDAR',
@@ -57,6 +91,7 @@ const Pricing = ({ onBack }) => {
       features: [
         { text: '[+] Feed de noticias mundial', include: true },
         { text: '[+] Sesgo basico (3 fuentes)', include: true },
+        { text: '[+] Toddy: 1 pregunta IA por noticia', include: true },
         { text: '[-] Noticias completas redactadas', include: false },
         { text: '[-] Analisis de blindspots ilimitado', include: false }
       ],
@@ -71,6 +106,7 @@ const Pricing = ({ onBack }) => {
         { text: '[+] Noticias completas y premium', include: true },
         { text: '[+] Blindspots de Espana ilimitados', include: true },
         { text: '[+] Graficos de sesgo avanzados', include: true },
+        { text: '[+] 50 creditos IA/mes para Toddy', include: true },
         { text: '[+] Sin anuncios ni tracking', include: true }
       ],
       buttonText: 'SUSCRIBIRSE AHORA',
@@ -84,6 +120,7 @@ const Pricing = ({ onBack }) => {
         { text: '[+] Todo lo del plan Premium', include: true },
         { text: '[+] Acceso a API de datos TNE', include: true },
         { text: '[+] Reportes semanales de sesgo', include: true },
+        { text: '[+] 200 creditos IA/mes para Toddy', include: true },
         { text: '[+] Soporte prioritario 24/7', include: true },
         { text: '[+] Exportacion de datos analiticos', include: true }
       ],
@@ -165,6 +202,99 @@ const Pricing = ({ onBack }) => {
         }}
       >
         {plan.buttonText}
+      </button>
+    </div>
+  );
+
+  const creditPacks = [
+    {
+      slug: 'small',
+      name: 'TODDY START',
+      price: '4.90EUR',
+      credits: 60,
+      bestFor: 'Para lectores que quieren preguntar en varias noticias.',
+      savings: '60 simples / 20 deep / 12 auditorias',
+      unit: '0.082EUR por credito'
+    },
+    {
+      slug: 'medium',
+      name: 'TODDY PLUS',
+      price: '11.90EUR',
+      credits: 180,
+      bestFor: 'El pack mas rentable para uso semanal.',
+      savings: '180 simples / 60 deep / 36 auditorias',
+      unit: '0.066EUR por credito',
+      featured: true
+    },
+    {
+      slug: 'large',
+      name: 'TODDY PRO',
+      price: '24.90EUR',
+      credits: 500,
+      bestFor: 'Para seguir noticias vivas y hacer auditoria de fuentes.',
+      savings: '500 simples / 166 deep / 100 auditorias',
+      unit: '0.050EUR por credito'
+    }
+  ];
+
+  const CreditPackCard = ({ pack }) => (
+    <div
+      style={{
+        background: pack.featured ? 'black' : 'white',
+        color: pack.featured ? 'white' : 'black',
+        padding: isMobile ? '28px 20px' : '36px 30px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: '360px'
+      }}
+    >
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '28px' }}>
+          <span className="tag" style={{ border: 'none', background: pack.featured ? '#fff' : '#eee', color: pack.featured ? '#000' : '#111' }}>
+            {pack.name}
+          </span>
+          {pack.featured && (
+            <span style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.65 }}>
+              MEJOR VALOR
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: isMobile ? '44px' : '56px', fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>
+          {pack.credits}
+        </div>
+        <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.5, marginTop: '6px', marginBottom: '28px' }}>
+          CREDITOS IA
+        </div>
+        <div style={{ fontSize: '34px', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1, marginBottom: '8px' }}>
+          {pack.price}
+        </div>
+        <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', opacity: 0.5, marginBottom: '24px' }}>
+          {pack.unit}
+        </div>
+        <div style={{ borderTop: pack.featured ? '1px solid rgba(255,255,255,0.2)' : '1px solid #ddd', paddingTop: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <p style={{ fontSize: '14px', lineHeight: 1.45, margin: 0, opacity: 0.78 }}>{pack.bestFor}</p>
+          <p style={{ fontSize: '12px', lineHeight: 1.45, margin: 0, fontFamily: 'var(--font-mono)', opacity: 0.55 }}>{pack.savings}</p>
+        </div>
+      </div>
+      <button
+        onClick={() => handleBuyCredits(pack.slug)}
+        disabled={creditLoading === pack.slug}
+        className="navbar__link"
+        style={{
+          width: '100%',
+          marginTop: '34px',
+          background: pack.featured ? 'white' : 'black',
+          color: pack.featured ? 'black' : 'white',
+          border: pack.featured ? 'none' : '1px solid black',
+          padding: '16px',
+          fontSize: '13px',
+          fontWeight: 900,
+          cursor: creditLoading ? 'not-allowed' : 'pointer',
+          opacity: creditLoading === pack.slug ? 0.55 : 1
+        }}
+      >
+        {creditLoading === pack.slug ? 'ABRIENDO STRIPE...' : 'COMPRAR CREDITOS'}
       </button>
     </div>
   );
@@ -262,6 +392,51 @@ const Pricing = ({ onBack }) => {
         <Card plan={plans.premium} isGrey />
         <Card plan={plans.elite} isDark />
       </div>
+
+      <section id="ai-credits" style={{ padding: isMobile ? '52px 0 0' : '72px 0 0', borderBottom: 'var(--border-thin)' }}>
+        <div style={{ paddingBottom: isMobile ? '28px' : '40px' }}>
+          <span className="tag" style={{ background: '#111', color: '#fff', border: 'none', marginBottom: '24px' }}>TODDY IA</span>
+          <h2
+            style={{
+              fontSize: isMobile ? '40px' : isTablet ? '54px' : '68px',
+              lineHeight: '0.95',
+              letterSpacing: isMobile ? '-1.5px' : '-3px',
+              margin: '0 0 18px',
+              color: 'var(--color-primary)'
+            }}
+          >
+            Compra creditos IA cuando quieras.
+          </h2>
+          <p style={{ fontSize: isMobile ? '16px' : '21px', opacity: 0.62, maxWidth: '900px', lineHeight: '1.35', margin: 0 }}>
+            Toddy consume creditos segun profundidad: 1 credito para una explicacion simple, 3 para analisis completo y 5 para auditoria fuerte de fuentes, sesgo, claims y documentos.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '1fr 1fr 1fr',
+            gap: '1px',
+            background: 'var(--color-primary)',
+            borderTop: 'var(--border-thin)'
+          }}
+        >
+          {creditPacks.map(pack => <CreditPackCard key={pack.slug} pack={pack} />)}
+        </div>
+
+        <div style={{ padding: isMobile ? '22px 20px' : '28px 40px', background: '#f5f5f5', borderTop: 'var(--border-thin)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '18px' }}>
+          {[
+            ['KPI consumo IA', 'Cada respuesta guarda tokens, creditos, modelo, fuentes usadas y coste estimado.'],
+            ['Free protegido', 'El plan gratis mantiene 1 pregunta por noticia sin consumir creditos.'],
+            ['Pago flexible', 'Los packs son one-time y se suman al balance de tu cuenta via Stripe.']
+          ].map(([title, text]) => (
+            <div key={title}>
+              <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.45, marginBottom: '8px' }}>{title}</div>
+              <div style={{ fontSize: '14px', lineHeight: 1.45, opacity: 0.72 }}>{text}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div
         style={{

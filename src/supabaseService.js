@@ -295,6 +295,78 @@ const _biasFromSource = (s) => {
   }[value] || 'CENTER';
 };
 
+export const getAiUsageMetrics = async (userId) => {
+  if (!userId) {
+    return {
+      balance: 0,
+      responses: 0,
+      creditsSpent: 0,
+      creditsGranted: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      freeResponses: 0,
+      lowConfidence: 0,
+      depthDistribution: {},
+      lastUsedAt: null,
+      recentLedger: []
+    };
+  }
+
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const [{ data: profile }, { data: messages }, { data: ledger }] = await Promise.all([
+    supabase.from('profiles').select('ai_credit_balance').eq('id', userId).maybeSingle(),
+    supabase
+      .from('toddy_messages')
+      .select('role, depth, credits_charged, token_usage, status, created_at')
+      .eq('user_id', userId)
+      .eq('role', 'assistant')
+      .gte('created_at', since30d)
+      .order('created_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('ai_credit_ledger')
+      .select('delta, reason, created_at, metadata')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+  ]);
+
+  const stats = (messages || []).reduce((acc, row) => {
+    const usage = row.token_usage || {};
+    acc.responses += 1;
+    acc.creditsSpent += Number(row.credits_charged || 0);
+    acc.inputTokens += Number(usage.input_tokens || 0);
+    acc.outputTokens += Number(usage.output_tokens || 0);
+    if (row.credits_charged === 0) acc.freeResponses += 1;
+    if (row.status === 'low_confidence') acc.lowConfidence += 1;
+    if (row.depth) acc.depthDistribution[row.depth] = (acc.depthDistribution[row.depth] || 0) + 1;
+    if (!acc.lastUsedAt || row.created_at > acc.lastUsedAt) acc.lastUsedAt = row.created_at;
+    return acc;
+  }, {
+    responses: 0,
+    creditsSpent: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    freeResponses: 0,
+    lowConfidence: 0,
+    depthDistribution: {},
+    lastUsedAt: null
+  });
+
+  const creditsGranted = (ledger || [])
+    .filter((row) => Number(row.delta || 0) > 0)
+    .reduce((sum, row) => sum + Number(row.delta || 0), 0);
+
+  return {
+    balance: profile?.ai_credit_balance || 0,
+    ...stats,
+    totalTokens: stats.inputTokens + stats.outputTokens,
+    creditsGranted,
+    recentLedger: ledger || []
+  };
+};
+
 export const mapSource = (s) => {
   if (!s) return null;
   const biasRating = _biasFromSource(s);

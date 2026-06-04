@@ -28,9 +28,9 @@ const PLAN_PRICE_MAP = {
 };
 
 const AI_CREDIT_PACKS = {
-  small: { credits: Number(process.env.AI_CREDITS_SMALL_AMOUNT || 25), price: process.env.STRIPE_PRICE_AI_CREDITS_SMALL },
-  medium: { credits: Number(process.env.AI_CREDITS_MEDIUM_AMOUNT || 100), price: process.env.STRIPE_PRICE_AI_CREDITS_MEDIUM },
-  large: { credits: Number(process.env.AI_CREDITS_LARGE_AMOUNT || 300), price: process.env.STRIPE_PRICE_AI_CREDITS_LARGE }
+  small: { credits: Number(process.env.AI_CREDITS_SMALL_AMOUNT || 60), price: process.env.STRIPE_PRICE_AI_CREDITS_SMALL },
+  medium: { credits: Number(process.env.AI_CREDITS_MEDIUM_AMOUNT || 180), price: process.env.STRIPE_PRICE_AI_CREDITS_MEDIUM },
+  large: { credits: Number(process.env.AI_CREDITS_LARGE_AMOUNT || 500), price: process.env.STRIPE_PRICE_AI_CREDITS_LARGE }
 };
 
 const SUBSCRIPTION_CREDIT_GRANTS = {

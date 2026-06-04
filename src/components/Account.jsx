@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { updateProfile, updateUserSettings, getBiasStats, getUsageMetrics } from '../supabaseService';
+import { updateProfile, updateUserSettings, getBiasStats, getUsageMetrics, getAiUsageMetrics } from '../supabaseService';
 
 // --- ELEMENTOS UI REUSABLES ---
 
@@ -462,6 +462,7 @@ const TabBilling = ({ profile, user }) => {
    const tier = profile?.subscription_tier?.toUpperCase() || 'FREE';
    const isActive = profile?.subscription_status === 'active';
    const nextPayment = profile?.current_period_end ? new Date(profile.current_period_end).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'N/A';
+   const aiCredits = profile?.ai_credit_balance || 0;
 
    return (
       <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
@@ -500,6 +501,24 @@ const TabBilling = ({ profile, user }) => {
                      SUBIR A PREMIUM / ELITE
                   </button>
                )}
+            </div>
+         </div>
+
+         <div style={{ background: '#111', color: '#fff', padding: '40px', marginBottom: '60px', border: 'var(--border-thin)', display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(220px, 0.6fr)', gap: '32px', alignItems: 'center' }}>
+            <div>
+               <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.45, letterSpacing: '1px', marginBottom: '18px' }}>TODDY IA</div>
+               <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-2px', lineHeight: 1, marginBottom: '10px' }}>{aiCredits}<span style={{ fontSize: '20px', marginLeft: '8px' }}>creditos</span></div>
+               <p style={{ fontSize: '14px', lineHeight: 1.5, opacity: 0.72, margin: 0 }}>
+                  Usa Toddy para preguntar por una noticia publicada. Basic consume 1 credito, Deep consume 3 y Audit consume 5. El plan gratis mantiene una consulta por noticia.
+               </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+               <button onClick={() => window.location.href='/pricing#ai-credits'} style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', background: '#fff', color: '#111', border: 'none', width: '100%' }}>
+                  COMPRAR CREDITOS IA
+               </button>
+               <button onClick={() => window.location.href='/pricing'} style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', cursor: 'pointer', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', width: '100%' }}>
+                  VER PLANES TODDY
+               </button>
             </div>
          </div>
 
@@ -589,6 +608,7 @@ const TabNotifications = ({ user, profile }) => {
 const TabStats = ({ user }) => {
    const [stats, setStats] = useState(null);
    const [usage, setUsage] = useState(null);
+   const [aiUsage, setAiUsage] = useState(null);
    const [loading, setLoading] = useState(true);
 
    const handleDownloadCSV = () => {
@@ -596,6 +616,10 @@ const TabStats = ({ user }) => {
        ['Métrica', 'Valor'],
        ['Noticias leídas', usage?.articles_read || 0],
        ['Tiempo de lectura (min)', Math.round((usage?.reading_seconds || 0) / 60)],
+       ['Creditos IA disponibles', aiUsage?.balance || 0],
+       ['Consultas Toddy 30d', aiUsage?.responses || 0],
+       ['Creditos IA consumidos 30d', aiUsage?.creditsSpent || 0],
+       ['Tokens IA 30d', aiUsage?.totalTokens || 0],
        ['Artículos analizados totales', stats?.total_articles || 0],
        ['Diversidad de fuentes (%)', stats?.diversity_pct || 0],
        ['Sesgo predominante', Object.entries(stats?.bias_distribution || {}).sort((a,b) => b[1]-a[1])[0]?.[0] || 'N/A'],
@@ -616,12 +640,14 @@ const TabStats = ({ user }) => {
 
    useEffect(() => {
      const loadData = async () => {
-       const [s, u] = await Promise.all([
+       const [s, u, ai] = await Promise.all([
          getBiasStats(user?.id),
-         getUsageMetrics(user?.id)
+         getUsageMetrics(user?.id),
+         getAiUsageMetrics(user?.id)
        ]);
        setStats(s);
        setUsage(u);
+       setAiUsage(ai);
        setLoading(false);
      };
      loadData();
@@ -649,6 +675,50 @@ const TabStats = ({ user }) => {
                  <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{stats?.diversity_pct || 0}<span style={{ fontSize: '24px' }}>%</span></div>
                  <div style={{ fontSize: '12px', fontWeight: 800, color: 'black', marginTop: '12px', fontFamily: 'var(--font-mono)' }}>★ {stats?.diversity_pct > 70 ? 'Lee de todo' : 'Amplía horizontes'}</div>
              </div>
+         </div>
+
+         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '2px', background: '#e0e0e0', border: '1px solid #e0e0e0', marginBottom: '60px' }}>
+             <div style={{ background: '#111', color: '#fff', padding: '40px 32px' }}>
+                 <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.45, marginBottom: '12px' }}>CREDITOS IA</div>
+                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{aiUsage?.balance || 0}</div>
+                 <div style={{ fontSize: '12px', fontWeight: 800, opacity: 0.65, marginTop: '12px', fontFamily: 'var(--font-mono)' }}>{aiUsage?.creditsSpent || 0} consumidos 30d</div>
+             </div>
+             <div style={{ background: 'white', padding: '40px 32px' }}>
+                 <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px' }}>CONSULTAS TODDY</div>
+                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{aiUsage?.responses || 0}</div>
+                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'black', opacity: 0.6, marginTop: '12px', fontFamily: 'var(--font-mono)' }}>{aiUsage?.freeResponses || 0} free / {aiUsage?.lowConfidence || 0} baja confianza</div>
+             </div>
+             <div style={{ background: 'white', padding: '40px 32px' }}>
+                 <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '12px' }}>TOKENS IA</div>
+                 <div style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-3px', lineHeight: '1' }}>{aiUsage?.totalTokens || 0}</div>
+                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'black', opacity: 0.6, marginTop: '12px', fontFamily: 'var(--font-mono)' }}>input {aiUsage?.inputTokens || 0} / output {aiUsage?.outputTokens || 0}</div>
+             </div>
+         </div>
+
+         <div style={{ border: 'var(--border-thin)', padding: '40px', marginBottom: '60px', background: '#f7f7f7' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap', marginBottom: '28px' }}>
+               <div>
+                  <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', marginBottom: '10px', opacity: 0.5, letterSpacing: '1px' }}>KPI CONSUMO IA</h3>
+                  <p style={{ fontSize: '14px', lineHeight: 1.5, opacity: 0.65, margin: 0, maxWidth: '720px' }}>
+                     Cada respuesta de Toddy queda registrada con creditos, tokens, profundidad, modelo, fuentes usadas y confianza.
+                  </p>
+               </div>
+               <Button variant="primary" onClick={() => window.location.href = '/pricing#ai-credits'}>COMPRAR CREDITOS</Button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1px', background: '#ddd', border: '1px solid #ddd' }}>
+               {[
+                 ['Basic', aiUsage?.depthDistribution?.basic || 0, '1 credito'],
+                 ['Deep', aiUsage?.depthDistribution?.deep || 0, '3 creditos'],
+                 ['Audit', aiUsage?.depthDistribution?.source_audit || 0, '5 creditos'],
+                 ['Ultimo uso', aiUsage?.lastUsedAt ? new Date(aiUsage.lastUsedAt).toLocaleDateString('es-ES') : 'N/A', 'Toddy']
+               ].map(([label, value, sub]) => (
+                 <div key={label} style={{ background: '#fff', padding: '22px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.42, marginBottom: '10px' }}>{label}</div>
+                    <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-1px' }}>{value}</div>
+                    <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', opacity: 0.45, marginTop: '6px' }}>{sub}</div>
+                 </div>
+               ))}
+            </div>
          </div>
 
          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1.2fr)', gap: '40px', marginBottom: '60px' }}>

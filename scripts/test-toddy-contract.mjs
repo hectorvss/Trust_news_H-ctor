@@ -49,11 +49,43 @@ const core = 'api/_toddyCore.js';
 [
   ['api/toddy-chat.js', 'handleToddyPost'],
   ['api/stripe.js', "type === 'ai_credits'"],
+  ['api/stripe.js', "small: { credits: Number(process.env.AI_CREDITS_SMALL_AMOUNT || 60)"],
+  ['api/stripe.js', "medium: { credits: Number(process.env.AI_CREDITS_MEDIUM_AMOUNT || 180)"],
+  ['api/stripe.js', "large: { credits: Number(process.env.AI_CREDITS_LARGE_AMOUNT || 500)"],
+  ['api/stripe.js', 'plan_slug'],
   ['api/webhook.js', 'stripe_ai_credit_pack'],
   ['api/webhook.js', 'subscription_${tier}_monthly_grant'],
   ['server/index.js', '/api/toddy-chat'],
   ['server/index.js', '/api/create-ai-credit-checkout-session']
 ].forEach(([file, needle]) => assertIncludes(file, needle));
+
+[
+  'TODDY IA',
+  'Compra creditos IA cuando quieras',
+  'TODDY START',
+  'TODDY PLUS',
+  'TODDY PRO',
+  'MEJOR VALOR',
+  'KPI consumo IA',
+  "handleBuyCredits",
+  "fetch('/api/stripe?type=ai_credits'"
+].forEach((needle) => assertIncludes('src/components/Pricing.jsx', needle));
+
+[
+  'getAiUsageMetrics',
+  'KPI CONSUMO IA',
+  'CREDITOS IA',
+  'CONSULTAS TODDY',
+  'TOKENS IA',
+  '/pricing#ai-credits'
+].forEach((needle) => assertIncludes('src/components/Account.jsx', needle));
+
+[
+  'export const getAiUsageMetrics',
+  'toddy_messages',
+  'ai_credit_ledger',
+  'depthDistribution'
+].forEach((needle) => assertIncludes('src/supabaseService.js', needle));
 
 [
   'PREGUNTAR A TODDY',
