@@ -1166,6 +1166,8 @@ export async function handleToddyPost(req, res) {
   const { story_id: storyId, message, depth = 'quick' } = req.body || {};
   const normalizedDepth = normalizeDepth(depth);
   if (!storyId || !message) return res.status(400).json({ error: 'story_id_and_message_required' });
+  // Cap message length: unbounded input inflates prompt tokens/cost (audit T7).
+  if (typeof message !== 'string' || message.length > 2000) return res.status(400).json({ error: 'message_invalid_or_too_long' });
   if (!TODDY_DEPTHS[normalizedDepth]) return res.status(400).json({ error: 'invalid_depth' });
 
   const { story, context, sourcesUsed, error } = await buildToddyStoryContext(supabase, storyId, normalizedDepth, message);

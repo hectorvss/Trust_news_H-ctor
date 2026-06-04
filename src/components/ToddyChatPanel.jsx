@@ -451,8 +451,10 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
                         const label = `${source.source}${source.article_id ? ` #${String(source.article_id).slice(0, 8)}` : ''}`;
                         const quality = source.extraction_quality != null ? ` q${Number(source.extraction_quality).toFixed(2)}` : '';
                         const chipStyle = { border: '1px solid #d6d0c3', padding: '4px 6px', fontSize: '10px', fontFamily: 'var(--font-mono)', background: '#fff', color: '#111', textDecoration: 'none' };
-                        return source.url ? (
-                          <a key={`${item.id}-${source.article_id}`} href={source.url} target="_blank" rel="noreferrer" style={chipStyle}>
+                        // Only render http(s) links — blocks javascript:/data: URL XSS (audit T12).
+                        const safeUrl = typeof source.url === 'string' && /^https?:\/\//i.test(source.url) ? source.url : null;
+                        return safeUrl ? (
+                          <a key={`${item.id}-${source.article_id}`} href={safeUrl} target="_blank" rel="noreferrer" style={chipStyle}>
                             {label}{quality}
                           </a>
                         ) : (
