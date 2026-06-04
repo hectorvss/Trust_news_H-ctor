@@ -5,6 +5,7 @@ import BiasBar from './BiasBar';
 import ShareModal from './ShareModal';
 import Plus from './ui/Plus';
 import ToddyChatPanel from './ToddyChatPanel';
+import ToddyFloatingLauncher from './ToddyFloatingLauncher';
 import { saveStory, buildSourceIndex } from '../supabaseService';
 import { CoverageDetails, SourceTag, SourceLogo, toBucket, MiniBiasBar } from './coverage';
 import { useBreakpoint } from '../hooks/useBreakpoint';
@@ -234,25 +235,6 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
         <title>{editedStory?.title || 'Noticia'} | TNE</title>
         <meta name="description" content={editedStory?.summary || 'Lee la cobertura completa de esta noticia en Trust News España.'} />
       </Helmet>
-      <style>{`
-        @keyframes toddyFloat {
-          0%, 100% { transform: translateY(0) rotate(-1deg); }
-          50% { transform: translateY(-7px) rotate(1deg); }
-        }
-        @keyframes toddyBlink {
-          0%, 88%, 100% { transform: scaleY(1); }
-          92%, 96% { transform: scaleY(0.12); }
-        }
-        @keyframes toddyLook {
-          0%, 100% { transform: translateX(-2px); }
-          45% { transform: translateX(3px); }
-          70% { transform: translateX(0); }
-        }
-        @keyframes toddyGlow {
-          0%, 100% { box-shadow: 0 18px 50px rgba(0,0,0,0.22), 0 0 0 0 rgba(17,17,17,0.18); }
-          50% { box-shadow: 0 22px 70px rgba(0,0,0,0.30), 0 0 0 12px rgba(17,17,17,0.04); }
-        }
-      `}</style>
       <div style={{ maxWidth: 'var(--content-width)', margin: '0 auto', padding: isMobile ? '16px 16px 48px' : isTablet ? '24px 24px 56px' : '32px 32px 72px' }}>
       
       {/* MANAGER FLOATING SAVE BAR */}
@@ -1160,93 +1142,11 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
       </div>
       </div>
       {!isEditing && (editedStory.status || 'published') === 'published' && (
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowToddy(true); }}
-          aria-label="Preguntar a Toddy"
-          title="Preguntar a Toddy"
-          style={{
-            position: 'fixed',
-            right: isMobile ? '18px' : '30px',
-            bottom: isMobile ? '18px' : '30px',
-            zIndex: 980,
-            width: isMobile ? '70px' : '82px',
-            height: isMobile ? '70px' : '82px',
-            borderRadius: '26px',
-            border: '1px solid #111',
-            background: '#f7f5ef',
-            color: '#111',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            animation: 'toddyFloat 4.2s ease-in-out infinite, toddyGlow 3.4s ease-in-out infinite',
-            overflow: 'hidden'
-          }}
-        >
-          <span style={{
-            position: 'absolute',
-            inset: '8px',
-            borderRadius: '22px',
-            background: '#111',
-            transform: 'rotate(-4deg)'
-          }} />
-          <span style={{
-            position: 'relative',
-            width: isMobile ? '44px' : '52px',
-            height: isMobile ? '44px' : '52px',
-            borderRadius: '18px',
-            background: '#fff',
-            display: 'block',
-            border: '1px solid rgba(255,255,255,0.5)'
-          }}>
-            <span style={{
-              position: 'absolute',
-              left: '10px',
-              top: '15px',
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#111',
-              animation: 'toddyBlink 4.8s infinite, toddyLook 5.6s ease-in-out infinite'
-            }} />
-            <span style={{
-              position: 'absolute',
-              right: '10px',
-              top: '15px',
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#111',
-              animation: 'toddyBlink 4.8s infinite, toddyLook 5.6s ease-in-out infinite'
-            }} />
-            <span style={{
-              position: 'absolute',
-              left: '15px',
-              bottom: '12px',
-              width: '22px',
-              height: '9px',
-              borderBottom: '3px solid #111',
-              borderRadius: '0 0 999px 999px'
-            }} />
-          </span>
-          {!isMobile && (
-            <span style={{
-              position: 'absolute',
-              right: '74px',
-              bottom: '19px',
-              background: '#111',
-              color: '#fff',
-              border: '1px solid #111',
-              padding: '8px 10px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
-              fontWeight: 900,
-              whiteSpace: 'nowrap'
-            }}>
-              TODDY
-            </span>
-          )}
-        </button>
+        <ToddyFloatingLauncher
+          isMobile={isMobile}
+          hidden={showToddy}
+          onClick={() => setShowToddy(true)}
+        />
       )}
       <ToddyChatPanel story={editedStory} open={showToddy} onClose={() => setShowToddy(false)} />
     </div>

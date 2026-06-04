@@ -35,12 +35,24 @@ const fractionalMigration = 'migrations/024_toddy_fractional_credits.sql';
   'round(coalesce(p_amount, 0)::numeric, 2)'
 ].forEach((needle) => assertIncludes(fractionalMigration, needle));
 
+const researchMigration = 'migrations/025_toddy_research_agent.sql';
+[
+  "check (depth in ('quick', 'deep', 'research', 'audit', 'basic', 'source_audit'))",
+  'add column if not exists metadata jsonb',
+  'create table if not exists public.toddy_web_research_results',
+  'web_research_responses_24h',
+  'web_urls_consulted_24h',
+  'validation_failures_24h'
+].forEach((needle) => assertIncludes(researchMigration, needle));
+
 const core = 'api/_toddyCore.js';
 [
   'TODDY_DEPTHS',
-  'basic',
+  'quick',
   'deep',
-  'source_audit',
+  'research',
+  'audit',
+  'DEPTH_ALIASES',
   'buildToddyStoryContext',
   "story.status !== 'published'",
   'hasUsedFreeStoryAnswer',
@@ -48,9 +60,12 @@ const core = 'api/_toddyCore.js';
   'free_limit_used',
   'ANTHROPIC_API_KEY',
   'text/event-stream',
+  "writeSse(res, 'citation'",
   'sources_used',
   'token_usage',
-  'consume_ai_credits',
+  'reserveAiCredits',
+  'finalizeAiCredits',
+  'releaseAiCreditReservation',
   'generation_trace',
   'bias_distribution',
   'article_content(content_text',
@@ -59,15 +74,61 @@ const core = 'api/_toddyCore.js';
   'evidence_coverage',
   'summarizeEvidenceCoverage',
   'relevanceScore',
+  'searchStoryEvidence',
+  'runWebResearch',
+  'llmWebSearch',
+  'collectOpenAiTextAndCitations',
+  'collectAnthropicTextAndCitations',
+  'TODDY_WEB_RESEARCH_PROVIDER',
+  'OPENAI_API_KEY',
+  'TODDY_OPENAI_WEB_MODEL',
+  'web_search',
+  'web_search_20250305',
+  'TODDY_PREMIUM_DAILY_RESEARCH_LIMIT',
+  'countDailyResearchUses',
+  'allowedDepthsForProfile',
+  'depth_not_allowed',
+  'daily_research_limit_used',
+  'validateToddyAnswer',
+  'structured_answer',
+  'web_research',
+  'tool_trace',
+  'context_hash',
   'conversationHistory',
-  'Historial reciente',
-  'Fuentes usadas:',
+  'compactForPrompt',
+  'pruneEmpty',
+  'shouldUseWebResearch',
+  'explicitlyRequestsWeb',
+  '.slice(-4)',
+  'JSON.stringify(promptContext)',
+  "reason: paid ? 'web_not_requested'",
+  'selected_article_ids',
   'calculateCreditsFromUsage',
   'CREDIT_POLICY',
-  'estimated_credits',
-  'calculated_credits',
-  'Math.min(calculatedCredits'
+  'web_searches'
 ].forEach((needle) => assertIncludes(core, needle));
+
+[
+  'JSON.stringify(context)',
+  '.slice(-8)',
+  'Contexto JSON:',
+  'Historial reciente'
+].forEach((forbidden) => {
+  const text = read(core);
+  if (text.includes(forbidden)) throw new Error(`Toddy prompt should stay token-optimized, found ${forbidden}`);
+});
+
+[
+  'TAVILY_API_KEY',
+  'BRAVE_SEARCH_API_KEY',
+  'NEWSAPI_KEY',
+  'https://api.tavily.com',
+  'https://api.search.brave.com',
+  'https://newsapi.org'
+].forEach((forbidden) => {
+  const text = read(core);
+  if (text.includes(forbidden)) throw new Error(`Toddy web research should use LLM web APIs, found ${forbidden}`);
+});
 
 [
   ['api/toddy-chat.js', 'handleToddyPost'],
@@ -113,31 +174,58 @@ const core = 'api/_toddyCore.js';
 [
   'PREGUNTAR A TODDY',
   'ToddyChatPanel',
-  'toddyFloat',
-  'toddyBlink',
-  'toddyLook',
-  'aria-label="Preguntar a Toddy"',
+  'ToddyFloatingLauncher',
+  'hidden={showToddy}',
+  'aria-label="Preguntar a Toddy sobre esta noticia"',
+  'toddyLauncherFloat',
+  'toddyLauncherBlink',
+  'toddyLauncherPeek',
+  'prefers-reduced-motion',
   'Explicamelo simple',
   'Que sesgo hay',
   'Que dicen las fuentes',
   'Que falta por saber',
   'Dame cronologia',
   'leyendo la noticia',
+  'buscando evidencia',
+  'investigando web',
   'comparando fuentes',
   'verificando claims',
+  'validando citas',
   'redactando respuesta',
-  'free usado',
+  'pregunta gratis usada',
   'COMPRAR',
   'extraction_quality',
   'target="_blank"',
-  'PROFUNDIDAD DE RAZONAMIENTO',
-  'Coste estimado',
-  'uso real de tokens'
+  'ReasoningSelector',
+  'availableDepths',
+  'researchRemaining',
+  'allowedDepths={availableDepths}',
+  'depth_not_allowed',
+  'daily_research_limit_used',
+  'Rapido',
+  'Profundo',
+  'Investigacion',
+  'Auditoria',
+  'MarkdownText',
+  'humanError',
+  'story_not_found'
 ].forEach((needle) => {
-  const target = ['PREGUNTAR A TODDY', 'ToddyChatPanel', 'toddyFloat', 'toddyBlink', 'toddyLook', 'aria-label="Preguntar a Toddy"'].includes(needle)
+  const target = ['PREGUNTAR A TODDY', 'ToddyChatPanel', 'ToddyFloatingLauncher', 'hidden={showToddy}'].includes(needle)
     ? 'src/components/StoryDetail.jsx'
+    : ['toddyLauncherFloat', 'toddyLauncherBlink', 'toddyLauncherPeek', 'prefers-reduced-motion', 'aria-label="Preguntar a Toddy sobre esta noticia"'].includes(needle)
+    ? 'src/components/ToddyFloatingLauncher.jsx'
     : 'src/components/ToddyChatPanel.jsx';
   assertIncludes(target, needle);
+});
+
+[
+  'Coste estimado',
+  'cargo final',
+  'uso real de tokens'
+].forEach((forbidden) => {
+  const chat = read('src/components/ToddyChatPanel.jsx');
+  if (chat.includes(forbidden)) throw new Error(`Toddy chat should not show ${forbidden}`);
 });
 
 [
