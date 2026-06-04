@@ -81,14 +81,16 @@ Deno.serve(async (req) => {
     const llmStats = (recentStories || []).reduce((acc: any, row: any) => {
       const llm = row.generation_metadata?.llm || {};
       const usage = llm.token_usage || {};
+      const segmentSummary = row.generation_metadata?.segment_summary || row.generation_metadata?.segment_trace?.summary || {};
       acc.inputTokens += Number(usage.input_tokens || 0);
       acc.outputTokens += Number(usage.output_tokens || 0);
       acc.cacheReadTokens += Number(usage.cache_read_input_tokens || 0);
       if (llm.repair_used) acc.repairs += 1;
       if (Array.isArray(llm.validation_errors) && llm.validation_errors.length) acc.schemaFailures += 1;
       if (row.review_status === "analysis_failed") acc.blockedDrafts += 1;
+      if ((segmentSummary?.core_missing_count || 0) > 0 || (segmentSummary?.core_partial_count || 0) > 0) acc.segmentIncomplete += 1;
       return acc;
-    }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0 });
+    }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0, segmentIncomplete: 0 });
 
     return jsonResponse({
       ok: true,
@@ -124,6 +126,7 @@ Deno.serve(async (req) => {
       llmRepairs24h: llmStats.repairs,
       llmSchemaFailures24h: llmStats.schemaFailures,
       llmBlockedDrafts24h: llmStats.blockedDrafts,
+      llmSegmentIncomplete24h: llmStats.segmentIncomplete,
       lastIngestAt: lastJob?.created_at || null,
     });
   } catch (error) {

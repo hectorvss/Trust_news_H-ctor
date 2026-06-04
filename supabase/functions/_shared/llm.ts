@@ -164,6 +164,189 @@ const selectEvidenceArticles = (articles: any[]) => {
   return selected;
 };
 
+const editorialSegments = [
+  { key: "summary", label: "Resumen", minText: 80, kind: "text", required: true },
+  { key: "analytical_snippet", label: "Snippet analitico", minText: 80, kind: "text", required: true },
+  { key: "contexto", label: "Contexto", minText: 80, kind: "text", required: true },
+  { key: "desglose", label: "Desglose", minItems: 3, kind: "list", required: true },
+  { key: "perspectivas_info", label: "Perspectivas", kind: "object", required: true },
+  { key: "consenso_narrativo", label: "Consenso narrativo", minText: 60, kind: "text", required: true },
+  { key: "blind_spot", label: "Blind spot", minText: 30, kind: "text", required: true },
+  { key: "cifras_clave", label: "Cifras clave", minItems: 1, kind: "evidence_list", required: true },
+  { key: "verificacion_info", label: "Verificacion", minText: 40, kind: "text", required: true },
+  { key: "origen_info", label: "Origen", minItems: 1, kind: "list", required: true },
+  { key: "documentos_info", label: "Documentos", minItems: 0, kind: "evidence_list", required: false },
+  { key: "protagonistas_info", label: "Protagonistas", kind: "object", required: false },
+  { key: "preguntas_info", label: "Preguntas", minItems: 1, kind: "list", required: false },
+  { key: "impacto_social", label: "Impacto social", minItems: 1, kind: "list", required: false },
+  { key: "impacto_sistemico", label: "Impacto sistemico", minItems: 1, kind: "list", required: false },
+  { key: "articles", label: "Articulos", minItems: 1, kind: "list", required: true },
+] as const;
+
+const normalizeHint = (value: unknown) =>
+  asText(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const extractReferencedArticleIds = (items: any[]) =>
+  asArray(items)
+    .map((item: any) => item?.source_article_id || item?.article_id || item?.supporting_article_id || asArray(item?.supporting_article_ids)[0] || asArray(item?.supporting_articles)[0])
+    .filter(Boolean);
+
+const describeEvidenceState = (segmentKey: string, value: any, evidencePack: any, options: { kind?: string; minItems?: number; minText?: number } = {}) => {
+  const missingHints = new Set(
+    asArray(evidencePack?.missing_evidence)
+      .concat(asArray(value?.missing_evidence))
+      .map((entry) => normalizeHint(entry))
+      .filter(Boolean),
+  );
+  const requestedKey = normalizeHint(segmentKey);
+  const hasExplicitMissing = [...missingHints].some((hint) =>
+    hint.includes(requestedKey) ||
+    hint.includes(normalizeHint(segmentKey.replace(/_/g, " "))) ||
+    hint.includes(normalizeHint(segmentKey.replace(/_/g, ""))),
+  );
+  const supportIds = uniqueStrings(
+    extractReferencedArticleIds(asArray(value))
+      .concat(asArray(evidencePack?.articles).slice(0, 3).map((article: any) => article.article_id))
+      .filter(Boolean),
+    4,
+  );
+
+  if (options.kind === "list" || options.kind === "evidence_list") {
+    const items = asArray(value);
+    if (!items.length) {
+      return {
+        status: hasExplicitMissing ? "explained_missing" : "missing",
+        note: hasExplicitMissing ? "Ausencia explicada en el bloque editorial." : "No hay elementos suficientes.",
+        evidence_article_ids: supportIds,
+      };
+    }
+    const minItems = Number(options.minItems || 0);
+    if (minItems > 0 && items.length < minItems) {
+      return {
+        status: "partial",
+        note: `Solo ${items.length} elementos disponibles; se recomiendan al menos ${minItems}.`,
+        evidence_article_ids: supportIds,
+      };
+    }
+    return {
+      status: "complete",
+      note: `${items.length} elementos validados.`,
+      evidence_article_ids: supportIds,
+    };
+  }
+
+  if (typeof value === "object" && value && !Array.isArray(value)) {
+    const textValues = Object.values(value).map((entry) => asText(entry)).filter(Boolean);
+    const textScore = textValues.reduce((acc, entry) => acc + entry.length, 0);
+    if (!textValues.length) {
+      return {
+        status: hasExplicitMissing ? "explained_missing" : "missing",
+        note: hasExplicitMissing ? "Ausencia explicada en el bloque editorial." : "Bloque vacio.",
+        evidence_article_ids: supportIds,
+      };
+    }
+    if (textScore < 50) {
+      return {
+        status: "partial",
+        note: "El bloque existe pero aun es escueto.",
+        evidence_article_ids: supportIds,
+      };
+    }
+    return {
+      status: "complete",
+      note: "Bloque estructurado y con contenido.",
+      evidence_article_ids: supportIds,
+    };
+  }
+
+  const text = asText(value);
+  if (!text) {
+    return {
+      status: hasExplicitMissing ? "explained_missing" : "missing",
+      note: hasExplicitMissing ? "Ausencia explicada en el bloque editorial." : "No hay contenido en este bloque.",
+      evidence_article_ids: supportIds,
+    };
+  }
+  if (text.length < 50) {
+    return {
+      status: "partial",
+      note: "Texto breve, conviene reforzarlo.",
+      evidence_article_ids: supportIds,
+    };
+  }
+  return {
+    status: "complete",
+    note: "Bloque cubierto con contenido suficiente.",
+    evidence_article_ids: supportIds,
+  };
+};
+
+export const buildSegmentTrace = (payload: any, evidencePack?: any) => {
+  const segments = editorialSegments.map((segment) => {
+    const rawValue = payload?.[segment.key];
+    const base = describeEvidenceState(segment.key, rawValue, evidencePack, {
+      kind: segment.kind,
+      minItems: (segment as any).minItems || 0,
+      minText: (segment as any).minText || 0,
+    });
+    const valueLength = Array.isArray(rawValue)
+      ? rawValue.length
+      : typeof rawValue === "object" && rawValue
+        ? Object.values(rawValue).map((entry) => asText(entry)).filter(Boolean).join(" ").length
+        : asText(rawValue).length;
+    const minText = (segment as any).minText || 0;
+    const status = base.status === "complete" && minText && valueLength < minText
+      ? "partial"
+      : base.status;
+    return {
+      key: segment.key,
+      label: segment.label,
+      status,
+      note: base.note,
+      evidence_article_ids: base.evidence_article_ids,
+      character_count: valueLength,
+    };
+  });
+
+  const complete = segments.filter((segment) => segment.status === "complete").length;
+  const partial = segments.filter((segment) => segment.status === "partial").length;
+  const explainedMissing = segments.filter((segment) => segment.status === "explained_missing").length;
+  const missing = segments.filter((segment) => segment.status === "missing").length;
+  const coreSegments = segments.filter((segment) => editorialSegments.find((entry) => entry.key === segment.key)?.required);
+  const coreComplete = coreSegments.filter((segment) => segment.status === "complete").length;
+  const corePartial = coreSegments.filter((segment) => segment.status === "partial").length;
+  const coreExplainedMissing = coreSegments.filter((segment) => segment.status === "explained_missing").length;
+  const coreMissing = coreSegments.filter((segment) => segment.status === "missing").length;
+  const total = segments.length || 1;
+  const coreTotal = coreSegments.length || 1;
+  const completionRate = Number(((complete + partial * 0.5 + explainedMissing * 0.2) / total).toFixed(3));
+  const coreCompletionRate = Number(((coreComplete + corePartial * 0.5 + coreExplainedMissing * 0.2) / coreTotal).toFixed(3));
+  return {
+    segments,
+    summary: {
+      completion_rate: completionRate,
+      core_completion_rate: coreCompletionRate,
+      complete_count: complete,
+      partial_count: partial,
+      explained_missing_count: explainedMissing,
+      missing_count: missing,
+      core_complete_count: coreComplete,
+      core_partial_count: corePartial,
+      core_explained_missing_count: coreExplainedMissing,
+      core_missing_count: coreMissing,
+      ready: coreMissing === 0 && coreCompletionRate >= 0.72,
+    },
+    missing_segments: segments.filter((segment) => segment.status === "missing").map((segment) => segment.key),
+    weak_segments: segments.filter((segment) => segment.status === "partial").map((segment) => segment.key),
+  };
+};
+
 export const buildEvidencePack = async (cluster: any, articles: any[], sourcesMap: Record<string, any>) => {
   const compacted = articles.map((article) => compactArticleEvidence(article, article.source_id ? sourcesMap[article.source_id] : null));
   const selected = selectEvidenceArticles(compacted);
@@ -335,6 +518,7 @@ export const validateTrustNewsDraft = (payload: any, evidencePack?: any): Valida
   const warnings: string[] = [];
   const missing: string[] = [];
   const articleIds = new Set(asArray(evidencePack?.articles).map((article: any) => article.article_id).filter(Boolean));
+  const segmentTrace = buildSegmentTrace(payload, evidencePack);
   const required = storyDraftSchema.input_schema.required as string[];
 
   for (const field of required) {
@@ -348,10 +532,30 @@ export const validateTrustNewsDraft = (payload: any, evidencePack?: any): Valida
   ensure(asText(payload?.summary).length >= 80, errors, "summary too short");
   ensure(asText(payload?.full_content).length >= 300, errors, "full_content too short");
   ensure(asText(payload?.consenso_narrativo).split("|").length === 3, errors, "consenso_narrativo must contain three pipe-separated parts");
+  ensure(asArray(payload?.desglose).length >= 3, errors, "desglose must contain at least three points");
   ensure(asArray(payload?.articles).length > 0, errors, "articles empty");
   ensure(["ALTA", "MIXTA", "BAJA"].includes(payload?.factuality), errors, "invalid factuality");
   ensure(["ALTO", "MEDIO", "BAJO", "POLARIZADO"].includes(payload?.consensus), errors, "invalid consensus");
   ensure(["ALTO", "MEDIO", "BAJO"].includes(payload?.impact), errors, "invalid impact");
+  ensure(asText(payload?.contexto).length >= 80, errors, "contexto too short");
+  ensure(asText(payload?.blind_spot).length >= 20, errors, "blind_spot too short");
+  ensure(asArray(payload?.impacto_social).length >= 1, errors, "impacto_social empty");
+  ensure(asArray(payload?.impacto_sistemico).length >= 1, errors, "impacto_sistemico empty");
+  ensure(asArray(payload?.preguntas_info).length >= 1, errors, "preguntas_info empty");
+  ensure(asArray(payload?.origen_info).length >= 1, errors, "origen_info empty");
+  ensure(asText(payload?.verificacion_info).length >= 40, errors, "verificacion_info too short");
+  ensure(
+    asText(payload?.perspectivas_info?.izquierda).length > 0 &&
+      asText(payload?.perspectivas_info?.centro).length > 0 &&
+      asText(payload?.perspectivas_info?.derecha).length > 0,
+    errors,
+    "perspectivas_info incomplete",
+  );
+  ensure(
+    Object.values(payload?.protagonistas_info || {}).map((entry) => asText(entry)).some(Boolean),
+    errors,
+    "protagonistas_info empty",
+  );
 
   for (const [index, article] of asArray(payload?.articles).entries()) {
     const articleId = article?.article_id;
@@ -372,6 +576,17 @@ export const validateTrustNewsDraft = (payload: any, evidencePack?: any): Valida
   const evidenceQualityScore = Number(payload?.evidence_quality?.overall_score ?? evidencePack?.evidence_quality?.overall_score ?? 0);
   if (evidenceQualityScore < 0.35 && !asArray(payload?.missing_evidence).length) {
     errors.push("low evidence quality without missing_evidence explanation");
+  }
+  for (const segment of segmentTrace.segments) {
+    if (segment.status === "missing") {
+      errors.push(`segment missing: ${segment.key}`);
+    }
+    if (segment.status === "partial" && ["summary", "analytical_snippet", "contexto", "desglose", "consenso_narrativo", "blind_spot", "verificacion_info", "cifras_clave", "articles"].includes(segment.key)) {
+      warnings.push(`segment partial: ${segment.key}`);
+    }
+  }
+  if (!segmentTrace.summary.ready && !asArray(payload?.missing_evidence).length) {
+    errors.push("segment coverage incomplete without missing_evidence explanation");
   }
 
   return { ready: errors.length === 0, errors, warnings, missing };
@@ -473,6 +688,7 @@ export const analyzeCluster = async (
     acc.cache_creation_input_tokens += Number(usage.cache_creation_input_tokens || 0);
     return acc;
   }, { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 });
+  const segmentTrace = buildSegmentTrace(payload, evidencePack);
 
   return {
     payload,
@@ -486,6 +702,8 @@ export const analyzeCluster = async (
       validation_errors: validation.errors,
       validation_warnings: validation.warnings,
       evidence_pack_hash: evidencePack.evidence_pack_hash,
+      segment_trace: segmentTrace,
+      segment_summary: segmentTrace.summary,
       evidence: {
         hash: evidencePack.evidence_pack_hash,
         quality: evidencePack.evidence_quality,

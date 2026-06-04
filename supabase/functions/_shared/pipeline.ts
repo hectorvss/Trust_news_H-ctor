@@ -703,17 +703,32 @@ export const jaccard = (a: Set<string>, b: Set<string>) => {
 // Maps the live source schema (bias_label text / bias int -100..100 / bias_score -2..2)
 // onto the 5-bucket Spanish vocabulary the pipeline reasons with.
 export const biasBucketOf = (source: any): "izquierda" | "centroizquierda" | "centro" | "centroderecha" | "derecha" => {
-  const label = String(source?.bias_label ?? source?.political_lean ?? "").toUpperCase().replace(/\s+/g, "-");
+  const label = String(source?.bias_label ?? source?.political_lean ?? "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s_]+/g, "-");
   const byLabel: Record<string, any> = {
-    "LEFT": "izquierda", "FAR-LEFT": "izquierda",
-    "CENTER-LEFT": "centroizquierda", "CENTRE-LEFT": "centroizquierda", "LEAN-LEFT": "centroizquierda",
-    "CENTER": "centro", "CENTRE": "centro",
-    "CENTER-RIGHT": "centroderecha", "CENTRE-RIGHT": "centroderecha", "LEAN-RIGHT": "centroderecha",
-    "RIGHT": "derecha", "FAR-RIGHT": "derecha",
+    "LEFT": "izquierda", "FAR-LEFT": "izquierda", "IZQUIERDA": "izquierda",
+    "CENTER-LEFT": "centroizquierda", "CENTRE-LEFT": "centroizquierda", "LEAN-LEFT": "centroizquierda", "CENTRO-IZQUIERDA": "centroizquierda", "CENTROIZQUIERDA": "centroizquierda",
+    "CENTER": "centro", "CENTRE": "centro", "CENTRO": "centro",
+    "CENTER-RIGHT": "centroderecha", "CENTRE-RIGHT": "centroderecha", "LEAN-RIGHT": "centroderecha", "CENTRO-DERECHA": "centroderecha", "CENTRODERECHA": "centroderecha",
+    "RIGHT": "derecha", "FAR-RIGHT": "derecha", "DERECHA": "derecha",
   };
   if (byLabel[label]) return byLabel[label];
-  const direct = String(source?.bias ?? "").toLowerCase();
-  if (["izquierda", "centroizquierda", "centro", "centroderecha", "derecha"].includes(direct)) return direct as any;
+  const direct = String(source?.bias ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s_-]+/g, "");
+  const directMap: Record<string, any> = {
+    izquierda: "izquierda",
+    centroizquierda: "centroizquierda",
+    centro: "centro",
+    centroderecha: "centroderecha",
+    derecha: "derecha",
+  };
+  if (directMap[direct]) return directMap[direct];
   const n = typeof source?.bias === "number" ? source.bias
     : typeof source?.bias_score === "number" ? source.bias_score * 30
     : null;

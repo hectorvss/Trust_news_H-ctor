@@ -26,10 +26,27 @@ export const BIAS_COLOR = {
 export const BUCKET_COLOR = { LEFT: '#000000', CENTER: '#888888', RIGHT: '#d8d8d8' };
 
 // Map a granular rating to its 3-bucket
-export const toBucket = (rating) =>
-  ['LEFT', 'LEAN_LEFT'].includes(rating) ? 'LEFT'
-  : ['RIGHT', 'LEAN_RIGHT'].includes(rating) ? 'RIGHT'
+export const normalizeBiasRating = (rating) => {
+  const value = String(rating || '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s_]+/g, '-');
+
+  if (['LEFT', 'FAR-LEFT', 'IZQUIERDA'].includes(value)) return 'LEFT';
+  if (['LEAN-LEFT', 'CENTER-LEFT', 'CENTRE-LEFT', 'CENTRO-IZQUIERDA', 'CENTROIZQUIERDA'].includes(value)) return 'LEAN_LEFT';
+  if (['RIGHT', 'FAR-RIGHT', 'DERECHA'].includes(value)) return 'RIGHT';
+  if (['LEAN-RIGHT', 'CENTER-RIGHT', 'CENTRE-RIGHT', 'CENTRO-DERECHA', 'CENTRODERECHA'].includes(value)) return 'LEAN_RIGHT';
+  return 'CENTER';
+};
+
+export const toBucket = (rating) => {
+  const normalized = normalizeBiasRating(rating);
+  return ['LEFT', 'LEAN_LEFT'].includes(normalized) ? 'LEFT'
+  : ['RIGHT', 'LEAN_RIGHT'].includes(normalized) ? 'RIGHT'
   : 'CENTER';
+};
 
 // Factuality canonical → Spanish label + ordered scale (high→low)
 export const FACTUALITY_LABEL = {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BIAS_COLOR, toBucket, BUCKET_COLOR } from './helpers';
+import { BIAS_COLOR, toBucket, BUCKET_COLOR, normalizeBiasRating } from './helpers';
 
 /**
  * Circular source avatar. Tries the favicon/logo; falls back to a
@@ -9,7 +9,7 @@ const SourceLogo = ({ source = {}, size = 32, ring = true }) => {
   const [failed, setFailed] = useState(false);
   const name = source.name || source.source || '?';
   const logoUrl = source.logoUrl || (source.domain ? `https://www.google.com/s2/favicons?domain=${source.domain}&sz=64` : null);
-  const bias = source.biasRating || source.bias || 'CENTER';
+  const bias = normalizeBiasRating(source.biasRating || source.bias || 'CENTER');
   const ringColor = BIAS_COLOR[bias] || BUCKET_COLOR[toBucket(bias)] || '#888';
   const monogram = name.trim().charAt(0).toUpperCase();
 

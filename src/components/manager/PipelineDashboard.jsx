@@ -115,6 +115,7 @@ export default function PipelineDashboard() {
     { label: 'Tokens LLM 24h', value: s.llmTokens24h ?? 0, sub: `${s.llmOutputTokens24h ?? 0} salida` },
     { label: 'Repairs LLM', value: s.llmRepairs24h ?? 0, sub: `${s.llmSchemaFailures24h ?? 0} fallos schema` },
     { label: 'Bloqueos LLM', value: s.llmBlockedDrafts24h ?? 0, sub: 'drafts no publicables' },
+    { label: 'Segmentos incompletos', value: s.llmSegmentIncomplete24h ?? 0, sub: 'cobertura parcial' },
     { label: 'Publicadas', value: s.published ?? 0, sub: 'stories live' },
     { label: 'Jobs 24h', value: `${s.jobOk24h ?? 0} ok`, sub: `${s.jobErr24h ?? 0} err · ${s.jobs24h ?? 0} total` },
     { label: 'Última ingesta', value: relativeTime(s.lastIngestAt), sub: 'ingestion_jobs' },

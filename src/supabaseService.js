@@ -281,13 +281,18 @@ const _biasFromSource = (s) => {
   if (score !== null) {
     return score <= -2 ? 'LEFT' : score === -1 ? 'LEAN_LEFT' : score === 0 ? 'CENTER' : score === 1 ? 'LEAN_RIGHT' : 'RIGHT';
   }
+  const value = String(s.bias_label || s.political_lean || s.bias || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s_]+/g, '-');
   return {
     'LEFT': 'LEFT', 'IZQUIERDA': 'LEFT',
-    'CENTER-LEFT': 'LEAN_LEFT', 'LEAN_LEFT': 'LEAN_LEFT', 'CENTROIZQUIERDA': 'LEAN_LEFT',
+    'CENTER-LEFT': 'LEAN_LEFT', 'LEAN-LEFT': 'LEAN_LEFT', 'LEAN_LEFT': 'LEAN_LEFT', 'CENTRO-IZQUIERDA': 'LEAN_LEFT', 'CENTROIZQUIERDA': 'LEAN_LEFT',
     'CENTER': 'CENTER', 'CENTRO': 'CENTER',
-    'CENTER-RIGHT': 'LEAN_RIGHT', 'LEAN_RIGHT': 'LEAN_RIGHT', 'CENTRODERECHA': 'LEAN_RIGHT',
+    'CENTER-RIGHT': 'LEAN_RIGHT', 'LEAN-RIGHT': 'LEAN_RIGHT', 'LEAN_RIGHT': 'LEAN_RIGHT', 'CENTRO-DERECHA': 'LEAN_RIGHT', 'CENTRODERECHA': 'LEAN_RIGHT',
     'RIGHT': 'RIGHT', 'DERECHA': 'RIGHT'
-  }[(s.bias_label || s.political_lean || s.bias || '').toUpperCase()] || 'CENTER';
+  }[value] || 'CENTER';
 };
 
 export const mapSource = (s) => {
@@ -917,6 +922,7 @@ const validateDraftForApproval = (story) => {
   const validation = story?.editorial_validation || {};
   const metadata = story?.generation_metadata || {};
   const llm = metadata.llm || {};
+  const segmentSummary = validation.segment_summary || metadata.segment_summary || {};
   const evidenceScore = Number(metadata?.evidence?.quality?.overall_score ?? metadata?.evidence_quality?.overall_score ?? 1);
   if (!story?.title) missing.push('title');
   if (!story?.summary) missing.push('summary');
@@ -930,6 +936,7 @@ const validateDraftForApproval = (story) => {
   if (llm.status && llm.status !== 'completed') missing.push('llm_not_completed');
   if (evidenceScore < 0.35 && !(metadata.missing_evidence || []).length) missing.push('weak_evidence_without_explanation');
   if (figures.some((figure) => figure?.value && !(figure.source_article_id || figure.article_id))) missing.push('unreferenced_figures');
+  if ((segmentSummary?.core_missing_count || 0) > 0 || (segmentSummary?.core_partial_count || 0) > 0) missing.push('segmentos_incompletos');
   return { ready: missing.length === 0, missing };
 };
 
@@ -1053,14 +1060,16 @@ export const fetchPipelineStats = async () => {
   const llmStats = (recentGenerated || []).reduce((acc, row) => {
     const llm = row.generation_metadata?.llm || {};
     const usage = llm.token_usage || {};
+    const segmentSummary = row.generation_metadata?.segment_summary || row.generation_metadata?.segment_trace?.summary || {};
     acc.inputTokens += Number(usage.input_tokens || 0);
     acc.outputTokens += Number(usage.output_tokens || 0);
     acc.cacheReadTokens += Number(usage.cache_read_input_tokens || 0);
     if (llm.repair_used) acc.repairs += 1;
     if (Array.isArray(llm.validation_errors) && llm.validation_errors.length) acc.schemaFailures += 1;
     if (row.review_status === 'analysis_failed') acc.blockedDrafts += 1;
+    if ((segmentSummary?.core_missing_count || 0) > 0 || (segmentSummary?.core_partial_count || 0) > 0) acc.segmentIncomplete += 1;
     return acc;
-  }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0 });
+  }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, repairs: 0, schemaFailures: 0, blockedDrafts: 0, segmentIncomplete: 0 });
 
   return {
     sourcesActive, sourcesTotal,
@@ -1075,6 +1084,7 @@ export const fetchPipelineStats = async () => {
     llmRepairs24h: llmStats.repairs,
     llmSchemaFailures24h: llmStats.schemaFailures,
     llmBlockedDrafts24h: llmStats.blockedDrafts,
+    llmSegmentIncomplete24h: llmStats.segmentIncomplete,
     lastIngestAt,
   };
 };
@@ -1228,6 +1238,8 @@ export const fetchDraftReview = async (storyId) => {
       claimsMatrix: generationMetadata.claims_matrix || clusterAnalysis.claims_matrix || [],
       sourceTrace: generationMetadata.source_trace || clusterAnalysis.source_trace || [],
       missingEvidence: generationMetadata.missing_evidence || [],
+      segmentTrace: story.editorial_validation?.segment_trace || generationMetadata.segment_trace || clusterAnalysis.segment_trace || [],
+      segmentSummary: story.editorial_validation?.segment_summary || generationMetadata.segment_summary || clusterAnalysis.segment_summary || null,
       llm: generationMetadata.llm || {},
     },
   };

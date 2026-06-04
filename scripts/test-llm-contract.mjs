@@ -81,6 +81,7 @@ for (const needle of [
   "buildEvidencePack",
   "compactArticleEvidence",
   "estimateEvidenceTokens",
+  "buildSegmentTrace",
   "validateTrustNewsDraft",
   "repairTrustNewsDraft",
   "submit_editorial_story_draft",
@@ -90,6 +91,8 @@ for (const needle of [
   "token_usage",
   "repair_used",
   "prompt_version",
+  "segment_trace",
+  "segment_summary",
 ]) {
   if (!llmSource.includes(needle)) failures.push(`llm helper missing ${needle}`);
 }
@@ -113,6 +116,7 @@ for (const needle of [
   "llmRepairs24h",
   "llmSchemaFailures24h",
   "llmBlockedDrafts24h",
+  "llmSegmentIncomplete24h",
   "weak_evidence_without_explanation",
   "unreferenced_figures",
   "fetchDraftReview",
@@ -125,6 +129,7 @@ for (const needle of [
 const reviewPanelSource = read("src/components/manager/DraftReviewPanel.jsx");
 for (const needle of [
   "Trazabilidad editorial",
+  "Cobertura por segmentos",
   "Cifras y claims",
   "Articulos usados vs omitidos",
   "repair",
@@ -138,6 +143,7 @@ const queueSource = read("src/components/manager/ReviewQueue.jsx");
 for (const needle of ["FALLO SCHEMA", "REPAIR APLICADO", "EVIDENCIA BAJA", "LISTA REVISION"]) {
   if (!queueSource.includes(needle)) failures.push(`ReviewQueue missing ${needle}`);
 }
+if (!queueSource.includes("COBERTURA PARCIAL")) failures.push("ReviewQueue missing COBERTURA PARCIAL");
 
 const valid = readJson("tests/fixtures/llm/trust-news-draft-valid.json");
 const missing = readJson("tests/fixtures/llm/trust-news-draft-missing-field.json");

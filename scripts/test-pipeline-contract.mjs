@@ -69,6 +69,8 @@ const checks = [
       "editorial_validation",
       "claims_matrix",
       "evidence_pack_summary",
+      "segment_trace",
+      "segment_summary",
     ],
   },
   {
@@ -78,10 +80,13 @@ const checks = [
       "buildEvidencePack",
       "compactArticleEvidence",
       "estimateEvidenceTokens",
+      "buildSegmentTrace",
       "submit_editorial_story_draft",
       "tool_choice",
       "repairTrustNewsDraft",
       "evidence_pack_hash",
+      "segment_trace",
+      "segment_summary",
     ],
   },
   {
@@ -93,8 +98,40 @@ const checks = [
       "paywallDetected",
       "blockedReason",
       "Trazabilidad editorial",
+      "Cobertura por segmentos",
       "Cifras y claims",
       "Articulos usados vs omitidos",
+    ],
+  },
+  {
+    name: "story coverage renders full bias distribution analysis",
+    file: "src/components/coverage/BiasDistributionBar.jsx",
+    mustInclude: [
+      "GRANULAR_BUCKETS",
+      "deriveFromSources",
+      "Sesgo sin rastrear",
+      "SourceStack",
+      "normalizeDistribution",
+    ],
+  },
+  {
+    name: "coverage helpers normalize multilingual bias labels",
+    file: "src/components/coverage/helpers.js",
+    mustInclude: [
+      "normalizeBiasRating",
+      "CENTRO-IZQUIERDA",
+      "CENTRO-DERECHA",
+      "toBucket",
+    ],
+  },
+  {
+    name: "pipeline normalizes multilingual source bias labels",
+    file: "supabase/functions/_shared/pipeline.ts",
+    mustInclude: [
+      "CENTRO-IZQUIERDA",
+      "CENTRO-DERECHA",
+      "directMap",
+      "calculateBiasDistribution",
     ],
   },
   {
@@ -104,6 +141,7 @@ const checks = [
       "Tokens LLM 24h",
       "Repairs LLM",
       "Bloqueos LLM",
+      "Segmentos incompletos",
     ],
   },
   {

@@ -110,6 +110,8 @@ Deno.serve(async (req) => {
           missing: ["valid_ai_json"],
           errors: [String(err).slice(0, 500)],
           checked_at: new Date().toISOString(),
+          segment_trace: null,
+          segment_summary: null,
         },
         generation_metadata: {
           llm: {
@@ -117,6 +119,8 @@ Deno.serve(async (req) => {
             error: String(err).slice(0, 500),
             checked_at: new Date().toISOString(),
           },
+          segment_trace: null,
+          segment_summary: null,
         },
         updated_at: new Date().toISOString(),
       }).eq("id", draft.id);
@@ -129,6 +133,8 @@ Deno.serve(async (req) => {
     const llmValidation = analysisResult.validation || { ready: true, errors: [], warnings: [], missing: [] };
     const llmTrace = analysisResult.trace || {};
     const evidencePack = analysisResult.evidencePack || null;
+    const segmentTrace = llmTrace.segment_trace || null;
+    const segmentSummary = llmTrace.segment_summary || segmentTrace?.summary || null;
 
     const consensusNarrative = analysis.consenso_narrativo || [
       analysis.perspectivas_info?.izquierda || "Sin cobertura",
@@ -153,6 +159,8 @@ Deno.serve(async (req) => {
       warnings: [...(llmValidation.warnings || [])],
       checked_at: new Date().toISOString(),
       evidence_pack_hash: llmTrace.evidence_pack_hash || evidencePack?.evidence_pack_hash || null,
+      segment_trace: segmentTrace,
+      segment_summary: segmentSummary,
     };
     if (body.dry_run) {
       analyzed++;
@@ -175,6 +183,8 @@ Deno.serve(async (req) => {
             validation_warnings: combinedValidation.warnings,
           },
           evidence: llmTrace.evidence || null,
+          segment_trace: segmentTrace,
+          segment_summary: segmentSummary,
         },
         updated_at: new Date().toISOString(),
       }).eq("id", draft.id);
@@ -189,6 +199,8 @@ Deno.serve(async (req) => {
           llm_validation: combinedValidation,
           claims_matrix: analysis.claims_matrix || [],
           source_trace: analysis.source_trace || [],
+          segment_trace: segmentTrace,
+          segment_summary: segmentSummary,
         },
         updated_at: new Date().toISOString(),
       }).eq("id", clusterId);
@@ -250,6 +262,8 @@ Deno.serve(async (req) => {
         missing_evidence: analysis.missing_evidence || [],
         evidence_quality: analysis.evidence_quality || null,
         source_trace: analysis.source_trace || [],
+        segment_trace: segmentTrace,
+        segment_summary: segmentSummary,
       },
       pipeline_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -267,6 +281,8 @@ Deno.serve(async (req) => {
         claims_matrix: analysis.claims_matrix || [],
         source_trace: analysis.source_trace || [],
         llm_validation: combinedValidation,
+        segment_trace: segmentTrace,
+        segment_summary: segmentSummary,
       },
       updated_at: new Date().toISOString(),
     }).eq("id", clusterId);

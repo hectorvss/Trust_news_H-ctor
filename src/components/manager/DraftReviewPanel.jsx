@@ -96,6 +96,8 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
   const claimsMatrix = Array.isArray(trace.claimsMatrix) ? trace.claimsMatrix : [];
   const sourceTrace = Array.isArray(trace.sourceTrace) ? trace.sourceTrace : [];
   const missingEvidence = Array.isArray(trace.missingEvidence) ? trace.missingEvidence : [];
+  const segmentTrace = Array.isArray(trace.segmentTrace) ? trace.segmentTrace : [];
+  const segmentSummary = trace.segmentSummary || generationMetadata.segment_summary || editorialValidation.segment_summary || null;
   const usedArticles = Array.isArray(evidence.used_articles) ? evidence.used_articles : [];
   const omittedArticles = Array.isArray(evidence.omitted_articles) ? evidence.omitted_articles : [];
   const validationErrors = Array.isArray(editorialValidation.errors) ? editorialValidation.errors : [];
@@ -320,7 +322,59 @@ export default function DraftReviewPanel({ storyId, onClose, onApproved, onRejec
                 >
                   {validationErrors.length > 0 && <div><strong>Errores:</strong> {validationErrors.slice(0, 5).join(' | ')}</div>}
                   {validationWarnings.length > 0 && <div><strong>Avisos:</strong> {validationWarnings.slice(0, 5).join(' | ')}</div>}
-                  {missingEvidence.length > 0 && <div><strong>Evidencia faltante:</strong> {missingEvidence.slice(0, 5).join(' | ')}</div>}
+                {missingEvidence.length > 0 && <div><strong>Evidencia faltante:</strong> {missingEvidence.slice(0, 5).join(' | ')}</div>}
+              </div>
+            )}
+          </section>
+
+            <section style={{ marginBottom: '28px' }}>
+              <h3 style={sectionTitleStyle}>Cobertura por segmentos</h3>
+              {segmentSummary && (
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '12px'
+                }}>
+                  {pill('core completos', segmentSummary.core_complete_count ?? segmentSummary.complete_count ?? 0, '#16a34a')}
+                  {pill('core parciales', segmentSummary.core_partial_count ?? segmentSummary.partial_count ?? 0, '#b45309')}
+                  {pill('core faltan', segmentSummary.core_missing_count ?? segmentSummary.missing_count ?? 0, '#dc2626')}
+                  {pill('cobertura core', segmentSummary.core_completion_rate == null ? '-' : `${Math.round(Number(segmentSummary.core_completion_rate || 0) * 100)}%`, '#000')}
+                </div>
+              )}
+              {segmentTrace.length === 0 ? (
+                <div style={{ fontSize: '12px', fontFamily: fontMono, opacity: 0.55 }}>Sin trazabilidad segmentada disponible.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {segmentTrace.map((segment) => {
+                    const tone = segment.status === 'complete'
+                      ? '#16a34a'
+                      : segment.status === 'partial'
+                        ? '#b45309'
+                        : segment.status === 'explained_missing'
+                          ? '#6b7280'
+                          : '#dc2626';
+                    return (
+                      <div key={segment.key} style={{ border: '1px solid #eee', borderRadius: 'var(--radius-sm)', padding: '10px 12px', background: '#fff' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1.4 }}>{segment.label || segment.key}</div>
+                          <div style={{ ...btnLabel, fontSize: '9px', color: tone }}>{segment.status || 'missing'}</div>
+                        </div>
+                        <div style={{ fontSize: '11px', fontFamily: fontMono, opacity: 0.7, lineHeight: 1.5 }}>
+                          {segment.note || 'Sin observaciones.'}
+                        </div>
+                        {Array.isArray(segment.evidence_article_ids) && segment.evidence_article_ids.length > 0 && (
+                          <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {segment.evidence_article_ids.slice(0, 4).map((articleId) => (
+                              <span key={`${segment.key}-${articleId}`} style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: 'var(--radius-sm)', fontSize: '10px', fontFamily: fontMono, background: '#fafafa', opacity: 0.8 }}>
+                                {articleId}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
