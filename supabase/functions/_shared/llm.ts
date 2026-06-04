@@ -33,6 +33,39 @@ const postJson = async (url: string, headers: Record<string, string>, body: unkn
   return res;
 };
 
+// ── Restored embedding functions ──────────────────────────────────────────
+// embed-articles imports `embedBatch` from here, but it was deleted in commit
+// e16da1e. A missing named ESM import crashes the Deno function at BOOT, so
+// every embed run 500'd → 0 embeddings → 0 clusters → 0 stories. This single
+// broken import silently killed the whole downstream pipeline.
+// No `dimensions` param → 1536-dim vectors, matching the live
+// raw_articles.embedding column (verified vector(1536)).
+export const embedBatch = async (texts: string[]) => {
+  const apiKey = openAiKey();
+  if (!apiKey) return null;
+  if (!texts.length) return [];
+  const res = await postJson(
+    "https://api.openai.com/v1/embeddings",
+    { Authorization: `Bearer ${apiKey}` },
+    { model: config.openaiEmbeddingModel || "text-embedding-3-small", input: texts },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`OpenAI embeddings failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data.data
+    .sort((a: any, b: any) => a.index - b.index)
+    .map((item: any) => item.embedding as number[]);
+};
+
+export const embedText = async (title?: string | null, excerpt?: string | null) => {
+  const input = buildEmbeddingInput(title, excerpt);
+  if (!input) return null;
+  const batch = await embedBatch([input]);
+  return batch?.[0] || null;
+};
+
 const asArray = (value: any) => Array.isArray(value) ? value : [];
 const asText = (value: any) => typeof value === "string" ? value.trim() : "";
 const wordTokens = (value: string) => asText(value).toLowerCase().split(/\W+/).filter((token) => token.length > 3);
