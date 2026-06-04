@@ -14,6 +14,10 @@ import {
 import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
 import { finishRun, startRun } from "../_shared/runs.ts";
 
+// Minimum raw embedding cosine for a new article to JOIN an existing cluster.
+// Blocks keyword-only false merges against the synthesized cluster pseudo-article (audit #7).
+const EMBED_MATCH_FLOOR = Number(Deno.env.get("PIPELINE_CLUSTER_EMBED_MATCH_FLOOR") ?? 0.6);
+
 const tokenOverlap = (a?: string | null, b?: string | null) =>
   jaccard(tokenSet(a || ""), tokenSet(b || ""));
 
@@ -203,14 +207,23 @@ Deno.serve(async (req) => {
   const unassigned: any[] = [];
 
   for (const article of pending) {
+    const articleEmbedding = parseVector(article.embedding);
+    // Cluster-matching requires a real embedding. Matching on keyword/text overlap
+    // against the synthesized cluster pseudo-article caused false merges (audit #7).
+    if (!articleEmbedding) { unassigned.push(article); continue; }
+
     let matchedClusterId: string | null = null;
     let bestScore = 0;
 
     for (const cluster of existingClusters || []) {
       if (!cluster.centroid_embedding) continue;
+      const clusterEmbedding = parseVector(cluster.centroid_embedding);
+      if (!clusterEmbedding) continue;
+      // Gate on genuine embedding proximity before trusting the combined score.
+      if (cosineSimilarity(articleEmbedding, clusterEmbedding) < EMBED_MATCH_FLOOR) continue;
       const score = articleSimilarity(
         {
-          embedding: parseVector(article.embedding),
+          embedding: articleEmbedding,
           title: article.title,
           excerpt: article.excerpt,
           published_at: article.published_at,
@@ -218,7 +231,7 @@ Deno.serve(async (req) => {
           entity_fingerprint: article.entity_fingerprint,
         },
         {
-          embedding: parseVector(cluster.centroid_embedding),
+          embedding: clusterEmbedding,
           title: cluster.title || cluster.topic_summary,
           excerpt: Array.isArray(cluster.topic_keywords) ? cluster.topic_keywords.join(" ") : "",
           published_at: cluster.window_end,
