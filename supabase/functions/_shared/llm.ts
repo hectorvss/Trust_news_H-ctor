@@ -504,28 +504,39 @@ const parseToolOrJson = (data: any): { payload: any; rawText: string; usedTool: 
   return { payload: parseAnthropicJson(text), rawText: text, usedTool: false };
 };
 
-const callAnthropic = async (apiKey: string, body: any): Promise<LlmCallResult> => {
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-beta": "prompt-caching-2024-07-31",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
+const callAnthropic = async (apiKey: string, body: any, retries = 3): Promise<LlmCallResult> => {
+  let attempt = 0;
+  while (true) {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "prompt-caching-2024-07-31",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const parsed = parseToolOrJson(data);
+      return {
+        ...parsed,
+        usage: data.usage || {},
+        stopReason: data.stop_reason || null,
+      };
+    }
+    // Retry transient failures (429 rate-limit, 529 overloaded, 5xx) with
+    // exponential backoff + jitter instead of failing the whole draft (audit #9).
+    if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < retries) {
+      const wait = Math.min(8000, 2 ** attempt * 1000) + Math.random() * 400;
+      await new Promise((resolve) => setTimeout(resolve, wait));
+      attempt++;
+      continue;
+    }
     const text = await res.text();
     throw new Error(`Anthropic analysis failed: ${res.status} ${text.slice(0, 300)}`);
   }
-  const data = await res.json();
-  const parsed = parseToolOrJson(data);
-  return {
-    ...parsed,
-    usage: data.usage || {},
-    stopReason: data.stop_reason || null,
-  };
 };
 
 const ensure = (condition: boolean, errors: string[], message: string) => {
