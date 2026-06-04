@@ -1111,6 +1111,7 @@ async function finalizeAiCredits(supabase, { userId, reserved, finalAmount, stor
     });
   }
   if (finalRounded > reservedRounded) {
+    // Real usage exceeded the up-front estimate → charge the difference.
     const { data, error } = await supabase.rpc('consume_ai_credits', {
       p_user_id: userId,
       p_amount: finalRounded - reservedRounded,
@@ -1119,7 +1120,10 @@ async function finalizeAiCredits(supabase, { userId, reserved, finalAmount, stor
       p_message_id: messageId,
       p_metadata: metadata || {}
     });
-    if (error || data !== true) throw error || new Error('credit_finalization_failed');
+    // A real DB error surfaces; but if the user simply lacks balance for the
+    // small overage (data !== true), keep the answer and the reserved charge —
+    // never fail the request after the answer was already delivered.
+    if (error) throw error;
   }
   return finalRounded;
 }
@@ -1188,9 +1192,12 @@ export async function handleToddyPost(req, res) {
     return res.status(402).json({ error: 'free_limit_used', message: 'La consulta gratuita de Toddy para esta noticia ya se ha usado.' });
   }
 
-  if (isPremiumProfile(profile) && isWebDepth(normalizedDepth)) {
+  // Cap expensive web-research for ALL paid tiers — elite was previously uncapped (audit T8).
+  if (paid && isWebDepth(normalizedDepth)) {
     const used = await countDailyResearchUses(supabase, user.id);
-    const limit = Number(process.env.TODDY_PREMIUM_DAILY_RESEARCH_LIMIT || 3);
+    const limit = isEliteProfile(profile)
+      ? Number(process.env.TODDY_ELITE_DAILY_RESEARCH_LIMIT || 20)
+      : Number(process.env.TODDY_PREMIUM_DAILY_RESEARCH_LIMIT || 3);
     if (used >= limit) {
       return res.status(429).json({ error: 'daily_research_limit_used', limit, used });
     }
@@ -1262,7 +1269,10 @@ export async function handleToddyPost(req, res) {
       web_fetches: 0
     };
     const calculatedCredits = paid ? calculateCreditsFromUsage(normalizedDepth, tokenUsage) : 0;
-    const creditsCharged = paid ? roundCredits(Math.min(calculatedCredits, reservedCredits)) : 0;
+    // Charge the REAL usage, not min(calculated, reserved). Clamping to the
+    // up-front estimate made any usage above the estimate free (audit T4).
+    // finalizeAiCredits reconciles: refunds if lower, charges the extra if higher.
+    const creditsCharged = paid ? roundCredits(calculatedCredits) : 0;
 
     const metadata = {
       prompt_version: TODDY_PROMPT_VERSION,
