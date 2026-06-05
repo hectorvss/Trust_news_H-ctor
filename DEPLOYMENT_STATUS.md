@@ -32,8 +32,27 @@
 
 ## ⏳ PENDIENTE (usuario debe hacer)
 
-### Migración 029 — REQUIERE PERMISOS ELEVADOS
-**Reactivar los 6 crons del pipeline** (sin permisos en `cron.job` table):
+### Migración 029 — PROBLEMA DE PERMISOS EN SUPABASE 🔒
+**ISSUE**: `cron.job` está bloqueada a nivel de Supabase. No se puede modificar sin super-admin perms.
+
+**SOLUCIONES (elige una):**
+
+**Opción A: Supabase UI** ⭐ RÁPIDO
+1. https://app.supabase.com/project/[ID]/database/crons
+2. Click ⋯ → Enable para cada cron:
+   - trust-news-ingest
+   - trust-news-embed
+   - trust-news-keyword-cluster
+   - trust-news-cluster
+   - trust-news-materialize
+   - trust-news-synthesize
+
+**Opción B: Contactar Supabase support** (si no tienes acceso UI)
+- Email: support@supabase.io
+- Pedir: "Grant UPDATE on cron.job"
+- Esperar ~24h
+
+**Opción C: SQL** (una vez tengas permisos)
 ```sql
 update cron.job set active = true
 where jobname in (
@@ -45,7 +64,6 @@ where jobname in (
   'trust-news-synthesize'
 );
 ```
-**Ubicación**: Supabase Dashboard → SQL Editor → Copiar + ejecutar
 
 ### Secretos de API — REQUIERE VALORES REALES
 **Supabase → Project Settings → Edge Functions → Secrets**
