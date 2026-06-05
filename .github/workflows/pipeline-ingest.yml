@@ -1,0 +1,45 @@
+name: Pipeline — Ingest + Embed
+
+# Replaces disabled Supabase crons: trust-news-ingest (*/15) + trust-news-embed (*/5)
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # Ingest every 15 min
+  workflow_dispatch:          # Manual trigger from GitHub UI
+
+jobs:
+  ingest:
+    name: Ingest RSS feeds
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Trigger ingest-rss
+        run: |
+          echo "→ Triggering ingest-rss at $(date -u)"
+          STATUS=$(curl -s -o /tmp/ingest_response.json -w "%{http_code}" \
+            --max-time 90 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/ingest-rss" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/ingest_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/ingest_response.json
+          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+
+  embed:
+    name: Generate embeddings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: ingest   # Run after ingest completes
+    steps:
+      - name: Trigger embed-articles
+        run: |
+          echo "→ Triggering embed-articles at $(date -u)"
+          STATUS=$(curl -s -o /tmp/embed_response.json -w "%{http_code}" \
+            --max-time 90 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/embed-articles" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/embed_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/embed_response.json
+          if [ "$STATUS" -ge 500 ]; then exit 1; fi

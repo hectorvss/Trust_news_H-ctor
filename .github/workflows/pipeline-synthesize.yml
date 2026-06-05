@@ -1,0 +1,28 @@
+name: Pipeline — Synthesize (Claude AI)
+
+# Replaces disabled Supabase cron: trust-news-synthesize (*/5)
+# Requires ANTHROPIC_API_KEY secret configured in Supabase Edge Functions
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # Every 30 min (synthesis is expensive, no need for every 5)
+  workflow_dispatch:
+
+jobs:
+  synthesize:
+    name: Generate AI analysis for clusters
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger generate-synthesis
+        run: |
+          echo "→ Triggering generate-synthesis at $(date -u)"
+          STATUS=$(curl -s -o /tmp/synth_response.json -w "%{http_code}" \
+            --max-time 120 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/generate-synthesis" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/synth_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/synth_response.json
+          # 200 OK or 207 Partial are success; 500+ is failure
+          if [ "$STATUS" -ge 500 ]; then exit 1; fi

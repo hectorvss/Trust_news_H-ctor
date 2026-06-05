@@ -1,0 +1,65 @@
+name: Pipeline — Cluster + Materialize
+
+# Replaces disabled Supabase crons:
+# trust-news-keyword-cluster (*/10), trust-news-cluster (*/30), trust-news-materialize (*/45)
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # Every 30 min
+  workflow_dispatch:
+
+jobs:
+  keyword-cluster:
+    name: Cluster by keywords
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger cluster-by-keywords
+        run: |
+          echo "→ Triggering cluster-by-keywords at $(date -u)"
+          STATUS=$(curl -s -o /tmp/kw_response.json -w "%{http_code}" \
+            --max-time 90 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/cluster-by-keywords" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/kw_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/kw_response.json
+          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+
+  vector-cluster:
+    name: Cluster by vector similarity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: keyword-cluster
+    steps:
+      - name: Trigger cluster-articles
+        run: |
+          echo "→ Triggering cluster-articles at $(date -u)"
+          STATUS=$(curl -s -o /tmp/cluster_response.json -w "%{http_code}" \
+            --max-time 90 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/cluster-articles" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/cluster_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/cluster_response.json
+          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+
+  materialize:
+    name: Materialize clusters to stories
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: vector-cluster
+    steps:
+      - name: Trigger materialize-cluster
+        run: |
+          echo "→ Triggering materialize-cluster at $(date -u)"
+          STATUS=$(curl -s -o /tmp/mat_response.json -w "%{http_code}" \
+            --max-time 90 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/materialize-cluster" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/mat_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/mat_response.json
+          if [ "$STATUS" -ge 500 ]; then exit 1; fi
