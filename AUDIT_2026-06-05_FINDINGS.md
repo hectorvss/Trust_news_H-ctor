@@ -88,7 +88,17 @@ Todas presentes y ACTIVE (v7-v11, probablemente con fixes intendidos aunque vers
    ANTHROPIC_API_KEY = sk-ant-...
    ```
 
-### P3: MENOR — Tablas de cluster redundantes
+### P3: CRÍTICO — Toddy está completamente roto
+Las migraciones 023, 024, 025 (schema de Toddy) **NUNCA fueron aplicadas a Supabase**.
+- Tablas faltantes: `toddy_conversations`, `toddy_messages`
+- Columnas faltantes en `profiles`: `ai_credit_balance`, `ai_credit_updated_at`
+- **Código en vivo intenta queries a tablas inexistentes** → falla silenciosa
+
+**Impacto**: Cualquier usuario que intenta usar Toddy obtiene 500 error.
+
+**Solución**: Aplicar migración 030 (schema completo de Toddy, defensivo).
+
+### P4: MENOR — Tablas de cluster redundantes
 Hay 4 tablas que compiten:
 - `article_clusters` (vieja?)
 - `clusters` (vieja?)
@@ -97,7 +107,7 @@ Hay 4 tablas que compiten:
 
 **Impacto**: Confusión de schema, posibles inconsistencias. Las funciones usan `story_clusters` (verificado).
 
-**Solución**: Auditar cuál es la viva, DROP las 3 otras. Crear migración 030.
+**Solución**: Auditar cuál es la viva, DROP las 3 otras. Crear migración 031.
 
 ### P4: MENOR — CLAUDE.md desactualizado
 Mencionan "dim=384" pero live schema tiene 1536. Menciona ANTHROPIC_API_KEY que falta.
@@ -106,15 +116,23 @@ Mencionan "dim=384" pero live schema tiene 1536. Menciona ANTHROPIC_API_KEY que 
 
 ## Checklist de Activación
 
+**CRÍTICAS (bloquean pipeline + Toddy):**
 ```
-[ ] 1. Añadir OPENAI_API_KEY a Supabase Edge Functions → Secrets
-[ ] 2. Añadir ANTHROPIC_API_KEY a Supabase Edge Functions → Secrets
-[ ] 3. Aplicar migración 029 (reactivar crons) — SQL Editor en Supabase Dashboard
-[ ] 4. Verificar que pipeline_runs crece 5 min después (check pipeline-health)
-[ ] 5. Crear migración 030 para limpiar tablas de cluster redundantes
-[ ] 6. Actualizar CLAUDE.md con estado real
-[ ] 7. Hacer PR de fix/pipeline-revive → main
+[ ] 1. Aplicar migración 029 (reactivar crons) — SQL Editor Supabase
+[ ] 2. Aplicar migración 030 (crear schema Toddy) — SQL Editor Supabase
+[ ] 3. Añadir OPENAI_API_KEY a Supabase Edge Functions → Secrets
+[ ] 4. Añadir ANTHROPIC_API_KEY a Supabase Edge Functions → Secrets
 ```
+
+**POST-ACTIVACIÓN (validación + cleanup):**
+```
+[ ] 5. Verificar pipeline_runs crece 5 min después (check pipeline-health)
+[ ] 6. Crear migración 031 para limpiar tablas de cluster redundantes
+[ ] 7. Actualizar CLAUDE.md con estado real (schema, secrets, crons)
+[ ] 8. Hacer PR de fix/pipeline-revive → main con todas las migraciones
+```
+
+**Tiempo estimado**: 5 min activación + 30 min para ver primeros resultados
 
 ---
 
