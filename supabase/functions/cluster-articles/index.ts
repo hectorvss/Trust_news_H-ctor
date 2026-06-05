@@ -31,6 +31,55 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   for (const x of a) if (b.has(x)) inter++;
   return inter / (a.size + b.size - inter);
 }
+function fingerprintTokens(value: string | null | undefined): Set<string> {
+  if (!value) return new Set();
+  return new Set(String(value)
+    .split(/[|:\-]/g)
+    .map((part) => norm(part).replace(/[^a-z0-9ñ ]/g, ' ').trim())
+    .filter((part) => part.length > 3));
+}
+function fingerprintOverlap(a: string | null | undefined, b: string | null | undefined): number {
+  const left = fingerprintTokens(a);
+  const right = fingerprintTokens(b);
+  if (!left.size || !right.size) return 0;
+  let inter = 0;
+  for (const token of left) if (right.has(token)) inter++;
+  return inter / Math.max(left.size, right.size);
+}
+function temporalAffinity(articleDate: string | null | undefined, clusterWindowStart: string | null | undefined, clusterWindowEnd: string | null | undefined): number {
+  const articleTs = articleDate ? new Date(articleDate).getTime() : NaN;
+  if (Number.isNaN(articleTs)) return 0.25;
+  const windowStartTs = clusterWindowStart ? new Date(clusterWindowStart).getTime() : NaN;
+  const windowEndTs = clusterWindowEnd ? new Date(clusterWindowEnd).getTime() : NaN;
+  const anchorTs = !Number.isNaN(windowEndTs) ? windowEndTs : (!Number.isNaN(windowStartTs) ? windowStartTs : NaN);
+  if (Number.isNaN(anchorTs)) return 0.4;
+  const hours = Math.abs(articleTs - anchorTs) / 3600000;
+  if (hours <= 6) return 1;
+  if (hours <= 12) return 0.9;
+  if (hours <= 24) return 0.8;
+  if (hours <= 48) return 0.6;
+  if (hours <= 72) return 0.35;
+  return 0.15;
+}
+function eventAffinity(article: any, cluster: any, titleTokens: Set<string>): number {
+  const clusterTokens = tokens(`${cluster.title || ''} ${(Array.isArray(cluster.topic_keywords) ? cluster.topic_keywords.join(' ') : '')}`);
+  const titleScore = jaccard(titleTokens, clusterTokens);
+  const fingerprintScore = fingerprintOverlap(article.entity_fingerprint, cluster.entity_fingerprint);
+  const signatureScore = article.event_signature && cluster.event_signature && article.event_signature === cluster.event_signature ? 1 : 0;
+  const temporalScore = temporalAffinity(article.published_at, cluster.window_start, cluster.window_end);
+  return Number((signatureScore * 0.45 + fingerprintScore * 0.3 + titleScore * 0.15 + temporalScore * 0.1).toFixed(3));
+}
+function sameEditorialEvent(article: any, cluster: any, titleTokens: Set<string>, cosineScore: number): boolean {
+  const affinity = eventAffinity(article, cluster, titleTokens);
+  const tokenScore = jaccard(titleTokens, tokens(`${cluster.title || ''} ${(Array.isArray(cluster.topic_keywords) ? cluster.topic_keywords.join(' ') : '')}`));
+  const fingerprintScore = fingerprintOverlap(article.entity_fingerprint, cluster.entity_fingerprint);
+  return Boolean(
+    article.event_signature && cluster.event_signature && article.event_signature === cluster.event_signature
+    || cosineScore >= SIM_HIGH
+    || (cosineScore >= SIM_LOW && tokenScore >= TOKEN_GUARD)
+    || (affinity >= 0.72 && fingerprintScore >= 0.35)
+  );
+}
 function parseVec(v: any): number[] | null {
   if (!v) return null;
   if (Array.isArray(v)) return v;
@@ -76,7 +125,7 @@ Deno.serve(async (_req: Request) => {
     // 1. Pending embedded, not-yet-clustered articles (+ source bias via join)
     const { data: pending, error: fErr } = await supabase
       .from('raw_articles')
-      .select('id, title, titulo, excerpt, published_at, embedding, source_id, sources!inner(bias_label)')
+      .select('id, title, titulo, excerpt, published_at, embedding, source_id, event_signature, entity_fingerprint, sources!inner(bias_label)')
       .eq('status', 'embedded')
       .eq('clustered', false)
       .not('embedding', 'is', null)
@@ -89,14 +138,14 @@ Deno.serve(async (_req: Request) => {
     const since = new Date(Date.now() - EXISTING_WINDOW_HOURS * 3600 * 1000).toISOString();
     const { data: existing } = await supabase
       .from('story_clusters')
-      .select('id, title, topic_keywords, article_ids, centroid, status, story_id, last_seen_at')
+      .select('id, title, topic_keywords, article_ids, centroid_embedding, status, story_id, last_seen_at, window_start, window_end, event_signature, entity_fingerprint')
       .in('status', ['forming', 'ready', 'materialized'])
       .gte('last_seen_at', since)
-      .not('centroid', 'is', null);
+      .not('centroid_embedding', 'is', null);
 
     const existingPrepared = (existing || []).map((c: any) => ({
       ...c,
-      vec: parseVec(c.centroid),
+      vec: parseVec(c.centroid_embedding),
       tok: tokens(`${c.title || ''} ${(Array.isArray(c.topic_keywords) ? c.topic_keywords.join(' ') : '')}`),
     })).filter((c: any) => c.vec);
 
@@ -113,9 +162,9 @@ Deno.serve(async (_req: Request) => {
       for (const c of existingPrepared) {
         const cos = cosine(vec, c.vec);
         if (cos < EMBED_MATCH_FLOOR) continue;
-        const tj = jaccard(artTok, c.tok);
-        const accept = cos >= SIM_HIGH || (cos >= SIM_LOW && tj >= TOKEN_GUARD);
-        if (accept && cos > bestCos) { bestCos = cos; best = c; }
+        if (!sameEditorialEvent(art, c, artTok, cos)) continue;
+        const affinity = eventAffinity(art, c, artTok);
+        if (affinity > bestCos) { bestCos = affinity; best = c; }
       }
       if (best) {
         const cur = toRecompute.get(best.id) || { storyId: best.story_id, addIds: [] };
@@ -149,14 +198,14 @@ Deno.serve(async (_req: Request) => {
 
     // 5a. Recompute existing matched clusters (append new members)
     for (const [clusterId, info] of toRecompute) {
-      const { data: row } = await supabase.from('story_clusters').select('article_ids, first_seen_at').eq('id', clusterId).maybeSingle();
+      const { data: row } = await supabase.from('story_clusters').select('article_ids').eq('id', clusterId).maybeSingle();
       const allIds = Array.from(new Set([...asArr(row?.article_ids), ...info.addIds]));
-      await recompute(supabase, clusterId, allIds, info.storyId, row?.first_seen_at ?? null);
+      await recompute(supabase, clusterId, allIds, info.storyId);
       updated++;
     }
     // 5b. Create new clusters
     for (const group of newGroups) {
-      await recompute(supabase, crypto.randomUUID(), group, null, null);
+      await recompute(supabase, crypto.randomUUID(), group, null);
       created++;
     }
 
@@ -172,7 +221,7 @@ Deno.serve(async (_req: Request) => {
 
 // Reload all members, recompute centroid/coverage/scores, upsert cluster, mark rows.
 async function recompute(
-  supabase: any, clusterId: string, articleIds: string[], storyId: string | null, firstSeen: string | null,
+  supabase: any, clusterId: string, articleIds: string[], storyId: string | null,
 ) {
   const { data: arts } = await supabase
     .from('raw_articles')
@@ -226,7 +275,6 @@ async function recompute(
     article_count: artCount,
     source_count: srcCount,
     source_ids: [...sourceIds],
-    source_ids_jsonb: [...sourceIds],
     bias_distribution: cov,
     coverage_left: cov.left,
     coverage_center: cov.center,
@@ -245,8 +293,7 @@ async function recompute(
     window_start: new Date(oldest).toISOString(),
     window_end: new Date(newest).toISOString(),
   };
-  if (centroid) payload.centroid = toVecLit(centroid);
-  if (!firstSeen) payload.first_seen_at = now;
+  if (centroid) payload.centroid_embedding = toVecLit(centroid);
 
   await supabase.from('story_clusters').upsert(payload, { onConflict: 'id' });
   await supabase.from('raw_articles')

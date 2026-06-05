@@ -24,5 +24,16 @@ jobs:
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/synth_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/synth_response.json
-          # 200 OK or 207 Partial are success; 500+ is failure
-          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/synth_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY

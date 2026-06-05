@@ -23,13 +23,56 @@ jobs:
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/ingest_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/ingest_response.json
-          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/ingest_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY
+
+  extract:
+    name: Extract article content
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: ingest
+    steps:
+      - name: Trigger extract-article-content
+        run: |
+          echo "→ Triggering extract-article-content at $(date -u)"
+          STATUS=$(curl -s -o /tmp/extract_response.json -w "%{http_code}" \
+            --max-time 120 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/extract-article-content" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/extract_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/extract_response.json
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/extract_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY
 
   embed:
     name: Generate embeddings
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: ingest   # Run after ingest completes
+    needs: extract
     steps:
       - name: Trigger embed-articles
         run: |
@@ -42,4 +85,16 @@ jobs:
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/embed_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/embed_response.json
-          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/embed_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY

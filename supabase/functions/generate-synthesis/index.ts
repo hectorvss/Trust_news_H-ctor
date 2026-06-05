@@ -21,9 +21,9 @@ Deno.serve(async (req) => {
     .select("id, title, summary, category, pipeline_cluster_id, cluster_id, source_count, sources_count, status, created_at, consensus_narrative, consenso_narrativo, articles, coverage_left, coverage_center, coverage_right")
     .eq("status", "draft")
     .eq("is_auto_generated", true)
-    .is("consensus_narrative", null);
+    .in("review_status", ["pending_review", "analysis_failed"]);
   if (body.story_id) draftQuery = draftQuery.eq("id", body.story_id);
-  else draftQuery = draftQuery.gte("created_at", cutoff);
+  else draftQuery = draftQuery.lte("created_at", cutoff);
   const { data: drafts, error } = await draftQuery
     .order("created_at", { ascending: false })
     .limit(config.analysisMaxClustersPerRun);

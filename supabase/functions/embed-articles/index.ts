@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
     .from('raw_articles')
     .select('id, title, titulo, excerpt, content_excerpt')
     .eq('status', 'raw')
-    .order('created_at', { ascending: true })
+    .order('ingested_at', { ascending: true })
     .limit(batchSize);
 
   if (fetchError) {
@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
   // Park text-less rows so the queue advances.
   if (empties.length) {
     await supabase.from('raw_articles')
-      .update({ status: 'embedded', embedded: true, pipeline_status: 'skipped_no_text' })
+      .update({ status: 'failed', embedded: false, pipeline_status: 'skipped_no_text', failure_reason: 'no_usable_text' })
       .in('id', empties.map((p) => p.id));
   }
 

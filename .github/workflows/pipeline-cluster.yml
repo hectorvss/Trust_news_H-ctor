@@ -1,36 +1,17 @@
 name: Pipeline — Cluster + Materialize
 
 # Replaces disabled Supabase crons:
-# trust-news-keyword-cluster (*/10), trust-news-cluster (*/30), trust-news-materialize (*/45)
+# trust-news-cluster (*/30), trust-news-materialize (*/45)
 on:
   schedule:
     - cron: '*/30 * * * *'   # Every 30 min
   workflow_dispatch:
 
 jobs:
-  keyword-cluster:
-    name: Cluster by keywords
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Trigger cluster-by-keywords
-        run: |
-          echo "→ Triggering cluster-by-keywords at $(date -u)"
-          STATUS=$(curl -s -o /tmp/kw_response.json -w "%{http_code}" \
-            --max-time 90 \
-            -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/cluster-by-keywords" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            -H "Content-Type: application/json")
-          echo "HTTP $STATUS"
-          cat /tmp/kw_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/kw_response.json
-          if [ "$STATUS" -ge 500 ]; then exit 1; fi
-
   vector-cluster:
     name: Cluster by vector similarity
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: keyword-cluster
     steps:
       - name: Trigger cluster-articles
         run: |
@@ -43,7 +24,19 @@ jobs:
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/cluster_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/cluster_response.json
-          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/cluster_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY
 
   materialize:
     name: Materialize clusters to stories
@@ -62,4 +55,16 @@ jobs:
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/mat_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/mat_response.json
-          if [ "$STATUS" -ge 500 ]; then exit 1; fi
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/mat_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY

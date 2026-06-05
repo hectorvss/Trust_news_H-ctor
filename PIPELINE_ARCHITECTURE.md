@@ -8,6 +8,8 @@ Todas las Edge Functions son **self-contained** (sin `_shared`) para poder despl
 ```
 ingest-rss      status='raw'        (RSS de 55 fuentes activas)         [sin key]
    ↓
+extract-article-content status='pending' / 'completed' / 'blocked'     [sin key]
+   ↓
 embed-articles  status='embedded'   OpenAI text-embedding-3-small 1536  [NECESITA OPENAI_API_KEY]
    ↓
 cluster-articles status='clustered' clustering incremental sofisticado  [sin key]
@@ -28,21 +30,23 @@ generate-synthesis                   Claude rellena análisis editorial    [NECE
 ## cluster-articles (sofisticado)
 - Lee `raw_articles` status='embedded', clustered=false, embedding not null.
 - **Matching incremental**: encaja artículos nuevos en clusters existentes (ventana 48h) por
-  coseno del centroide. **Guard anti-falsos-merges (#7)**: exige coseno ≥ 0.60 Y, en banda gris
-  (0.62–0.78), solapamiento de tokens de titular ≥ 0.08. Coseno ≥ 0.78 = auto-merge.
+  coseno + evento + huella de entidades. **Guard anti-falsos-merges (#7)**: exige coseno ≥ 0.60
+  y usa `event_signature`, `entity_fingerprint`, y ventana temporal para evitar mezclas por
+  keyword-only.
 - Cobertura **izquierda/centro/derecha** real desde `sources.bias_label`
   (LEFT/CENTER-LEFT → izq, CENTER → centro, RIGHT/CENTER-RIGHT → der).
 - Scoring confianza/diversidad/frescura/síntesis. status: `forming` (<3 fuentes) → `ready` (≥3).
-- Escribe `story_clusters.centroid` (1536), marca filas clustered.
+- Escribe `story_clusters.centroid_embedding` (1536), marca filas clustered.
 
 ## materialize-cluster
 - `story_clusters` status='ready' + story_id null → inserta `stories` draft.
 - Enlaza vía `pipeline_cluster_id` (OJO: `cluster_id` tiene FK a la tabla legacy `clusters`,
   por eso se deja null). `cluster_status='draft'` (CHECK: draft/approved/published/rejected).
-- Lleva `coverage_left/center/right` (%) + `bias` jsonb → barras de sesgo de la UI.
+- Lleva `coverage_left/center/right` (%) + `bias` jsonb y deriva `category` / `location`
+  desde el contexto del cluster para que la UI y el backend hablen el mismo idioma.
 
 ## generate-synthesis (ya alineada, v11)
-- Lee `stories` draft auto-generadas sin `consenso_narrativo`.
+- Lee `stories` draft auto-generadas con `review_status in ('pending_review', 'analysis_failed')`.
 - Resuelve artículos vía `pipeline_cluster_id` → `story_clusters.article_ids` → `raw_articles`.
 - Claude (claude-haiku-4-5-20251001) rellena todos los bloques editoriales que lee `StoryDetail`.
 

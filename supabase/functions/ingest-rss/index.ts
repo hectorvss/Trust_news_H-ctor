@@ -62,6 +62,7 @@ const processSource = async (source: any, dryRun = false) => {
         language: source.language || "es",
         lang: source.language || "es",
         raw_metadata: enriched.rawMetadata || {},
+        status: "raw",
         pipeline_status: "ingested",
         extraction_status: "pending",
         embedded: false,
