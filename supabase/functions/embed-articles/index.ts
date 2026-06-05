@@ -1,105 +1,125 @@
-import { db } from "../_shared/supabase.ts";
-import { config, buildEmbeddingInput, toVectorLiteral } from "../_shared/pipeline.ts";
-import { embedBatch } from "../_shared/llm.ts";
-import { jsonResponse, handleCors, parseJson } from "../_shared/http.ts";
-import { finishRun, startRun } from "../_shared/runs.ts";
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-Deno.serve(async (req) => {
-  const cors = handleCors(req);
-  if (cors) return cors;
+// OpenAI text-embedding-3-small -> 1536 dims (native). Best-quality Spanish
+// embeddings, ~$0.02/1M tokens. Replaces the prior gte-small (384) path which
+// could not write into the vector(1536) column. If OPENAI_API_KEY is missing we
+// leave rows untouched (status='raw') so they get real embeddings once the key
+// lands -- never poison rows with a null/partial vector.
+//
+// NOTE: this is the DEPLOYED, self-contained version (no _shared imports) so it
+// can be (re)deployed via the Supabase management API without bundling. It reads
+// the live `status` column flow ('raw' -> 'embedded') used by the deployed
+// cluster-articles, and also sets the `embedded` boolean for cross-compatibility.
 
-  if (!["GET", "POST"].includes(req.method)) {
-    return jsonResponse({ error: "Method not allowed" }, 405);
-  }
+const OPENAI_MODEL = Deno.env.get('OPENAI_EMBEDDING_MODEL') ?? 'text-embedding-3-small';
+const BATCH = 96;            // OpenAI handles large input arrays; keep DB updates bounded
+const MAX_TEXT_CHARS = 1600; // title + lead is plenty for topical similarity
 
-  const body = req.method === "POST" ? await parseJson<{ dry_run?: boolean }>(req) : {};
-  const runId = await startRun({ stage: "embed" });
-
-  // No OpenAI key yet -> do not "poison" rows as embedded with a null vector.
-  // Leave them pending so they get real 1536-dim embeddings the moment the key lands.
-  if (!Deno.env.get("OPENAI_API_KEY")) {
-    await finishRun(runId, "completed", { items_out: 0, metadata: { skipped: "no_openai_key" } });
-    return jsonResponse({ ok: true, embedded: 0, skipped: "OPENAI_API_KEY not configured" });
-  }
-
-  const { data: pending, error } = await db
-    .from("raw_articles")
-    .select("id, title, excerpt")
-    .eq("embedded", false)
-    .order("published_at", { ascending: true })
-    .limit(config.embedMaxPerRun);
-
-  if (error) return jsonResponse({ error: error.message }, 500);
-  if (!pending?.length) {
-    await finishRun(runId, "completed", { items_out: 0 });
-    return jsonResponse({ ok: true, embedded: 0 });
-  }
-
-  let embedded = 0;
-  let skipped = 0;
-  let failed = 0;
-  for (let i = 0; i < pending.length; i += config.embedBatchSize) {
-    const batch = pending.slice(i, i + config.embedBatchSize);
-    const prepared = batch.map((row: any) => ({
-      row,
-      input: buildEmbeddingInput(row.title, row.excerpt),
-    }));
-    const vectorRows = prepared.filter((entry) => entry.input);
-    if (body.dry_run) {
-      embedded += vectorRows.length;
-      skipped += prepared.length - vectorRows.length;
-      continue;
-    }
-    let vectors: any[] = [];
-    try {
-      vectors = vectorRows.length
-        ? (await embedBatch(vectorRows.map((entry) => entry.input as string)) || [])
-        : [];
-    } catch (e) {
-      // Whole batch failed (e.g. OpenAI 5xx) — leave these rows pending for retry,
-      // never mark them embedded with a null vector.
-      console.error("embedBatch failed:", String(e).slice(0, 200));
-      failed += vectorRows.length;
-      continue;
-    }
-
-    let vectorIndex = 0;
-    for (const entry of prepared) {
-      const row = entry.row;
-      if (!entry.input) {
-        // Genuinely nothing to embed → mark done so it does not requeue forever.
-        const { error: uerr } = await db.from("raw_articles").update({
-          embedded: true,
-          pipeline_status: "embedded",
-        }).eq("id", row.id);
-        uerr ? failed++ : skipped++;
-        continue;
-      }
-      const vector = vectors?.[vectorIndex++] || null;
-      if (!vector) {
-        // Embedding missing this run → leave pending (do NOT poison as embedded).
-        failed++;
-        continue;
-      }
-      const { error: uerr } = await db.from("raw_articles").update({
-        embedding: toVectorLiteral(vector),
-        embedded: true,
-        pipeline_status: "embedded",
-      }).eq("id", row.id);
-      if (uerr) {
-        // Write failed (e.g. dimension mismatch) — keep pending, surface it.
-        console.error("embedding write failed:", uerr.message);
-        failed++;
-      } else {
-        embedded++;
-      }
-    }
-  }
-
-  await finishRun(runId, embedded === 0 && failed > 0 ? "failed" : "completed", {
-    items_in: pending.length,
-    items_out: embedded,
-    metadata: { skipped, failed, dryRun: Boolean(body.dry_run) },
+async function embedBatch(inputs: string[], apiKey: string): Promise<number[][]> {
+  const res = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: OPENAI_MODEL, input: inputs }),
   });
-  return jsonResponse({ ok: true, embedded, skipped, failed });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const json = await res.json();
+  return (json.data as Array<{ index: number; embedding: number[] }>)
+    .sort((a, b) => a.index - b.index)
+    .map((d) => d.embedding);
+}
+
+Deno.serve(async (req: Request) => {
+  const t0 = Date.now();
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { /* cron sends {} */ }
+  const batchSize = typeof body.batch_size === 'number' ? body.batch_size : BATCH;
+
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) {
+    return new Response(JSON.stringify({
+      ok: true, processed: 0, skipped: 'OPENAI_API_KEY not configured',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const { data: articles, error: fetchError } = await supabase
+    .from('raw_articles')
+    .select('id, title, titulo, excerpt, content_excerpt')
+    .eq('status', 'raw')
+    .order('created_at', { ascending: true })
+    .limit(batchSize);
+
+  if (fetchError) {
+    return new Response(JSON.stringify({ error: fetchError.message }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (!articles || articles.length === 0) {
+    return new Response(JSON.stringify({ ok: true, message: 'No articles to embed', processed: 0 }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Build inputs; skip rows with no usable text (mark them embedded-empty so they
+  // don't block the queue forever).
+  const prepared = articles.map((a: any) => {
+    const text = [a.title ?? a.titulo ?? '', a.excerpt ?? a.content_excerpt ?? '']
+      .filter(Boolean).join('. ').trim().slice(0, MAX_TEXT_CHARS);
+    return { id: a.id, text };
+  });
+  const embeddable = prepared.filter((p) => p.text.length >= 8);
+  const empties = prepared.filter((p) => p.text.length < 8);
+
+  let withEmbedding = 0;
+  let failed = 0;
+
+  if (embeddable.length) {
+    let vectors: number[][] = [];
+    try {
+      vectors = await embedBatch(embeddable.map((p) => p.text), apiKey);
+    } catch (e) {
+      // Whole batch failed (rate limit / outage): leave rows as 'raw' for retry.
+      return new Response(JSON.stringify({
+        ok: false, error: String(e), processed: 0, retryable: true,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    for (let i = 0; i < embeddable.length; i++) {
+      const { error: uErr } = await supabase
+        .from('raw_articles')
+        .update({
+          embedding: vectors[i],
+          status: 'embedded',
+          embedded: true,
+          pipeline_status: 'embedded',
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', embeddable[i].id);
+      if (uErr) failed++; else withEmbedding++;
+    }
+  }
+
+  // Park text-less rows so the queue advances.
+  if (empties.length) {
+    await supabase.from('raw_articles')
+      .update({ status: 'embedded', embedded: true, pipeline_status: 'skipped_no_text' })
+      .in('id', empties.map((p) => p.id));
+  }
+
+  return new Response(JSON.stringify({
+    ok: true,
+    requested: articles.length,
+    with_embedding: withEmbedding,
+    skipped_no_text: empties.length,
+    failed,
+    model: OPENAI_MODEL,
+    elapsed_ms: Date.now() - t0,
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 });
