@@ -120,6 +120,17 @@ const SegmentedControl = ({ isLogin, onLogin, onSignup }) => (
   </div>
 );
 
+const AccessLine = ({ label, text }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 18, padding: '18px 0', borderTop: '1px solid rgba(255,255,255,0.18)' }}>
+    <div style={{ fontSize: 10, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.5 }}>
+      {label}
+    </div>
+    <div style={{ fontSize: 15, lineHeight: 1.45, opacity: 0.82 }}>
+      {text}
+    </div>
+  </div>
+);
+
 const Auth = ({ onBack }) => {
   const navigate = useNavigate();
   const { signIn, signUp, signInWithOAuth, user } = useAuth();
@@ -308,89 +319,90 @@ const Auth = ({ onBack }) => {
 
   return (
     <div className="auth-page" style={{ minHeight: 'calc(100vh - 150px)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isMobile ? 24 : 34 }}>
-        <button onClick={onBack} className="tag" style={{ background: 'none', cursor: 'pointer' }}>
-          {'<-'} Volver al Inicio
-        </button>
-      </div>
-
       <section style={{ borderBottom: 'none', padding: 0 }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'minmax(520px, 1fr) minmax(430px, 0.82fr)',
-            gap: isMobile ? 24 : 36,
-            alignItems: 'start'
-          }}
-        >
-          <aside style={{ paddingTop: isMobile ? 0 : 12 }}>
-            <div style={{ maxWidth: 650 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.5px', opacity: 0.35, marginBottom: 18 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 520px',
+          gap: isMobile ? 18 : 24,
+          alignItems: 'stretch'
+        }}>
+          <aside
+            className="story-card"
+            style={{
+              margin: 0,
+              minHeight: isMobile ? 'auto' : 660,
+              padding: isMobile ? 26 : 42,
+              borderRadius: 8,
+              cursor: 'default',
+              transform: 'none',
+              background: '#050505',
+              color: '#fff',
+              overflow: 'hidden'
+            }}
+          >
+            <div>
+              <button
+                onClick={onBack}
+                className="tag"
+                style={{ background: 'transparent', color: '#fff', borderColor: 'rgba(255,255,255,0.55)', cursor: 'pointer', marginBottom: isMobile ? 36 : 54 }}
+              >
+                {'<-'} Volver al Inicio
+              </button>
+
+              <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.5px', opacity: 0.42, marginBottom: 18 }}>
                 TNE / ACCESO
               </div>
-              <h1 style={{ fontSize: isMobile ? 46 : 76, lineHeight: 0.92, letterSpacing: '-3px', marginBottom: 18 }}>
+              <h1 style={{ fontSize: isMobile ? 48 : 84, lineHeight: 0.9, letterSpacing: '-3px', marginBottom: 22, maxWidth: 720 }}>
                 {isLogin ? 'Bienvenido de\nNuevo.' : 'Crear\nCuenta.'}
               </h1>
-              <p style={{ fontSize: isMobile ? 17 : 21, lineHeight: 1.42, opacity: 0.68, marginBottom: 26, maxWidth: 560 }}>
+              <p style={{ fontSize: isMobile ? 17 : 22, lineHeight: 1.38, opacity: 0.72, maxWidth: 650, marginBottom: isMobile ? 30 : 44 }}>
                 {isLogin
                   ? 'Accede a tu panel personalizado de noticias y blindspots.'
                   : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
               </p>
 
-              <div style={{ border: 'var(--border-thin)', borderRadius: 8, padding: isMobile ? 18 : 24, background: '#fff', maxWidth: 600, minHeight: isMobile ? 'auto' : 540 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.42, marginBottom: 12 }}>
-                  {isLogin ? 'ENTRAR RAPIDO' : 'EMPEZAR AHORA'}
-                </div>
-                <p style={{ fontSize: 18, lineHeight: 1.42, fontWeight: 800, marginBottom: 16, maxWidth: 500 }}>
-                  {isLogin
-                    ? 'Vuelve a tu feed, tus guardados, tu sesgo de lectura y Toddy desde una sola cuenta.'
-                    : 'Crea tu cuenta para activar lectura personalizada, analisis completo y acceso a Toddy.'}
-                </p>
-                <div style={{ display: 'grid', gap: 12 }}>
-                  {[
-                    ['LECTURA PERSONALIZADA', isLogin ? 'Retoma tus noticias, filtros y guardados donde los dejaste.' : 'Construye un feed que aprende de tus intereses y tus temas clave.'],
-                    ['ANALISIS Y SESGO', 'Consulta blindspots, distribucion ideologica y contexto editorial en cada noticia.'],
-                    ['TODDY IA', 'Pregunta sobre una noticia y conserva la conversacion asociada a tu cuenta.'],
-                  ].map(([title, text]) => (
-                    <div key={title} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '150px 1fr', gap: isMobile ? 6 : 16, borderTop: '1px solid rgba(0,0,0,0.14)', paddingTop: 12 }}>
-                      <div style={{ fontSize: 10, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.42 }}>{title}</div>
-                      <div style={{ fontSize: 14, lineHeight: 1.45, opacity: 0.7 }}>{text}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(0,0,0,0.14)', display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.48 }}>GOOGLE / APPLE / EMAIL</span>
-                  <span style={{ fontSize: 13, opacity: 0.58 }}>Acceso seguro y recuperacion de contrasena incluida.</span>
-                </div>
+              <div style={{ maxWidth: 720 }}>
+                <AccessLine
+                  label={isLogin ? 'RETOMA' : 'ACTIVA'}
+                  text={isLogin ? 'Tu feed, guardados, lectura por sesgo y conversaciones con Toddy vuelven contigo.' : 'Lectura personalizada, analisis completo y acceso a Toddy quedan vinculados a tu cuenta.'}
+                />
+                <AccessLine
+                  label="CONTRASTE"
+                  text="Cada noticia conecta fuentes, blindspots, distribucion ideologica y contexto editorial."
+                />
+                <AccessLine
+                  label="SIN FRICCION"
+                  text="Google y Apple son la entrada principal; email sigue disponible como alternativa segura."
+                />
               </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.18)', paddingTop: 18, marginTop: isMobile ? 32 : 48 }}>
+              <span style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.5 }}>GOOGLE / APPLE / EMAIL</span>
+              <span style={{ fontSize: 13, opacity: 0.62 }}>Acceso seguro y recuperacion de contrasena incluida.</span>
             </div>
           </aside>
 
           <div
             className="story-card"
             style={{
-              width: '100%',
-              maxWidth: 620,
-              justifySelf: isMobile ? 'stretch' : 'end',
+              margin: 0,
+              minHeight: isMobile ? 'auto' : 660,
               padding: isMobile ? 22 : 34,
-              minHeight: isMobile ? 'auto' : 540,
-              margin: isMobile ? 0 : '284px 0 0',
+              borderRadius: 8,
               cursor: 'default',
               transform: 'none',
-              borderRadius: 8,
               background: '#fff'
             }}
           >
             <div style={{ display: 'grid', gap: 22 }}>
               <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.45 }}>
-                      ACCESO SEGURO
-                    </div>
-                    <div style={{ marginTop: 4, fontSize: 24, lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.5px' }}>
-                      {isLogin ? 'Inicia sesion' : 'Crea tu cuenta'}
-                    </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.45 }}>
+                    ACCESO SEGURO
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 850, letterSpacing: '-0.5px' }}>
+                    {isLogin ? 'Inicia sesion' : 'Crea tu cuenta'}
                   </div>
                 </div>
 
