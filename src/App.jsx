@@ -375,16 +375,6 @@ const App = () => {
         <Routes>
           <Route path="/" element={
             <>
-              {/* Ground-style tagline bar */}
-              <div style={{ background: 'white', color: 'black', padding: '10px var(--page-padding)', textAlign: 'center', fontSize: '12px', fontWeight: 800, letterSpacing: '0.3px', borderBottom: 'var(--border-thin)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                <span>Ve <strong>todos los lados</strong> de cada noticia.</span>
-                <span onClick={() => navigate('/discover')} style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', fontWeight: 900, letterSpacing: '1px', background: 'black', color: 'white', padding: '5px 12px', cursor: 'pointer' }}>EMPEZAR ↗</span>
-              </div>
-
-              {/* Launch Offer Banner */}
-              <div style={{ background: 'black', color: 'white', padding: '8px var(--page-padding)', textAlign: 'center', fontSize: '11px', fontWeight: 800, letterSpacing: '2px', fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)' }}>
-                OFERTA DE LANZAMIENTO: 1€ POR SEMANA • <span onClick={() => navigate('/pricing')} style={{ textDecoration: 'underline', cursor: 'pointer' }}>OBTÉN EL DESCUENTO ↗</span>
-              </div>
 
               {/* Active Category/Filter Indicator */}
               {(activeCategory !== 'TODO' || activeCity || activeTopic) && (
