@@ -101,7 +101,6 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
               <a href="/bias" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/bias'); }}>BLINDSPOT</a>
               <a href="/discover" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/discover'); }}>DESCUBRIR</a>
               <a href="/pricing" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/pricing'); }}>PRECIOS</a>
-              <a href="/tools" className="navbar__link" onClick={e => { e.preventDefault(); navigate('/tools'); }}>HERRAMIENTAS</a>
 
               <button onClick={() => setSearchOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px 8px', opacity: 0.6 }} title="Buscar" onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.6}>
                 <SearchIcon />
@@ -156,7 +155,6 @@ const Navbar = ({ navigate, user, profile, signOut, activeCategory, setActiveCat
           <span onClick={() => goTo('/bias')}>BLINDSPOT</span>
           <span onClick={() => goTo('/discover')}>DESCUBRIR</span>
           <span onClick={() => goTo('/pricing')}>PRECIOS</span>
-          <span onClick={() => goTo('/tools')}>HERRAMIENTAS</span>
           {user ? (
             <>
               {canAccessManager && (
