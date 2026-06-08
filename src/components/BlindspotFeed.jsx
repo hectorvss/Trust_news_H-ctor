@@ -294,9 +294,9 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
         {[
-          ['ALL', 'Todo'],
-          ['SPAIN', 'Espana'],
-          ['INTERNATIONAL', 'Internacional']
+          ['ALL', 'TODO'],
+          ['SPAIN', 'ESPAÑA'],
+          ['INTERNATIONAL', 'INTERNACIONAL']
         ].map(([value, label]) => {
           const active = scope === value;
           return (
@@ -316,7 +316,7 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
                 letterSpacing: '1px'
               }}
             >
-              {label.toUpperCase()}
+              {label}
             </button>
           );
         })}
@@ -352,14 +352,14 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
             NUEVO EN BLINDSPOT
           </div>
           <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 800 }}>
-            Descubre por que una historia se convierte en blindspot y como leerla bien.
+            Descubre por qué una historia se convierte en blindspot y cómo leerla bien.
           </div>
         </div>
         <button
           onClick={() => scrollTo(explainerRef)}
           style={{ padding: '12px 16px', border: '1px solid black', background: 'white', cursor: 'pointer', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', whiteSpace: 'nowrap' }}
         >
-          COMO FUNCIONA
+          CÓMO FUNCIONA
         </button>
       </div>
 
@@ -381,20 +381,20 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
       </div>
 
       <section ref={explainerRef} style={{ marginBottom: '42px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '1.1fr 1fr', gap: '1px', background: 'black', border: '1px solid black' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '1.1fr 1fr', gap: '1px', background: 'black', border: '1px solid black', marginBottom: '28px' }}>
           <div style={{ background: 'white', padding: isMobile ? '22px 18px' : '28px' }}>
             <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.45, letterSpacing: '1px', marginBottom: '12px' }}>
-              QUE ESTAS VIENDO
+              QUÉ ESTÁS VIENDO
             </div>
             <h2 style={{ margin: 0, fontSize: isMobile ? '28px' : '34px', letterSpacing: '-1px', lineHeight: 1.05 }}>
-              Un feed editorial de historias que un lado esta cubriendo mucho mas que el otro.
+              Un feed editorial de historias que un lado está cubriendo mucho más que el otro.
             </h2>
           </div>
           <div style={{ background: 'white', padding: isMobile ? '22px 18px' : '28px', display: 'grid', gap: '18px' }}>
             {[
               'For the Left: historias con poca o ninguna cobertura en medios de izquierda.',
               'For the Right: historias con poca o ninguna cobertura en medios de derecha.',
-              'Cada tarjeta usa tu distribucion real de cobertura, numero de fuentes y el blind spot sintetizado.'
+              'Cada tarjeta usa tu distribución real de cobertura, número de fuentes y el análisis de blindspot sintetizado.'
             ].map((item) => (
               <div key={item} style={{ display: 'flex', gap: '12px', fontSize: '14px', lineHeight: 1.55 }}>
                 <div style={{ width: '10px', height: '10px', background: 'black', marginTop: '6px', flexShrink: 0 }} />
@@ -402,6 +402,35 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
               </div>
             ))}
           </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : 'repeat(3, 1fr)', gap: '1px', background: 'black', border: '1px solid black' }}>
+          {[
+            {
+              title: 'Identificamos el Sesgo',
+              description: 'Analizamos cómo cada fuente cubre una noticia según su posición política (izquierda, centro, derecha).'
+            },
+            {
+              title: 'Detectamos Blindspots',
+              description: 'Cuando un lado cubre significativamente más o menos que el otro (20%+ de diferencia), lo marcamos como blindspot.'
+            },
+            {
+              title: 'Te Mostramos Todo',
+              description: 'Ves las historias que ambos lados evitan o sobre-cubren, para que puedas leer con contexto completo.'
+            }
+          ].map((step, i) => (
+            <div key={i} style={{ background: 'white', padding: isMobile ? '22px 18px' : '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.45, letterSpacing: '1px' }}>
+                PASO {i + 1}
+              </div>
+              <h3 style={{ margin: 0, fontSize: isMobile ? '18px' : '20px', letterSpacing: '-0.8px', fontWeight: 800 }}>
+                {step.title}
+              </h3>
+              <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.55, opacity: 0.7 }}>
+                {step.description}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
