@@ -337,7 +337,7 @@ const Auth = ({ onBack }) => {
                   : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
               </p>
 
-              <div style={{ border: 'var(--border-thin)', borderRadius: 8, padding: isMobile ? 18 : 24, background: '#fff', maxWidth: 600 }}>
+              <div style={{ border: 'var(--border-thin)', borderRadius: 8, padding: isMobile ? 18 : 24, background: '#fff', maxWidth: 600, minHeight: isMobile ? 'auto' : 540 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.42, marginBottom: 12 }}>
                   {isLogin ? 'ENTRAR RAPIDO' : 'EMPEZAR AHORA'}
                 </div>
@@ -373,8 +373,8 @@ const Auth = ({ onBack }) => {
               maxWidth: 620,
               justifySelf: isMobile ? 'stretch' : 'end',
               padding: isMobile ? 22 : 34,
-              minHeight: 'auto',
-              margin: 0,
+              minHeight: isMobile ? 'auto' : 540,
+              margin: isMobile ? 0 : '284px 0 0',
               cursor: 'default',
               transform: 'none',
               borderRadius: 8,
