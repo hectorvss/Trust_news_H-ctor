@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import NewsletterSignup from './NewsletterSignup';
 import { MiniBiasBar } from './coverage';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import BlindspotExplainerModal from './BlindspotExplainerModal';
 
 const SPAIN_LOCATION_RE = /espana|españa|madrid|barcelona|sevilla|valencia|bilbao|galicia|andaluc|catalu|pais vasco|zaragoza|murcia|malaga|alicante|castilla|extremadura|asturias|navarra|canarias|balear/i;
 
@@ -210,6 +211,7 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
   const newsletterRef = useRef(null);
   const [scope, setScope] = useState('ALL');
   const [activeTopic, setActiveTopic] = useState('TODO');
+  const [showExplainerModal, setShowExplainerModal] = useState(false);
 
   const blindspotStories = useMemo(() => {
     return (stories || [])
@@ -356,7 +358,7 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
           </div>
         </div>
         <button
-          onClick={() => scrollTo(explainerRef)}
+          onClick={() => setShowExplainerModal(true)}
           style={{ padding: '12px 16px', border: '1px solid black', background: 'white', cursor: 'pointer', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', whiteSpace: 'nowrap' }}
         >
           CÓMO FUNCIONA
@@ -528,6 +530,10 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
       <section ref={newsletterRef}>
         <NewsletterSignup source="blindspot_feed" variant="light" />
       </section>
+
+      {showExplainerModal && (
+        <BlindspotExplainerModal onClose={() => setShowExplainerModal(false)} />
+      )}
     </div>
   );
 };
