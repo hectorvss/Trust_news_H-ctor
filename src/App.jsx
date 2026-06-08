@@ -534,7 +534,7 @@ const App = () => {
             <Discover navigate={navigate} setActiveCategory={setActiveCategory} />
           } />
           <Route path="/pricing" element={<div className="container" style={{ padding: '60px 24px' }}><Pricing onBack={() => navigate('/')} /></div>} />
-          <Route path="/auth" element={<div className="container" style={{ padding: '60px 24px' }}><Auth onBack={() => navigate('/')} /></div>} />
+          <Route path="/auth" element={<div className="container" style={{ padding: '28px 24px 44px' }}><Auth onBack={() => navigate('/')} /></div>} />
           <Route path="/daily-summary" element={<DailySummary onBack={() => navigate('/')} stories={stories} />} />
           <Route path="/favorites" element={
             <div className="container" style={{ padding: '60px 0' }}>

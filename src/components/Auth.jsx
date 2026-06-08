@@ -6,59 +6,33 @@ import { useBreakpoint } from '../hooks/useBreakpoint';
 
 const inputStyle = {
   width: '100%',
-  background: 'none',
+  background: 'transparent',
   border: 'none',
   borderBottom: 'var(--border-thin)',
-  padding: '12px 0',
-  fontSize: '18px',
+  padding: '10px 0 12px',
+  fontSize: '17px',
   fontFamily: 'inherit',
   outline: 'none'
 };
 
-const sectionTitleStyle = (isMobile) => ({
-  fontSize: isMobile ? '44px' : '80px',
-  lineHeight: '0.9',
-  letterSpacing: isMobile ? '-2px' : '-4px',
-  marginBottom: '24px',
-  color: 'var(--color-primary)',
-  whiteSpace: 'pre-line'
-});
-
-const cardStyle = (isMobile) => ({
-  padding: isMobile ? '28px 20px' : '60px',
-  minHeight: 'auto'
-});
-
-const layoutStyle = (isMobile) => ({
-  alignItems: 'flex-start',
-  gap: isMobile ? '24px' : undefined
-});
+const labelStyle = {
+  fontSize: '11px',
+  fontWeight: 900,
+  fontFamily: 'var(--font-mono)',
+  letterSpacing: '1.2px',
+  marginBottom: '7px',
+  display: 'block'
+};
 
 const messageStyle = (background) => ({
-  padding: '16px',
-  border: '2px solid black',
+  padding: '13px 14px',
+  border: 'var(--border-thin)',
+  borderRadius: '8px',
   background,
   fontSize: '13px',
-  fontWeight: 700
+  fontWeight: 700,
+  lineHeight: 1.35
 });
-
-const providerButtonBase = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '12px',
-  width: '100%',
-  padding: '15px 18px',
-  border: 'var(--border-thin)',
-  borderRadius: 'var(--radius-sm)',
-  cursor: 'pointer',
-  fontSize: '14px',
-  fontWeight: 800,
-  fontFamily: 'inherit',
-  letterSpacing: '0.8px',
-  transition: '0.2s',
-  minHeight: '52px'
-};
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -71,37 +45,80 @@ const GoogleIcon = () => (
 
 const AppleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-    <path d="M16.67 13.13c-.01-2.08 1.7-3.08 1.78-3.13-0.97-1.42-2.48-1.62-3.01-1.64-1.28-.13-2.5.75-3.15.75-.66 0-1.67-.73-2.74-.71-1.4.02-2.69.81-3.41 2.05-1.46 2.5-.37 6.2 1.05 8.24.7 1 1.53 2.11 2.61 2.07 1.04-.04 1.43-.67 2.69-.67 1.25 0 1.61.67 2.71.65 1.14-.02 1.86-1.02 2.55-2.02.8-1.14 1.13-2.25 1.15-2.31-.03-.01-2.21-.85-2.24-3.28Zm-2.06-6.09c.56-.68.94-1.62.84-2.56-.81.03-1.8.54-2.37 1.22-.51.6-.96 1.56-.84 2.48.91.07 1.83-.46 2.37-1.14Z" />
+    <path d="M16.67 13.13c-.01-2.08 1.7-3.08 1.78-3.13-.97-1.42-2.48-1.62-3.01-1.64-1.28-.13-2.5.75-3.15.75-.66 0-1.67-.73-2.74-.71-1.4.02-2.69.81-3.41 2.05-1.46 2.5-.37 6.2 1.05 8.24.7 1 1.53 2.11 2.61 2.07 1.04-.04 1.43-.67 2.69-.67 1.25 0 1.61.67 2.71.65 1.14-.02 1.86-1.02 2.55-2.02.8-1.14 1.13-2.25 1.15-2.31-.03-.01-2.21-.85-2.24-3.28Zm-2.06-6.09c.56-.68.94-1.62.84-2.56-.81.03-1.8.54-2.37 1.22-.51.6-.96 1.56-.84 2.48.91.07 1.83-.46 2.37-1.14Z" />
   </svg>
 );
 
 const OAuthButton = ({ provider, label, onClick, disabled = false }) => {
   const isApple = provider === 'apple';
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       style={{
-        ...providerButtonBase,
+        height: 50,
+        width: '100%',
+        border: 'var(--border-thin)',
+        borderRadius: '8px',
         background: isApple ? '#000' : '#fff',
         color: isApple ? '#fff' : '#111',
-        borderColor: isApple ? '#000' : '#111',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        cursor: disabled ? 'wait' : 'pointer',
         opacity: disabled ? 0.55 : 1,
-        cursor: disabled ? 'wait' : 'pointer'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = isApple ? '#111' : '#f5f5f5';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = isApple ? '#000' : '#fff';
+        fontSize: '13px',
+        fontWeight: 900,
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.2px'
       }}
     >
       {isApple ? <AppleIcon /> : <GoogleIcon />}
-      <span>{label}</span>
+      {label}
     </button>
   );
 };
+
+const SegmentedControl = ({ isLogin, onLogin, onSignup }) => (
+  <div
+    style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      border: 'var(--border-thin)',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      background: '#fff'
+    }}
+  >
+    {[
+      ['INICIAR SESION', isLogin, onLogin],
+      ['CREAR CUENTA', !isLogin, onSignup],
+    ].map(([label, active, action]) => (
+      <button
+        key={label}
+        type="button"
+        onClick={action}
+        style={{
+          height: 44,
+          border: 'none',
+          borderRight: label === 'INICIAR SESION' ? 'var(--border-thin)' : 'none',
+          background: active ? '#000' : '#fff',
+          color: active ? '#fff' : '#111',
+          cursor: 'pointer',
+          fontSize: '11px',
+          fontWeight: 900,
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.2px'
+        }}
+      >
+        {label}
+      </button>
+    ))}
+  </div>
+);
 
 const Auth = ({ onBack }) => {
   const navigate = useNavigate();
@@ -122,10 +139,7 @@ const Auth = ({ onBack }) => {
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes('type=recovery')) {
-      setIsResetMode(true);
-    }
+    if (window.location.hash.includes('type=recovery')) setIsResetMode(true);
   }, []);
 
   useEffect(() => {
@@ -133,15 +147,17 @@ const Auth = ({ onBack }) => {
   }, [isLogin, isResetMode, isResetRequest]);
 
   useEffect(() => {
-    if (user && !isResetMode) {
-      navigate('/');
-    }
+    if (user && !isResetMode) navigate('/');
   }, [user, isResetMode, navigate]);
+
+  const clearFeedback = () => {
+    setError(null);
+    setSuccess(null);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError(null);
-    setSuccess(null);
+    clearFeedback();
     setLoading(true);
 
     if (isLogin) {
@@ -174,8 +190,7 @@ const Auth = ({ onBack }) => {
   };
 
   const handleOAuth = async (provider) => {
-    setError(null);
-    setSuccess(null);
+    clearFeedback();
     setOauthLoading(provider);
     const { error: oauthError } = await signInWithOAuth(provider);
     if (oauthError) {
@@ -186,8 +201,7 @@ const Auth = ({ onBack }) => {
 
   const handleResetRequest = async (event) => {
     event.preventDefault();
-    setError(null);
-    setSuccess(null);
+    clearFeedback();
     setLoading(true);
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
@@ -205,8 +219,7 @@ const Auth = ({ onBack }) => {
 
   const handlePasswordUpdate = async (event) => {
     event.preventDefault();
-    setError(null);
-    setSuccess(null);
+    clearFeedback();
 
     if (newPassword.length < 6) {
       setError('La contrasena debe tener al menos 6 caracteres.');
@@ -230,128 +243,63 @@ const Auth = ({ onBack }) => {
     setLoading(false);
   };
 
-  if (isResetMode) {
+  const switchMode = (nextIsLogin) => {
+    setIsLogin(nextIsLogin);
+    clearFeedback();
+  };
+
+  if (isResetMode || isResetRequest) {
+    const isUpdate = isResetMode;
+
     return (
-      <div className="auth-page">
+      <div className="auth-page" style={{ minHeight: 'calc(100vh - 160px)' }}>
         <button
-          onClick={onBack}
+          onClick={isUpdate ? onBack : () => { setIsResetRequest(false); clearFeedback(); }}
           className="tag"
-          style={{ background: 'none', cursor: 'pointer', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{ background: 'none', cursor: 'pointer', marginBottom: 24 }}
         >
-          {'<-'} Volver al Inicio
+          {'<-'} {isUpdate ? 'Volver al Inicio' : 'Volver al Login'}
         </button>
 
-        <section style={{ padding: '0 0 60px 0', borderBottom: 'var(--border-thin)', marginBottom: '60px' }}>
-          <h1 style={sectionTitleStyle(isMobile)}>{'Nueva\nContrasena.'}</h1>
-          <p style={{ fontSize: isMobile ? '18px' : '24px', opacity: 0.6, maxWidth: '600px' }}>
-            Introduce tu nueva contrasena. Debe tener al menos 6 caracteres.
-          </p>
-        </section>
-
-        <div className="layout-split" style={layoutStyle(isMobile)}>
-          {!isMobile && <div className="sidebar" />}
-          <div className="main-content">
-            <div className="story-card" style={cardStyle(isMobile)}>
-              <form style={{ display: 'flex', flexDirection: 'column', gap: '32px' }} onSubmit={handlePasswordUpdate}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '12px', display: 'block' }}>
-                    NUEVA CONTRASENA
-                  </label>
-                  <input type="password" placeholder="************" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '12px', display: 'block' }}>
-                    CONFIRMAR CONTRASENA
-                  </label>
-                  <input type="password" placeholder="************" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} style={inputStyle} />
-                </div>
-
-                {error && <div style={messageStyle('#fff5f5')}>X {error}</div>}
-                {success && <div style={messageStyle('#f0fff0')}>OK {success}</div>}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="navbar__link"
-                  style={{
-                    background: loading ? '#666' : 'black',
-                    color: 'white',
-                    border: 'none',
-                    padding: isMobile ? '18px' : '24px',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    cursor: loading ? 'wait' : 'pointer',
-                    marginTop: '8px',
-                    opacity: loading ? 0.7 : 1
-                  }}
-                >
-                  {loading ? 'GUARDANDO...' : 'ACTUALIZAR CONTRASENA'}
-                </button>
-              </form>
-            </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr', gap: 28, alignItems: 'start' }}>
+          <div>
+            <h1 style={{ fontSize: isMobile ? 44 : 72, lineHeight: 0.95, letterSpacing: '-3px', marginBottom: 16 }}>
+              {isUpdate ? 'Nueva\nContrasena.' : 'Recuperar\nAcceso.'}
+            </h1>
+            <p style={{ fontSize: 18, lineHeight: 1.45, opacity: 0.65, maxWidth: 440 }}>
+              {isUpdate
+                ? 'Introduce tu nueva contrasena. Debe tener al menos 6 caracteres.'
+                : 'Introduce tu email y te enviaremos un enlace para restablecer tu contrasena.'}
+            </p>
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  if (isResetRequest) {
-    return (
-      <div className="auth-page">
-        <button
-          onClick={() => {
-            setIsResetRequest(false);
-            setError(null);
-            setSuccess(null);
-          }}
-          className="tag"
-          style={{ background: 'none', cursor: 'pointer', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          {'<-'} Volver al Login
-        </button>
-
-        <section style={{ padding: '0 0 60px 0', borderBottom: 'var(--border-thin)', marginBottom: '60px' }}>
-          <h1 style={sectionTitleStyle(isMobile)}>{'Recuperar\nAcceso.'}</h1>
-          <p style={{ fontSize: isMobile ? '18px' : '24px', opacity: 0.6, maxWidth: '600px' }}>
-            Introduce tu email y te enviaremos un enlace para restablecer tu contrasena.
-          </p>
-        </section>
-
-        <div className="layout-split" style={layoutStyle(isMobile)}>
-          {!isMobile && <div className="sidebar" />}
-          <div className="main-content">
-            <div className="story-card" style={cardStyle(isMobile)}>
-              <form style={{ display: 'flex', flexDirection: 'column', gap: '32px' }} onSubmit={handleResetRequest}>
+          <div className="story-card" style={{ padding: isMobile ? 22 : 32, minHeight: 'auto', margin: 0, cursor: 'default', transform: 'none', borderRadius: 8 }}>
+            <form style={{ display: 'grid', gap: 22 }} onSubmit={isUpdate ? handlePasswordUpdate : handleResetRequest}>
+              {isUpdate ? (
+                <>
+                  <div>
+                    <label style={labelStyle}>NUEVA CONTRASENA</label>
+                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>CONFIRMAR CONTRASENA</label>
+                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} style={inputStyle} />
+                  </div>
+                </>
+              ) : (
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '12px', display: 'block' }}>
-                    CORREO ELECTRONICO
-                  </label>
+                  <label style={labelStyle}>CORREO ELECTRONICO</label>
                   <input type="email" placeholder="usuario@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
                 </div>
+              )}
 
-                {error && <div style={messageStyle('#fff5f5')}>X {error}</div>}
-                {success && <div style={messageStyle('#f0fff0')}>OK {success}</div>}
+              {error && <div style={messageStyle('#fff5f5')}>X {error}</div>}
+              {success && <div style={messageStyle('#f0fff0')}>OK {success}</div>}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="navbar__link"
-                  style={{
-                    background: loading ? '#666' : 'black',
-                    color: 'white',
-                    border: 'none',
-                    padding: isMobile ? '18px' : '24px',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    cursor: loading ? 'wait' : 'pointer',
-                    marginTop: '8px',
-                    opacity: loading ? 0.7 : 1
-                  }}
-                >
-                  {loading ? 'ENVIANDO...' : 'ENVIAR ENLACE DE RECUPERACION'}
-                </button>
-              </form>
-            </div>
+              <button type="submit" disabled={loading} style={{ height: 54, border: 'none', borderRadius: 8, background: loading ? '#666' : '#000', color: '#fff', cursor: loading ? 'wait' : 'pointer', fontWeight: 900, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                {loading ? 'PROCESANDO...' : isUpdate ? 'ACTUALIZAR CONTRASENA' : 'ENVIAR ENLACE'}
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -359,128 +307,115 @@ const Auth = ({ onBack }) => {
   }
 
   return (
-    <div className="auth-page" style={{ paddingTop: isMobile ? '18px' : '24px', paddingBottom: isMobile ? '18px' : '30px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '20px' : '28px', gap: '16px' }}>
-        <button
-          onClick={onBack}
-          className="tag"
-          style={{ background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
+    <div className="auth-page" style={{ minHeight: 'calc(100vh - 150px)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isMobile ? 24 : 34 }}>
+        <button onClick={onBack} className="tag" style={{ background: 'none', cursor: 'pointer' }}>
           {'<-'} Volver al Inicio
         </button>
-        <span style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '1.8px', opacity: 0.45, whiteSpace: 'nowrap' }}>
-          ACCESO SEGURO AES-256
-        </span>
       </div>
 
-      <section style={{ padding: '0 0 18px 0', borderBottom: 'var(--border-thin)', marginBottom: '18px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.95fr 1.05fr', gap: isMobile ? '18px' : '28px', alignItems: 'start' }}>
-          <div style={{ paddingTop: isMobile ? 0 : '10px' }}>
-            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '38px' : '60px', marginBottom: '10px' }}>
-              {isLogin ? 'Bienvenido de\nNuevo.' : 'Crear\nCuenta.'}
-            </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '18px', opacity: 0.7, maxWidth: '460px', lineHeight: 1.45, marginBottom: '18px' }}>
-              {isLogin
-                ? 'Accede a tu panel personalizado de noticias y blindspots.'
-                : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '420px' }}>
-              <div style={{ border: 'var(--border-thin)', borderRadius: 'var(--radius-sm)', padding: '18px 18px 16px', background: '#fff' }}>
-                <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.4, marginBottom: '10px' }}>
-                  {isLogin ? 'ENTRAR RÁPIDO' : 'EMPEZAR AHORA'}
+      <section style={{ borderBottom: 'none', padding: 0 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'minmax(360px, 0.82fr) minmax(440px, 1fr)',
+            gap: isMobile ? 24 : 48,
+            alignItems: 'start'
+          }}
+        >
+          <aside style={{ paddingTop: isMobile ? 0 : 12 }}>
+            <div style={{ maxWidth: 480 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.5px', opacity: 0.35, marginBottom: 18 }}>
+                TNE / ACCESO
+              </div>
+              <h1 style={{ fontSize: isMobile ? 46 : 76, lineHeight: 0.92, letterSpacing: '-3px', marginBottom: 18 }}>
+                {isLogin ? 'Bienvenido de\nNuevo.' : 'Crear\nCuenta.'}
+              </h1>
+              <p style={{ fontSize: isMobile ? 17 : 21, lineHeight: 1.42, opacity: 0.68, marginBottom: 26 }}>
+                {isLogin
+                  ? 'Accede a tu panel personalizado de noticias y blindspots.'
+                  : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
+              </p>
+
+              <div style={{ border: 'var(--border-thin)', borderRadius: 8, padding: isMobile ? 18 : 22, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.42, marginBottom: 12 }}>
+                  {isLogin ? 'ENTRAR RAPIDO' : 'EMPEZAR AHORA'}
                 </div>
-                <div style={{ fontSize: '18px', fontWeight: 700, lineHeight: 1.35, marginBottom: '8px' }}>
+                <p style={{ fontSize: 17, lineHeight: 1.45, fontWeight: 700, marginBottom: 10 }}>
                   {isLogin
-                    ? 'Usa Google, Apple o tu email para volver sin fricción.'
-                    : 'Crea tu cuenta y desbloquea el feed, Toddy y el análisis completo.'}
-                </div>
-                <div style={{ fontSize: '13px', opacity: 0.6, lineHeight: 1.45 }}>
-                  Todo queda en el mismo sistema: lectura, guardados, revisión y análisis.
-                </div>
+                    ? 'Vuelve a tu feed, tus guardados, tu sesgo de lectura y Toddy desde una sola cuenta.'
+                    : 'Crea tu cuenta para activar lectura personalizada, analisis completo y acceso a Toddy.'}
+                </p>
+                <p style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.58 }}>
+                  Google y Apple son la via principal. Email sigue disponible como alternativa.
+                </p>
               </div>
             </div>
-          </div>
+          </aside>
 
-          <div style={{ display: 'flex', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
-            <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0, position: 'relative', top: 0, width: '100%', maxWidth: isMobile ? '100%' : '680px', padding: isMobile ? '22px 18px' : '28px 28px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLogin(true);
-                      setError(null);
-                      setSuccess(null);
-                    }}
-                    style={{
-                      ...providerButtonBase,
-                      width: 'auto',
-                      minHeight: '40px',
-                      padding: '0 14px',
-                      background: isLogin ? '#000' : '#fff',
-                      color: isLogin ? '#fff' : '#111',
-                      borderColor: '#111'
-                    }}
-                  >
-                    INICIAR SESION
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLogin(false);
-                      setError(null);
-                      setSuccess(null);
-                    }}
-                    style={{
-                      ...providerButtonBase,
-                      width: 'auto',
-                      minHeight: '40px',
-                      padding: '0 14px',
-                      background: !isLogin ? '#000' : '#fff',
-                      color: !isLogin ? '#fff' : '#111',
-                      borderColor: '#111'
-                    }}
-                  >
-                    CREAR CUENTA
-                  </button>
+          <div
+            className="story-card"
+            style={{
+              width: '100%',
+              maxWidth: 620,
+              justifySelf: isMobile ? 'stretch' : 'end',
+              padding: isMobile ? 22 : 34,
+              minHeight: 'auto',
+              margin: 0,
+              cursor: 'default',
+              transform: 'none',
+              borderRadius: 8,
+              background: '#fff'
+            }}
+          >
+            <div style={{ display: 'grid', gap: 22 }}>
+              <div style={{ display: 'grid', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.45 }}>
+                      ACCESO SEGURO
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 24, lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.5px' }}>
+                      {isLogin ? 'Inicia sesion' : 'Crea tu cuenta'}
+                    </div>
+                  </div>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '1.6px', opacity: 0.45 }}>
-                  ACCESO SEGURO AES-256
+
+                <SegmentedControl
+                  isLogin={isLogin}
+                  onLogin={() => switchMode(true)}
+                  onSignup={() => switchMode(false)}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
+                <OAuthButton provider="google" label="GOOGLE" onClick={() => handleOAuth('google')} disabled={!!oauthLoading} />
+                <OAuthButton provider="apple" label="APPLE" onClick={() => handleOAuth('apple')} disabled={!!oauthLoading} />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ height: 1, background: '#000', opacity: 0.16, flex: 1 }} />
+                <span style={{ fontSize: 10, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.38 }}>
+                  O CON EMAIL
                 </span>
+                <div style={{ height: 1, background: '#000', opacity: 0.16, flex: 1 }} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
-                <OAuthButton provider="google" label="CONTINUAR CON GOOGLE" onClick={() => handleOAuth('google')} disabled={!!oauthLoading} />
-                <OAuthButton provider="apple" label="CONTINUAR CON APPLE" onClick={() => handleOAuth('apple')} disabled={!!oauthLoading} />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
-                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.18 }} />
-                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', opacity: 0.4 }}>O CON EMAIL</span>
-                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.18 }} />
-              </div>
-
-              <form style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} onSubmit={handleSubmit}>
+              <form style={{ display: 'grid', gap: 18 }} onSubmit={handleSubmit}>
                 {!isLogin && (
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
-                      NOMBRE COMPLETO
-                    </label>
+                    <label style={labelStyle}>NOMBRE COMPLETO</label>
                     <input type="text" placeholder="Tu nombre aqui..." value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
                   </div>
                 )}
 
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
-                    CORREO ELECTRONICO
-                  </label>
+                  <label style={labelStyle}>CORREO ELECTRONICO</label>
                   <input type="email" placeholder="usuario@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
-                    CONTRASENA
-                  </label>
+                  <label style={labelStyle}>CONTRASENA</label>
                   <input type="password" placeholder="************" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} style={inputStyle} />
                 </div>
 
@@ -490,38 +425,34 @@ const Auth = ({ onBack }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="navbar__link"
                   style={{
-                    background: loading ? '#666' : 'black',
-                    color: 'white',
+                    height: 56,
                     border: 'none',
-                    padding: isMobile ? '16px' : '18px',
-                    fontSize: '15px',
-                    fontWeight: 800,
+                    borderRadius: 8,
+                    background: loading ? '#666' : '#000',
+                    color: '#fff',
                     cursor: loading ? 'wait' : 'pointer',
-                    marginTop: '4px',
-                    opacity: loading ? 0.7 : 1,
-                    transition: '0.2s',
-                    width: '100%',
-                    borderRadius: 'var(--radius-sm)'
+                    fontWeight: 900,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 12,
+                    letterSpacing: '0.2px'
                   }}
                 >
                   {loading ? 'PROCESANDO...' : isLogin ? 'ACCEDER A TNE' : 'CREAR MI CUENTA'}
                 </button>
               </form>
 
-              <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'space-between', gap: '16px', flexDirection: isMobile ? 'column' : 'row', opacity: 0.45, fontSize: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12, opacity: 0.52, flexDirection: isMobile ? 'column' : 'row' }}>
                 <span
                   style={{ cursor: 'pointer' }}
                   onClick={() => {
                     setIsResetRequest(true);
-                    setError(null);
-                    setSuccess(null);
+                    clearFeedback();
                   }}
                 >
                   OLVIDASTE TU CONTRASENA?
                 </span>
-                <span>Google y Apple disponibles desde el primer paso.</span>
+                <span>Al continuar aceptas privacidad y terminos.</span>
               </div>
             </div>
           </div>
