@@ -1258,6 +1258,51 @@ export const fetchClusters = async (limit = 80) => {
   });
 };
 
+const mapDailyBrief = (row) => {
+  if (!row) return null;
+  const asArray = (value) => Array.isArray(value) ? value : [];
+  const asObject = (value) => (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
+  return {
+    ...row,
+    briefDate: row.brief_date || row.briefDate || null,
+    scope: row.scope || 'es',
+    title: row.title || 'Resumen diario',
+    dek: row.dek || '',
+    summary: row.summary || '',
+    executiveSummary: asArray(row.executive_summary),
+    topHeadlines: asArray(row.top_headlines),
+    thematicOverview: asArray(row.thematic_overview),
+    coverageStats: asObject(row.coverage_stats),
+    biasDistribution: asObject(row.bias_distribution),
+    consensusNotes: asObject(row.consensus_notes),
+    blindSpots: asArray(row.blind_spots),
+    prospectiveNotes: asArray(row.prospective_notes),
+    methodologyNote: row.methodology_note || '',
+    sourceTrace: asArray(row.source_trace),
+    evidenceQuality: asObject(row.evidence_quality),
+    missingEvidence: asArray(row.missing_evidence),
+    generationMetadata: asObject(row.generation_metadata),
+    payload: asObject(row.payload),
+  };
+};
+
+export const fetchLatestDailyBrief = async (scope = 'es') => {
+  const { data, error } = await supabase
+    .from('daily_briefs')
+    .select('*')
+    .eq('status', 'published')
+    .eq('scope', scope)
+    .order('brief_date', { ascending: false })
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error('fetchLatestDailyBrief:', error.message);
+    return null;
+  }
+  return mapDailyBrief(data);
+};
+
 // Raw articles that were grouped into a cluster (pass a cluster object).
 export const fetchClusterArticles = async (cluster) => {
   if (!cluster) return [];

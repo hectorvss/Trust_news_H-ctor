@@ -156,6 +156,63 @@ const checks = [
     ],
   },
   {
+    name: "daily summary has its own persisted brief pipeline",
+    file: "supabase/functions/generate-daily-summary/index.ts",
+    mustInclude: [
+      "daily_briefs",
+      "submit_daily_brief",
+      "buildFallbackBrief",
+      "executive_summary",
+      "prospective_notes",
+      "coverage_stats",
+    ],
+  },
+  {
+    name: "daily briefs table and policies exist",
+    file: "supabase/migrations/033_daily_briefs.sql",
+    mustInclude: [
+      "create table if not exists public.daily_briefs",
+      "daily_briefs public read published",
+      "brief_date",
+      "top_headlines",
+      "thematic_overview",
+      "bias_distribution",
+    ],
+  },
+  {
+    name: "daily summary workflow is scheduled",
+    file: ".github/workflows/daily-summary.yml",
+    mustInclude: [
+      "generate-daily-summary",
+      "30 6 * * *",
+      "SUPABASE_SERVICE_ROLE_KEY",
+    ],
+  },
+  {
+    name: "frontend consumes persisted daily brief and keeps fallback",
+    file: "src/components/DailySummary.jsx",
+    mustInclude: [
+      "fetchLatestDailyBrief",
+      "executive_summary",
+      "top_headlines",
+      "thematic_overview",
+      "prospective_notes",
+      "bias_distribution",
+      "buildFallbackDailyBrief",
+    ],
+  },
+  {
+    name: "service exposes latest daily brief fetch helper",
+    file: "src/supabaseService.js",
+    mustInclude: [
+      "fetchLatestDailyBrief",
+      "daily_briefs",
+      "mapDailyBrief",
+      "executiveSummary",
+      "prospectiveNotes",
+    ],
+  },
+  {
     name: "category contract is canonical across app and service",
     file: "src/supabaseService.js",
     mustInclude: [

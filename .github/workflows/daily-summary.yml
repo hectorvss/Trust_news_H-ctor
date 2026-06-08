@@ -1,0 +1,39 @@
+name: Pipeline — Daily Summary (Claude AI)
+
+# Generates the persisted editorial daily brief from the analyzed corpus.
+on:
+  schedule:
+    - cron: '30 6 * * *'   # Daily at 06:30 UTC (08:30 Europe/Madrid in summer)
+  workflow_dispatch:
+
+jobs:
+  daily-summary:
+    name: Generate daily editorial summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger generate-daily-summary
+        run: |
+          echo "→ Triggering generate-daily-summary at $(date -u)"
+          STATUS=$(curl -s -o /tmp/daily_summary_response.json -w "%{http_code}" \
+            --max-time 180 \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/generate-daily-summary" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"scope":"es"}')
+          echo "HTTP $STATUS"
+          cat /tmp/daily_summary_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/daily_summary_response.json
+          STATUS="$STATUS" python3 - <<'PY'
+import json, os, sys
+status = int(os.environ["STATUS"])
+if status < 200 or status >= 300:
+    sys.exit(1)
+try:
+    with open("/tmp/daily_summary_response.json", "r", encoding="utf-8") as fh:
+        body = json.load(fh)
+except Exception:
+    sys.exit(0)
+if body.get("ok") is False:
+    sys.exit(1)
+PY
