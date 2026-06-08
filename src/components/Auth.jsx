@@ -318,37 +318,50 @@ const Auth = ({ onBack }) => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'minmax(360px, 0.82fr) minmax(440px, 1fr)',
-            gap: isMobile ? 24 : 48,
+            gridTemplateColumns: isMobile ? '1fr' : 'minmax(520px, 1fr) minmax(430px, 0.82fr)',
+            gap: isMobile ? 24 : 36,
             alignItems: 'start'
           }}
         >
           <aside style={{ paddingTop: isMobile ? 0 : 12 }}>
-            <div style={{ maxWidth: 480 }}>
+            <div style={{ maxWidth: 650 }}>
               <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.5px', opacity: 0.35, marginBottom: 18 }}>
                 TNE / ACCESO
               </div>
               <h1 style={{ fontSize: isMobile ? 46 : 76, lineHeight: 0.92, letterSpacing: '-3px', marginBottom: 18 }}>
                 {isLogin ? 'Bienvenido de\nNuevo.' : 'Crear\nCuenta.'}
               </h1>
-              <p style={{ fontSize: isMobile ? 17 : 21, lineHeight: 1.42, opacity: 0.68, marginBottom: 26 }}>
+              <p style={{ fontSize: isMobile ? 17 : 21, lineHeight: 1.42, opacity: 0.68, marginBottom: 26, maxWidth: 560 }}>
                 {isLogin
                   ? 'Accede a tu panel personalizado de noticias y blindspots.'
                   : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
               </p>
 
-              <div style={{ border: 'var(--border-thin)', borderRadius: 8, padding: isMobile ? 18 : 22, background: '#fff' }}>
+              <div style={{ border: 'var(--border-thin)', borderRadius: 8, padding: isMobile ? 18 : 24, background: '#fff', maxWidth: 600 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.42, marginBottom: 12 }}>
                   {isLogin ? 'ENTRAR RAPIDO' : 'EMPEZAR AHORA'}
                 </div>
-                <p style={{ fontSize: 17, lineHeight: 1.45, fontWeight: 700, marginBottom: 10 }}>
+                <p style={{ fontSize: 18, lineHeight: 1.42, fontWeight: 800, marginBottom: 16, maxWidth: 500 }}>
                   {isLogin
                     ? 'Vuelve a tu feed, tus guardados, tu sesgo de lectura y Toddy desde una sola cuenta.'
                     : 'Crea tu cuenta para activar lectura personalizada, analisis completo y acceso a Toddy.'}
                 </p>
-                <p style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.58 }}>
-                  Google y Apple son la via principal. Email sigue disponible como alternativa.
-                </p>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {[
+                    ['LECTURA PERSONALIZADA', isLogin ? 'Retoma tus noticias, filtros y guardados donde los dejaste.' : 'Construye un feed que aprende de tus intereses y tus temas clave.'],
+                    ['ANALISIS Y SESGO', 'Consulta blindspots, distribucion ideologica y contexto editorial en cada noticia.'],
+                    ['TODDY IA', 'Pregunta sobre una noticia y conserva la conversacion asociada a tu cuenta.'],
+                  ].map(([title, text]) => (
+                    <div key={title} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '150px 1fr', gap: isMobile ? 6 : 16, borderTop: '1px solid rgba(0,0,0,0.14)', paddingTop: 12 }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.42 }}>{title}</div>
+                      <div style={{ fontSize: 14, lineHeight: 1.45, opacity: 0.7 }}>{text}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(0,0,0,0.14)', display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.48 }}>GOOGLE / APPLE / EMAIL</span>
+                  <span style={{ fontSize: 13, opacity: 0.58 }}>Acceso seguro y recuperacion de contrasena incluida.</span>
+                </div>
               </div>
             </div>
           </aside>
