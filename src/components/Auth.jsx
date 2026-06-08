@@ -75,17 +75,20 @@ const AppleIcon = () => (
   </svg>
 );
 
-const OAuthButton = ({ provider, label, onClick }) => {
+const OAuthButton = ({ provider, label, onClick, disabled = false }) => {
   const isApple = provider === 'apple';
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       style={{
         ...providerButtonBase,
         background: isApple ? '#000' : '#fff',
         color: isApple ? '#fff' : '#111',
-        borderColor: isApple ? '#000' : '#111'
+        borderColor: isApple ? '#000' : '#111',
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? 'wait' : 'pointer'
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = isApple ? '#111' : '#f5f5f5';
@@ -114,6 +117,7 @@ const Auth = ({ onBack }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
@@ -167,6 +171,17 @@ const Auth = ({ onBack }) => {
     }
 
     setLoading(false);
+  };
+
+  const handleOAuth = async (provider) => {
+    setError(null);
+    setSuccess(null);
+    setOauthLoading(provider);
+    const { error: oauthError } = await signInWithOAuth(provider);
+    if (oauthError) {
+      setError(oauthError.message || `No se pudo iniciar sesion con ${provider}.`);
+      setOauthLoading(null);
+    }
   };
 
   const handleResetRequest = async (event) => {
@@ -344,7 +359,7 @@ const Auth = ({ onBack }) => {
   }
 
   return (
-    <div className="auth-page" style={{ paddingTop: isMobile ? '24px' : '36px', paddingBottom: isMobile ? '32px' : '56px' }}>
+    <div className="auth-page" style={{ paddingTop: isMobile ? '18px' : '28px', paddingBottom: isMobile ? '24px' : '42px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '20px' : '28px', gap: '16px' }}>
         <button
           onClick={onBack}
@@ -358,24 +373,24 @@ const Auth = ({ onBack }) => {
         </span>
       </div>
 
-      <section style={{ padding: '0 0 28px 0', borderBottom: 'var(--border-thin)', marginBottom: '28px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr', gap: isMobile ? '22px' : '32px', alignItems: 'start' }}>
+      <section style={{ padding: '0 0 24px 0', borderBottom: 'var(--border-thin)', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.04fr 0.96fr', gap: isMobile ? '18px' : '26px', alignItems: 'start' }}>
           <div>
-            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '42px' : '68px', marginBottom: '12px' }}>
+            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '40px' : '62px', marginBottom: '10px' }}>
               {isLogin ? 'Bienvenido de\nNuevo.' : 'Comienza tu\nContraste.'}
             </h1>
-            <p style={{ fontSize: isMobile ? '17px' : '19px', opacity: 0.68, maxWidth: '620px', lineHeight: 1.45, marginBottom: '18px' }}>
+            <p style={{ fontSize: isMobile ? '16px' : '18px', opacity: 0.68, maxWidth: '580px', lineHeight: 1.45, marginBottom: '14px' }}>
               {isLogin
                 ? 'Accede a tu panel personalizado de noticias y blindspots.'
                 : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
               {[
                 'Feed personalizado',
                 'Blindspot y analisis',
                 'Lectura completa',
               ].map((item) => (
-                <span key={item} className="tag" style={{ padding: '6px 12px', opacity: 0.85 }}>
+                <span key={item} className="tag" style={{ padding: '5px 11px', opacity: 0.85 }}>
                   {item}
                 </span>
               ))}
@@ -395,7 +410,7 @@ const Auth = ({ onBack }) => {
                   cursor: 'pointer',
                   background: isLogin ? 'black' : 'none',
                   color: isLogin ? 'white' : 'black',
-                  padding: '10px 14px'
+                  padding: '9px 13px'
                 }}
               >
                 INICIAR SESION
@@ -411,7 +426,7 @@ const Auth = ({ onBack }) => {
                   cursor: 'pointer',
                   background: !isLogin ? 'black' : 'none',
                   color: !isLogin ? 'white' : 'black',
-                  padding: '10px 14px'
+                  padding: '9px 13px'
                 }}
               >
                 CREAR CUENTA
@@ -421,12 +436,12 @@ const Auth = ({ onBack }) => {
         </div>
       </section>
 
-      <div className="layout-split" style={{ gap: isMobile ? '20px' : '32px', alignItems: 'flex-start' }}>
+      <div className="layout-split" style={{ gap: isMobile ? '18px' : '28px', alignItems: 'flex-start' }}>
         <div className="sidebar" style={{ width: isMobile ? '100%' : undefined, paddingTop: 0, borderRight: isMobile ? 'none' : 'var(--border-thin)' }}>
-          <p style={{ marginTop: 0, fontSize: '13px', opacity: 0.55, lineHeight: '1.5', maxWidth: '360px' }}>
+          <p style={{ marginTop: 0, fontSize: '13px', opacity: 0.55, lineHeight: '1.5', maxWidth: '340px' }}>
             Al continuar, aceptas nuestros terminos de servicio y politica de privacidad de datos analiticos.
           </p>
-          <div style={{ marginTop: '18px', display: 'grid', gap: '10px' }}>
+          <div style={{ marginTop: '16px', display: 'grid', gap: '8px' }}>
             <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.4 }}>
               ENTRA EN SEGUNDOS
             </div>
@@ -437,19 +452,19 @@ const Auth = ({ onBack }) => {
         </div>
 
         <div className="main-content" style={{ paddingTop: 0 }}>
-          <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '22px' }}>
-              <OAuthButton provider="google" label="CONTINUAR CON GOOGLE" onClick={() => signInWithOAuth('google')} />
-              <OAuthButton provider="apple" label="CONTINUAR CON APPLE" onClick={() => signInWithOAuth('apple')} />
+          <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0, position: 'relative', top: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+              <OAuthButton provider="google" label="CONTINUAR CON GOOGLE" onClick={() => handleOAuth('google')} disabled={!!oauthLoading} />
+              <OAuthButton provider="apple" label="CONTINUAR CON APPLE" onClick={() => handleOAuth('apple')} disabled={!!oauthLoading} />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
               <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
               <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', opacity: 0.4 }}>O CON EMAIL</span>
               <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
             </div>
 
-            <form style={{ display: 'flex', flexDirection: 'column', gap: '24px' }} onSubmit={handleSubmit}>
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '22px' }} onSubmit={handleSubmit}>
               {!isLogin && (
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '10px', display: 'block' }}>
@@ -484,7 +499,7 @@ const Auth = ({ onBack }) => {
                   background: loading ? '#666' : 'black',
                   color: 'white',
                   border: 'none',
-                  padding: isMobile ? '16px' : '20px',
+                  padding: isMobile ? '16px' : '18px',
                   fontSize: '15px',
                   fontWeight: 800,
                   cursor: loading ? 'wait' : 'pointer',
@@ -501,7 +516,7 @@ const Auth = ({ onBack }) => {
 
             <div
               style={{
-                marginTop: '18px',
+                marginTop: '16px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 gap: '16px',
