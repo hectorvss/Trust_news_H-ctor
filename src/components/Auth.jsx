@@ -359,7 +359,7 @@ const Auth = ({ onBack }) => {
   }
 
   return (
-    <div className="auth-page" style={{ paddingTop: isMobile ? '18px' : '28px', paddingBottom: isMobile ? '24px' : '42px' }}>
+    <div className="auth-page" style={{ paddingTop: isMobile ? '18px' : '24px', paddingBottom: isMobile ? '18px' : '30px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '20px' : '28px', gap: '16px' }}>
         <button
           onClick={onBack}
@@ -373,13 +373,13 @@ const Auth = ({ onBack }) => {
         </span>
       </div>
 
-      <section style={{ padding: '0 0 24px 0', borderBottom: 'var(--border-thin)', marginBottom: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.04fr 0.96fr', gap: isMobile ? '18px' : '26px', alignItems: 'start' }}>
+      <section style={{ padding: '0 0 18px 0', borderBottom: 'var(--border-thin)', marginBottom: '18px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.05fr', gap: isMobile ? '14px' : '24px', alignItems: 'start' }}>
           <div>
-            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '40px' : '62px', marginBottom: '10px' }}>
+            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '38px' : '58px', marginBottom: '8px' }}>
               {isLogin ? 'Bienvenido de\nNuevo.' : 'Comienza tu\nContraste.'}
             </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '18px', opacity: 0.68, maxWidth: '580px', lineHeight: 1.45, marginBottom: '14px' }}>
+            <p style={{ fontSize: isMobile ? '16px' : '17px', opacity: 0.68, maxWidth: '520px', lineHeight: 1.45, marginBottom: '12px' }}>
               {isLogin
                 ? 'Accede a tu panel personalizado de noticias y blindspots.'
                 : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
@@ -397,148 +397,130 @@ const Auth = ({ onBack }) => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
-              <span
-                className="tag"
-                onClick={() => {
-                  setIsLogin(true);
-                  setError(null);
-                  setSuccess(null);
-                }}
+          <div style={{ display: 'flex', justifyContent: isMobile ? 'flex-start' : 'flex-end', alignItems: 'flex-start' }}>
+            <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0, position: 'relative', top: 0, width: '100%', maxWidth: isMobile ? '100%' : '620px', padding: isMobile ? '24px 18px' : '32px 28px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: '18px' }}>
+                <span
+                  className="tag"
+                  onClick={() => {
+                    setIsLogin(true);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    background: isLogin ? 'black' : 'none',
+                    color: isLogin ? 'white' : 'black',
+                    padding: '9px 13px'
+                  }}
+                >
+                  INICIAR SESION
+                </span>
+                <span
+                  className="tag"
+                  onClick={() => {
+                    setIsLogin(false);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    background: !isLogin ? 'black' : 'none',
+                    color: !isLogin ? 'white' : 'black',
+                    padding: '9px 13px'
+                  }}
+                >
+                  CREAR CUENTA
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
+                <OAuthButton provider="google" label="CONTINUAR CON GOOGLE" onClick={() => handleOAuth('google')} disabled={!!oauthLoading} />
+                <OAuthButton provider="apple" label="CONTINUAR CON APPLE" onClick={() => handleOAuth('apple')} disabled={!!oauthLoading} />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', opacity: 0.4 }}>O CON EMAIL</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
+              </div>
+
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} onSubmit={handleSubmit}>
+                {!isLogin && (
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                      NOMBRE COMPLETO
+                    </label>
+                    <input type="text" placeholder="Tu nombre aqui..." value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
+                  </div>
+                )}
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                    CORREO ELECTRONICO
+                  </label>
+                  <input type="email" placeholder="usuario@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                    CONTRASENA
+                  </label>
+                  <input type="password" placeholder="************" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} style={inputStyle} />
+                </div>
+
+                {error && <div style={messageStyle('#fff5f5')}>X {error}</div>}
+                {success && <div style={messageStyle('#f0fff0')}>OK {success}</div>}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="navbar__link"
+                  style={{
+                    background: loading ? '#666' : 'black',
+                    color: 'white',
+                    border: 'none',
+                    padding: isMobile ? '16px' : '18px',
+                    fontSize: '15px',
+                    fontWeight: 800,
+                    cursor: loading ? 'wait' : 'pointer',
+                    marginTop: '4px',
+                    opacity: loading ? 0.7 : 1,
+                    transition: '0.2s',
+                    width: '100%',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                >
+                  {loading ? 'PROCESANDO...' : isLogin ? 'ACCEDER A TNE' : 'CREAR MI CUENTA'}
+                </button>
+              </form>
+
+              <div
                 style={{
-                  cursor: 'pointer',
-                  background: isLogin ? 'black' : 'none',
-                  color: isLogin ? 'white' : 'black',
-                  padding: '9px 13px'
+                  marginTop: '14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  opacity: 0.45,
+                  fontSize: '12px'
                 }}
               >
-                INICIAR SESION
-              </span>
-              <span
-                className="tag"
-                onClick={() => {
-                  setIsLogin(false);
-                  setError(null);
-                  setSuccess(null);
-                }}
-                style={{
-                  cursor: 'pointer',
-                  background: !isLogin ? 'black' : 'none',
-                  color: !isLogin ? 'white' : 'black',
-                  padding: '9px 13px'
-                }}
-              >
-                CREAR CUENTA
-              </span>
+                <span
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    setIsResetRequest(true);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                >
+                  OLVIDASTE TU CONTRASENA?
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </section>
-
-      <div className="layout-split" style={{ gap: isMobile ? '18px' : '28px', alignItems: 'flex-start' }}>
-        <div className="sidebar" style={{ width: isMobile ? '100%' : undefined, paddingTop: 0, borderRight: isMobile ? 'none' : 'var(--border-thin)' }}>
-          <p style={{ marginTop: 0, fontSize: '13px', opacity: 0.55, lineHeight: '1.5', maxWidth: '340px' }}>
-            Al continuar, aceptas nuestros terminos de servicio y politica de privacidad de datos analiticos.
-          </p>
-          <div style={{ marginTop: '16px', display: 'grid', gap: '8px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.4 }}>
-              ENTRA EN SEGUNDOS
-            </div>
-            <div style={{ fontSize: '14px', lineHeight: 1.5, opacity: 0.82 }}>
-              Empieza con Google o Apple y pasa directo a tu experiencia completa.
-            </div>
-          </div>
-        </div>
-
-        <div className="main-content" style={{ paddingTop: 0 }}>
-          <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0, position: 'relative', top: 0 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-              <OAuthButton provider="google" label="CONTINUAR CON GOOGLE" onClick={() => handleOAuth('google')} disabled={!!oauthLoading} />
-              <OAuthButton provider="apple" label="CONTINUAR CON APPLE" onClick={() => handleOAuth('apple')} disabled={!!oauthLoading} />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
-              <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', opacity: 0.4 }}>O CON EMAIL</span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
-            </div>
-
-            <form style={{ display: 'flex', flexDirection: 'column', gap: '22px' }} onSubmit={handleSubmit}>
-              {!isLogin && (
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '10px', display: 'block' }}>
-                    NOMBRE COMPLETO
-                  </label>
-                  <input type="text" placeholder="Tu nombre aqui..." value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
-                </div>
-              )}
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '10px', display: 'block' }}>
-                  CORREO ELECTRONICO
-                </label>
-                <input type="email" placeholder="usuario@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', marginBottom: '10px', display: 'block' }}>
-                  CONTRASENA
-                </label>
-                <input type="password" placeholder="************" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} style={inputStyle} />
-              </div>
-
-              {error && <div style={messageStyle('#fff5f5')}>X {error}</div>}
-              {success && <div style={messageStyle('#f0fff0')}>OK {success}</div>}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="navbar__link"
-                style={{
-                  background: loading ? '#666' : 'black',
-                  color: 'white',
-                  border: 'none',
-                  padding: isMobile ? '16px' : '18px',
-                  fontSize: '15px',
-                  fontWeight: 800,
-                  cursor: loading ? 'wait' : 'pointer',
-                  marginTop: '4px',
-                  opacity: loading ? 0.7 : 1,
-                  transition: '0.2s',
-                  width: '100%',
-                  borderRadius: 'var(--radius-sm)'
-                }}
-              >
-                {loading ? 'PROCESANDO...' : isLogin ? 'ACCEDER A TNE' : 'CREAR MI CUENTA'}
-              </button>
-            </form>
-
-            <div
-              style={{
-                marginTop: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '16px',
-                flexDirection: isMobile ? 'column' : 'row',
-                opacity: 0.45,
-                fontSize: '12px'
-              }}
-            >
-              <span
-                style={{ cursor: 'pointer' }}
-                onClick={() => {
-                  setIsResetRequest(true);
-                  setError(null);
-                  setSuccess(null);
-                }}
-              >
-                OLVIDASTE TU CONTRASENA?
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
