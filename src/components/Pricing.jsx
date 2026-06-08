@@ -210,30 +210,30 @@ const Pricing = ({ onBack }) => {
     {
       slug: 'small',
       name: 'TODDY START',
-      price: '4.90EUR',
+      price: '5EUR',
       credits: 60,
       bestFor: 'Para lectores que quieren preguntar en varias noticias.',
       savings: 'Coste ajustado por tokens reales',
-      unit: '0.082EUR por credito'
+      unit: '0.08EUR por credito'
     },
     {
       slug: 'medium',
       name: 'TODDY PLUS',
-      price: '11.90EUR',
+      price: '12EUR',
       credits: 180,
       bestFor: 'El pack mas rentable para uso semanal.',
       savings: 'Mejor coste por credito para uso frecuente',
-      unit: '0.066EUR por credito',
+      unit: '0.07EUR por credito',
       featured: true
     },
     {
       slug: 'large',
       name: 'TODDY PRO',
-      price: '24.90EUR',
+      price: '25EUR',
       credits: 500,
       bestFor: 'Para seguir noticias vivas y hacer auditoria de fuentes.',
       savings: 'Maxima autonomia para noticias vivas',
-      unit: '0.050EUR por credito'
+      unit: '0.05EUR por credito'
     }
   ];
 

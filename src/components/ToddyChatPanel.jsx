@@ -76,11 +76,27 @@ const MarkdownText = ({ text }) => {
 
 const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.map((item) => item.id) }) => {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
   const options = DEPTHS.filter((item) => allowedDepths.includes(item.id));
   const selected = options.find((item) => item.id === depth) || options[0] || DEPTHS[0];
 
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={rootRef} style={{ position: 'relative', flex: '0 0 auto' }}>
       <button
         type="button"
         disabled={disabled}
@@ -88,21 +104,22 @@ const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.m
         aria-label="Elegir razonamiento de Toddy"
         aria-expanded={open}
         style={{
-          minWidth: '116px',
+          minWidth: '96px',
           height: '44px',
           border: '1px solid #111',
           background: '#fff',
           color: '#111',
-          padding: '0 10px',
+          padding: '0 12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '8px',
+          gap: '10px',
           fontFamily: 'var(--font-mono)',
-          fontSize: '10px',
+          fontSize: '11px',
           fontWeight: 900,
           cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.45 : 1
+          opacity: disabled ? 0.45 : 1,
+          boxShadow: open ? '0 6px 18px rgba(0,0,0,0.08)' : 'none'
         }}
       >
         <span>{selected.label}</span>
@@ -112,9 +129,9 @@ const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.m
         <div
           style={{
             position: 'absolute',
-            right: 0,
+            left: 0,
             bottom: '50px',
-            width: '236px',
+            width: '240px',
             background: '#fff',
             border: '1px solid #111',
             boxShadow: '0 18px 38px rgba(0,0,0,0.16)',
@@ -503,20 +520,20 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
                 e.preventDefault();
                 sendMessage();
               }}
-              style={{ borderTop: '1px solid #111', padding: '14px', background: '#f7f5ef', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}
+              style={{ borderTop: '1px solid #111', padding: '14px', background: '#f7f5ef', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'nowrap' }}
             >
-              <input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                disabled={!canAsk || needsCredits || freeBlocked}
-                placeholder={needsCredits ? 'Compra creditos IA para continuar' : freeBlocked ? 'Actualiza tu plan o compra creditos IA' : 'Pregunta sobre esta noticia...'}
-                style={{ flex: '1 1 220px', minWidth: 0, height: '44px', boxSizing: 'border-box', border: '1px solid #111', background: '#fff', padding: '0 12px', fontSize: '14px', outline: 'none' }}
-              />
               <ReasoningSelector
                 depth={depth}
                 onChange={setDepth}
                 allowedDepths={availableDepths}
                 disabled={!canAsk || needsCredits || freeBlocked || loading}
+              />
+              <input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                disabled={!canAsk || needsCredits || freeBlocked}
+                placeholder={needsCredits ? 'Compra creditos IA para continuar' : freeBlocked ? 'Actualiza tu plan o compra creditos IA' : 'Pregunta sobre esta noticia...'}
+                style={{ flex: '1 1 auto', minWidth: 0, height: '44px', boxSizing: 'border-box', border: '1px solid #111', background: '#fff', padding: '0 12px', fontSize: '14px', outline: 'none' }}
               />
               <button
                 disabled={!message.trim() || !canAsk || needsCredits || freeBlocked}
