@@ -1,316 +1,153 @@
 import React from 'react';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 
+const Bullet = () => (
+  <div style={{ width: '8px', height: '8px', background: 'black', marginRight: '16px', flexShrink: 0 }} />
+);
+
 const BlindspotExplainerModal = ({ onClose }) => {
   const { isMobile } = useBreakpoint();
 
-  const sections = [
+  const steps = [
     {
-      number: '1',
-      title: 'Qué es un Blindspot',
-      description: 'Una historia que un lado del espectro político cubre desproporcionadamente más (o menos) que el otro. Es como si un grupo de medios enfatizara una noticia mientras otros la ignoran.',
-      example: 'Ejemplo: Una reforma legislativa cubierta por 10 medios de izquierda, pero solo 2 de derecha = blindspot para la derecha.'
+      label: 'PASO 01',
+      title: 'Qué es un Blindspot.',
+      description: 'Una historia que un lado del espectro político cubre desproporcionadamente más o menos que el otro. Como si un grupo de medios enfatizara algo mientras otros lo ignoran.',
     },
     {
-      number: '2',
-      title: 'Cómo los Detectamos',
-      description: 'Analizamos la distribución de cobertura de cada historia según el sesgo político de sus fuentes. Si hay un desequilibrio significativo (20%+ de diferencia entre lados), la marcamos como blindspot.',
-      example: 'Si una noticia tiene 70% de cobertura en izquierda vs 30% en derecha = blindspot "For the Right"'
+      label: 'PASO 02',
+      title: 'Cómo los detectamos.',
+      description: 'Analizamos la distribución de cobertura según el sesgo de cada fuente. Si hay un desequilibrio de 20% o más entre lados, la historia se clasifica como blindspot.',
     },
     {
-      number: '3',
-      title: 'Por Qué Importa',
-      description: 'Los blindspots te muestran los ángulos que tu lado político tiende a ignorar. Al leerlos, evitas estar en una "burbuja informativa" y entiende perspectivas diferentes.',
-      example: 'Si lees principalmente medios de izquierda, los "For the Right" te exponen a historias que ese sector considera críticas.'
+      label: 'PASO 03',
+      title: 'Por qué importa.',
+      description: 'Los blindspots revelan los ángulos que tu lado político tiende a ignorar. Leerlos evita la burbuja informativa y amplía tu perspectiva.',
     },
     {
-      number: '4',
-      title: 'Cómo Usarlos',
-      description: 'Usa los filtros TODO/ESPAÑA/INTERNACIONAL y los temas para navegar. Cuando veas un blindspot, léelo con curiosidad: ¿por qué mi lado no cubre esto? ¿qué me estoy perdiendo?',
-      example: 'Filtra por ESPAÑA para ver solo blindspots locales, o por TEMAS para explorar áreas donde el consenso es débil.'
-    }
+      label: 'PASO 04',
+      title: 'Cómo usarlos.',
+      description: 'Filtra por TODO, ESPAÑA o INTERNACIONAL. Lee un blindspot de tu lado opuesto cada semana. Nota qué temas evita tu espectro: ahí está la información que te falta.',
+    },
+  ];
+
+  const concepts = [
+    { key: 'FOR THE LEFT', value: 'La derecha cubre poco o nada. Te muestra lo que podrías estar ignorando si consumes medios de izquierda.' },
+    { key: 'FOR THE RIGHT', value: 'La izquierda cubre poco o nada. Perspectivas menos visibles en tu burbuja si consumes medios de derecha.' },
+    { key: 'IMBALANCE SCORE', value: 'Métrica de polarización de la cobertura. Cuanto más alto, más desequilibrada está la historia entre medios.' },
   ];
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.6)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: isMobile ? '16px' : '0'
-    }} onClick={onClose}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(3px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999999,
+        padding: isMobile ? '16px' : '20px',
+      }}
+      onClick={onClose}
+    >
       <div
         style={{
           background: 'white',
-          borderRadius: isMobile ? '16px' : '0',
-          maxWidth: isMobile ? '100%' : '900px',
-          maxHeight: '90vh',
+          width: '100%',
+          maxWidth: isMobile ? '100%' : '640px',
+          maxHeight: 'min(90vh, 820px)',
+          borderRadius: '0',
+          border: '2px solid black',
+          padding: isMobile ? '24px' : '40px',
+          boxShadow: isMobile ? '8px 8px 0 rgba(0,0,0,1)' : '12px 12px 0 rgba(0,0,0,1)',
+          position: 'relative',
           overflowY: 'auto',
-          width: '100%'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{
-          padding: isMobile ? '24px 18px' : '40px 48px',
-          borderBottom: '1px solid #eee',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: '20px'
-        }}>
-          <div>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: 900,
-              fontFamily: 'var(--font-mono)',
-              opacity: 0.4,
-              letterSpacing: '2px',
-              marginBottom: '12px'
-            }}>
-              GUÍA COMPLETA
-            </div>
-            <h1 style={{
-              margin: 0,
-              fontSize: isMobile ? '32px' : '48px',
-              letterSpacing: '-1.5px',
-              lineHeight: 1.05,
-              fontWeight: 800
-            }}>
-              Cómo Funciona Blindspot
-            </h1>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              opacity: 0.5,
-              lineHeight: 1,
-              minWidth: '32px',
-              textAlign: 'center'
-            }}
-          >
-            ✕
-          </button>
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: isMobile ? '10px' : '20px',
+            right: isMobile ? '10px' : '20px',
+            background: 'none',
+            border: 'none',
+            fontSize: isMobile ? '20px' : '24px',
+            cursor: 'pointer',
+            padding: '8px',
+            fontWeight: 800,
+          }}
+        >
+          X
+        </button>
+
+        {/* Label */}
+        <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '3px', marginBottom: '16px' }}>
+          TNE BLINDSPOT / GUÍA
         </div>
 
-        {/* Content */}
-        <div style={{
-          padding: isMobile ? '32px 18px' : '48px'
-        }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
-            gap: isMobile ? '28px' : '40px'
-          }}>
-            {sections.map((section, i) => (
-              <div key={i} style={{
+        {/* Title */}
+        <h2 style={{ fontSize: isMobile ? '28px' : '42px', fontWeight: 800, letterSpacing: isMobile ? '-1.4px' : '-2.5px', marginBottom: '32px', lineHeight: '0.95', paddingRight: isMobile ? '28px' : '40px' }}>
+          Cómo funciona el Blindspot.
+        </h2>
+
+        {/* Steps */}
+        <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid black', marginBottom: '32px' }}>
+          {steps.map((step, i) => (
+            <div
+              key={i}
+              style={{
+                padding: isMobile ? '20px 0' : '24px 0',
+                borderBottom: '1px solid black',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-              }}>
-                {/* Number Badge */}
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '999px',
-                  background: 'black',
-                  color: 'white',
-                  fontSize: '18px',
-                  fontWeight: 900,
-                  fontFamily: 'var(--font-mono)'
-                }}>
-                  {section.number}
+                gap: '16px',
+                alignItems: 'flex-start',
+              }}
+            >
+              <Bullet />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '2px' }}>
+                  {step.label}
                 </div>
-
-                {/* Title */}
-                <h3 style={{
-                  margin: 0,
-                  fontSize: isMobile ? '22px' : '26px',
-                  fontWeight: 800,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.1
-                }}>
-                  {section.title}
-                </h3>
-
-                {/* Description */}
-                <p style={{
-                  margin: 0,
-                  fontSize: '15px',
-                  lineHeight: 1.65,
-                  opacity: 0.75,
-                  color: '#333'
-                }}>
-                  {section.description}
-                </p>
-
-                {/* Example Box */}
-                <div style={{
-                  borderLeft: '4px solid black',
-                  paddingLeft: '16px',
-                  paddingTop: '12px',
-                  paddingBottom: '12px'
-                }}>
-                  <div style={{
-                    fontSize: '10px',
-                    fontWeight: 900,
-                    fontFamily: 'var(--font-mono)',
-                    opacity: 0.4,
-                    letterSpacing: '1px',
-                    marginBottom: '6px'
-                  }}>
-                    EJEMPLO
-                  </div>
-                  <p style={{
-                    margin: 0,
-                    fontSize: '13px',
-                    lineHeight: 1.6,
-                    opacity: 0.65,
-                    fontStyle: 'italic'
-                  }}>
-                    {section.example}
-                  </p>
+                <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '2px' }}>
+                  {step.title}
                 </div>
+                <div style={{ fontSize: '13px', lineHeight: 1.6, opacity: 0.65 }}>
+                  {step.description}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Key Concepts */}
+        <div style={{ padding: isMobile ? '16px' : '24px', border: '1px solid black', position: 'relative', marginBottom: '32px' }}>
+          <div style={{ fontSize: '9px', fontWeight: 900, opacity: 0.4, marginBottom: '16px', letterSpacing: '2px', fontFamily: 'var(--font-mono)' }}>
+            CONCEPTOS CLAVE
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {concepts.map((c, i) => (
+              <div key={i} style={{ display: 'flex', gap: '12px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '0.5px', minWidth: isMobile ? '90px' : '110px', flexShrink: 0 }}>
+                  {c.key}
+                </span>
+                <span style={{ fontSize: '13px', lineHeight: 1.55, opacity: 0.65 }}>
+                  {c.value}
+                </span>
               </div>
             ))}
           </div>
-
-          {/* Key Concepts */}
-          <div style={{
-            marginTop: isMobile ? '40px' : '60px',
-            paddingTop: isMobile ? '32px' : '48px',
-            borderTop: '2px solid black'
-          }}>
-            <h2 style={{
-              margin: '0 0 24px 0',
-              fontSize: isMobile ? '26px' : '32px',
-              fontWeight: 800,
-              letterSpacing: '-1px'
-            }}>
-              Conceptos Clave
-            </h2>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-              gap: '24px'
-            }}>
-              {[
-                {
-                  label: 'FOR THE LEFT',
-                  description: 'Historias que la derecha cubre poco o nada, pero la izquierda sí. Te muestran lo que podrías estar ignorando.'
-                },
-                {
-                  label: 'FOR THE RIGHT',
-                  description: 'Historias que la izquierda cubre poco o nada, pero la derecha sí. Perspectivas menos visibles en tu burbuja.'
-                },
-                {
-                  label: 'IMBALANCE SCORE',
-                  description: 'Nuestra métrica de qué tan sesgada está una historia. Cuanto más alto, más polarizada la cobertura.'
-                }
-              ].map((concept, i) => (
-                <div key={i} style={{
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  background: '#fafafa'
-                }}>
-                  <div style={{
-                    fontSize: '10px',
-                    fontWeight: 900,
-                    fontFamily: 'var(--font-mono)',
-                    opacity: 0.5,
-                    letterSpacing: '1px',
-                    marginBottom: '8px'
-                  }}>
-                    {concept.label}
-                  </div>
-                  <p style={{
-                    margin: 0,
-                    fontSize: '14px',
-                    lineHeight: 1.55,
-                    opacity: 0.7
-                  }}>
-                    {concept.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Pro Tips */}
-          <div style={{
-            marginTop: isMobile ? '40px' : '48px',
-            padding: isMobile ? '20px 16px' : '28px 32px',
-            background: '#000',
-            color: 'white',
-            borderRadius: '12px'
-          }}>
-            <h3 style={{
-              margin: '0 0 16px 0',
-              fontSize: isMobile ? '18px' : '20px',
-              fontWeight: 800
-            }}>
-              💡 Consejos para Mejor Blindspot
-            </h3>
-            <ul style={{
-              margin: 0,
-              paddingLeft: '20px',
-              display: 'grid',
-              gap: '10px'
-            }}>
-              <li style={{ fontSize: '14px', lineHeight: 1.55 }}>
-                Lee un blindspot de tu lado opuesto cada semana. Expande tu perspectiva.
-              </li>
-              <li style={{ fontSize: '14px', lineHeight: 1.55 }}>
-                Nota patrones: ¿qué temas evita tu lado? Eso es una oportunidad de aprender.
-              </li>
-              <li style={{ fontSize: '14px', lineHeight: 1.55 }}>
-                Compara el ángulo de dos versiones del mismo blindspot. Ves cómo el contexto cambia.
-              </li>
-              <li style={{ fontSize: '14px', lineHeight: 1.55 }}>
-                Usa los filtros ESPAÑA/INTERNACIONAL para ajustar a lo que te interesa.
-              </li>
-            </ul>
-          </div>
+          <div style={{ position: 'absolute', right: '-4px', bottom: '-4px', width: '100%', height: '100%', background: 'rgba(0,0,0,0.05)', zIndex: -1 }} />
         </div>
 
-        {/* Footer */}
-        <div style={{
-          padding: isMobile ? '24px 18px' : '32px 48px',
-          borderTop: '1px solid #eee',
-          textAlign: 'center'
-        }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '12px 28px',
-              background: 'black',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 900,
-              fontFamily: 'var(--font-mono)',
-              letterSpacing: '1px'
-            }}
-          >
-            ENTENDIDO
-          </button>
+        {/* Footer decorators */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.2 }}>
+          <div style={{ border: '1px solid black', width: '20px', height: '20px' }} />
+          <div style={{ border: '1px solid black', width: '20px', height: '20px' }} />
         </div>
       </div>
     </div>

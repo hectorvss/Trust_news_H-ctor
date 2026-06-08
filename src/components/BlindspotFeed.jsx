@@ -332,14 +332,16 @@ const BlindspotFeed = ({ stories = [], appConfig = {}, onSelectStory, favStoryId
               key={topic}
               onClick={() => setActiveTopic(topic)}
               style={{
-                padding: '8px 14px',
+                padding: '10px 16px',
                 borderRadius: '999px',
-                border: '1px solid #d9d9d9',
-                background: active ? '#111' : '#fafafa',
+                border: '1px solid black',
+                background: active ? 'black' : 'white',
                 color: active ? 'white' : 'black',
                 cursor: 'pointer',
                 fontSize: '11px',
-                fontWeight: 800
+                fontWeight: 900,
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '1px'
               }}
             >
               {topic}
