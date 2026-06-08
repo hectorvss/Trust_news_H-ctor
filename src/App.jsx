@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import './index.css';
@@ -72,6 +72,7 @@ const App = () => {
   const [activeStoryTab, setActiveStoryTab] = useState('RESUMEN');
   const [showForYou, setShowForYou] = useState(false);
   const [visibleStories, setVisibleStories] = useState(20);
+  const hasMountedScrollRef = useRef(false);
 
   const [favorites, setFavorites] = useState([]);
   const favStoryIds = useMemo(() => new Set(favorites.map(f => String(f.story_id || f.id))), [favorites]);
@@ -164,6 +165,14 @@ const App = () => {
   useEffect(() => {
     refreshStories();
   }, [refreshStories]);
+
+  useEffect(() => {
+    if (!hasMountedScrollRef.current) {
+      hasMountedScrollRef.current = true;
+      return;
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search, activeCategory, activeStoryFilter, activeStoryTab]);
 
   // Deep-link: fetch story by ID when navigating directly to /story/:id
   useEffect(() => {
