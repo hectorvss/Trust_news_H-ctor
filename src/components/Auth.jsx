@@ -103,43 +103,6 @@ const OAuthButton = ({ provider, label, onClick, disabled = false }) => {
   );
 };
 
-const FeatureTile = ({ title, text, accent = false }) => (
-  <div
-    style={{
-      padding: '18px',
-      border: 'var(--border-thin)',
-      borderRadius: 'var(--radius-sm)',
-      background: accent ? '#000' : '#fff',
-      color: accent ? '#fff' : '#111',
-      minHeight: '118px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      gap: '12px'
-    }}
-  >
-    <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: accent ? 0.72 : 0.45 }}>
-      {title}
-    </div>
-    <div style={{ fontSize: '15px', lineHeight: 1.45, fontWeight: 600, maxWidth: '28ch' }}>{text}</div>
-  </div>
-);
-
-const MetricPill = ({ value, label }) => (
-  <div
-    style={{
-      padding: '14px 16px',
-      borderRadius: 'var(--radius-sm)',
-      border: 'var(--border-thin)',
-      minWidth: '150px',
-      background: '#fff'
-    }}
-  >
-    <div style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-1.2px', lineHeight: 1 }}>{value}</div>
-    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.2px', opacity: 0.45 }}>{label}</div>
-  </div>
-);
-
 const Auth = ({ onBack }) => {
   const navigate = useNavigate();
   const { signIn, signUp, signInWithOAuth, user } = useAuth();
@@ -410,80 +373,80 @@ const Auth = ({ onBack }) => {
         </span>
       </div>
 
-      <section style={{ padding: '0 0 22px 0', borderBottom: 'var(--border-thin)', marginBottom: '22px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 0.95fr', gap: isMobile ? '14px' : '24px', alignItems: 'start' }}>
-          <div>
-            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '38px' : '60px', marginBottom: '8px' }}>
-              {isLogin ? 'Bienvenido de\nNuevo.' : 'Comienza tu\nContraste.'}
+      <section style={{ padding: '0 0 18px 0', borderBottom: 'var(--border-thin)', marginBottom: '18px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.95fr 1.05fr', gap: isMobile ? '18px' : '28px', alignItems: 'start' }}>
+          <div style={{ paddingTop: isMobile ? 0 : '10px' }}>
+            <h1 style={{ ...sectionTitleStyle(isMobile), fontSize: isMobile ? '38px' : '60px', marginBottom: '10px' }}>
+              {isLogin ? 'Bienvenido de\nNuevo.' : 'Crear\nCuenta.'}
             </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '18px', opacity: 0.68, maxWidth: '520px', lineHeight: 1.45, marginBottom: '14px' }}>
+            <p style={{ fontSize: isMobile ? '16px' : '18px', opacity: 0.7, maxWidth: '460px', lineHeight: 1.45, marginBottom: '18px' }}>
               {isLogin
                 ? 'Accede a tu panel personalizado de noticias y blindspots.'
                 : 'Unete a la plataforma lider en analisis de sesgo mediatico en Espana.'}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '18px' }}>
-              {[
-                'Feed personalizado',
-                'Blindspot y analisis',
-                'Lectura completa',
-              ].map((item) => (
-                <span key={item} className="tag" style={{ padding: '5px 11px', opacity: 0.85 }}>
-                  {item}
-                </span>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: '12px', maxWidth: '840px' }}>
-              <FeatureTile title="LECTURA" text="Tu experiencia empieza con el feed, el resumen diario y la cobertura editorial ya enlazados." />
-              <FeatureTile title="TRAZABILIDAD" text="Cada noticia conserva contexto, fuentes, sesgo y revisión humana obligatoria." accent />
-              <FeatureTile title="ACCION" text="Guarda, compara, pregunta a Toddy y vuelve siempre al mismo punto." />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '420px' }}>
+              <div style={{ border: 'var(--border-thin)', borderRadius: 'var(--radius-sm)', padding: '18px 18px 16px', background: '#fff' }}>
+                <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1.4px', opacity: 0.4, marginBottom: '10px' }}>
+                  {isLogin ? 'ENTRAR RÁPIDO' : 'EMPEZAR AHORA'}
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 700, lineHeight: 1.35, marginBottom: '8px' }}>
+                  {isLogin
+                    ? 'Usa Google, Apple o tu email para volver sin fricción.'
+                    : 'Crea tu cuenta y desbloquea el feed, Toddy y el análisis completo.'}
+                </div>
+                <div style={{ fontSize: '13px', opacity: 0.6, lineHeight: 1.45 }}>
+                  Todo queda en el mismo sistema: lectura, guardados, revisión y análisis.
+                </div>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: isMobile ? 'flex-start' : 'flex-end', alignItems: 'flex-start' }}>
-            <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0, position: 'relative', top: 0, width: '100%', maxWidth: isMobile ? '100%' : '660px', padding: isMobile ? '24px 18px' : '32px 30px' }}>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+            <div className="story-card" style={{ ...cardStyle(isMobile), minHeight: 'auto', marginBottom: 0, position: 'relative', top: 0, width: '100%', maxWidth: isMobile ? '100%' : '680px', padding: isMobile ? '22px 18px' : '28px 28px 24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span className="tag" style={{ padding: '5px 10px', opacity: 0.85 }}>ACCESO INSTANTANEO</span>
-                  <span className="tag" style={{ padding: '5px 10px', opacity: 0.85 }}>SIN RUIDO</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(true);
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    style={{
+                      ...providerButtonBase,
+                      width: 'auto',
+                      minHeight: '40px',
+                      padding: '0 14px',
+                      background: isLogin ? '#000' : '#fff',
+                      color: isLogin ? '#fff' : '#111',
+                      borderColor: '#111'
+                    }}
+                  >
+                    INICIAR SESION
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(false);
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    style={{
+                      ...providerButtonBase,
+                      width: 'auto',
+                      minHeight: '40px',
+                      padding: '0 14px',
+                      background: !isLogin ? '#000' : '#fff',
+                      color: !isLogin ? '#fff' : '#111',
+                      borderColor: '#111'
+                    }}
+                  >
+                    CREAR CUENTA
+                  </button>
                 </div>
-                <span
-                  className="tag"
-                  onClick={() => {
-                    setIsLogin(true);
-                    setError(null);
-                    setSuccess(null);
-                  }}
-                  style={{
-                    cursor: 'pointer',
-                    background: isLogin ? 'black' : 'none',
-                    color: isLogin ? 'white' : 'black',
-                    padding: '9px 13px'
-                  }}
-                >
-                  INICIAR SESION
+                <span style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '1.6px', opacity: 0.45 }}>
+                  ACCESO SEGURO AES-256
                 </span>
-                <span
-                  className="tag"
-                  onClick={() => {
-                    setIsLogin(false);
-                    setError(null);
-                    setSuccess(null);
-                  }}
-                  style={{
-                    cursor: 'pointer',
-                    background: !isLogin ? 'black' : 'none',
-                    color: !isLogin ? 'white' : 'black',
-                    padding: '9px 13px'
-                  }}
-                >
-                  CREAR CUENTA
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: '10px', marginBottom: '18px' }}>
-                <MetricPill value="2" label="PROVEEDORES TOP" />
-                <MetricPill value="1" label="PANTALLA PRINCIPAL" />
-                <MetricPill value="0" label="FRICCIÓN EXTRA" />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
@@ -492,9 +455,9 @@ const Auth = ({ onBack }) => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
-                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
+                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.18 }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', opacity: 0.4 }}>O CON EMAIL</span>
-                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.2 }} />
+                <div style={{ flex: 1, height: '1px', background: 'var(--color-primary)', opacity: 0.18 }} />
               </div>
 
               <form style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} onSubmit={handleSubmit}>
@@ -547,17 +510,7 @@ const Auth = ({ onBack }) => {
                 </button>
               </form>
 
-              <div
-                style={{
-                  marginTop: '14px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  flexDirection: isMobile ? 'column' : 'row',
-                  opacity: 0.45,
-                  fontSize: '12px'
-                }}
-              >
+              <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'space-between', gap: '16px', flexDirection: isMobile ? 'column' : 'row', opacity: 0.45, fontSize: '12px' }}>
                 <span
                   style={{ cursor: 'pointer' }}
                   onClick={() => {
@@ -574,13 +527,6 @@ const Auth = ({ onBack }) => {
           </div>
         </div>
       </section>
-
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))', gap: '12px', marginBottom: '18px' }}>
-        <FeatureTile title="SEGURIDAD" text="Autenticación con proveedores conocidos y recuperación directa de contraseña." />
-        <FeatureTile title="PREFERENCIAS" text="Tu cuenta conecta con feed, guardados, sesgo y Toddy desde el mismo perfil." />
-        <FeatureTile title="PRODUCTO" text="Acceso, lectura y análisis conviven sin hacerte saltar entre pantallas." />
-        <FeatureTile title="PRIORIDAD" text="Diseño hecho para convertir rápido y mantener al usuario dentro del sistema." />
-      </div>
     </div>
   );
 };
