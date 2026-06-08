@@ -375,6 +375,10 @@ const App = () => {
         <Routes>
           <Route path="/" element={
             <>
+              {/* Launch Offer Banner */}
+              <div style={{ background: 'black', color: 'white', padding: '8px var(--page-padding)', textAlign: 'center', fontSize: '11px', fontWeight: 800, letterSpacing: '2px', fontFamily: 'var(--font-mono)', borderBottom: 'var(--border-thin)' }}>
+                OFERTA DE LANZAMIENTO: 1€ POR SEMANA • <span onClick={() => navigate('/pricing')} style={{ textDecoration: 'underline', cursor: 'pointer' }}>OBTÉN EL DESCUENTO ↗</span>
+              </div>
 
               {/* Active Category/Filter Indicator */}
               {(activeCategory !== 'TODO' || activeCity || activeTopic) && (
