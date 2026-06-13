@@ -127,14 +127,14 @@ const Footer = ({ links }) => {
           </div>
           <div>
             <h4 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase' }}>
-              <Link to="/tools" style={{ color: 'inherit', textDecoration: 'none' }}>Herramientas</Link>
+              Producto
             </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', opacity: 0.6 }}>
-              <li key="h1"><Link to="/tools?section=app-movil" style={{ color: 'inherit', textDecoration: 'none' }}>App móvil</Link></li>
-              <li key="h2"><Link to="/tools?section=extension" style={{ color: 'inherit', textDecoration: 'none' }}>Extensión de navegador</Link></li>
-              <li key="h3"><Link to="/tools?section=newsletter" style={{ color: 'inherit', textDecoration: 'none' }}>Newsletter diaria</Link></li>
-              <li key="h4"><Link to="/tools?section=timelines" style={{ color: 'inherit', textDecoration: 'none' }}>Timelines</Link></li>
-              <li key="h5"><Link to="/tools?section=api" style={{ color: 'inherit', textDecoration: 'none' }}>API de datos</Link></li>
+              <li key="p1"><Link to="/discover" style={{ color: 'inherit', textDecoration: 'none' }}>Descubrir</Link></li>
+              <li key="p2"><Link to="/daily-summary" style={{ color: 'inherit', textDecoration: 'none' }}>Resumen diario</Link></li>
+              <li key="p3"><Link to="/bias" style={{ color: 'inherit', textDecoration: 'none' }}>Blindspot</Link></li>
+              <li key="p4"><Link to="/pricing" style={{ color: 'inherit', textDecoration: 'none' }}>Precios</Link></li>
+              <li key="p5"><Link to="/account" style={{ color: 'inherit', textDecoration: 'none' }}>Cuenta</Link></li>
             </ul>
           </div>
         </div>

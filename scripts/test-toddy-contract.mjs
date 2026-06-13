@@ -139,6 +139,10 @@ const core = 'api/_toddyCore.js';
   ['api/stripe.js', 'plan_slug'],
   ['api/webhook.js', 'stripe_ai_credit_pack'],
   ['api/webhook.js', 'subscription_${tier}_monthly_grant'],
+  ['api/webhook.js', "import { buffer } from 'micro'"],
+  ['api/webhook.js', 'body: rawBody'],
+  ['api/_billingCore.js', 'function getStripe()'],
+  ['api/_billingCore.js', 'handleStripeWebhook'],
   ['server/index.js', '/api/toddy-chat'],
   ['server/index.js', '/api/create-ai-credit-checkout-session']
 ].forEach(([file, needle]) => assertIncludes(file, needle));

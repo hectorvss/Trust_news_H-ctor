@@ -450,12 +450,18 @@ export const fetchStories = async (category = 'TODO') => {
   return (data || []).map(mapStory);
 };
 
-export const fetchStoryById = async (id) => {
-  const { data, error } = await supabase
+export const fetchStoryById = async (id, options = {}) => {
+  const { includeUnpublished = false } = options;
+  let query = supabase
     .from('stories')
     .select('*')
-    .eq('id', id)
-    .single();
+    .eq('id', id);
+
+  if (!includeUnpublished) {
+    query = query.eq('status', 'published');
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.error('Error fetching story detail:', error);
@@ -1015,8 +1021,10 @@ const validateDraftForApproval = (story) => {
 export const approveDraftStory = async (storyId) => {
   const { data: draft, error: fetchError } = await supabase
     .from('stories')
-    .select('id, title, summary, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, cifras_clave, verificacion_info, articles, editorial_validation, generation_metadata, review_status')
+    .select('id, title, summary, coverage_left, coverage_center, coverage_right, consensus_narrative, consenso_narrativo, cifras_clave, verificacion_info, articles, editorial_validation, generation_metadata, review_status, status, is_auto_generated')
     .eq('id', storyId)
+    .eq('status', 'draft')
+    .eq('is_auto_generated', true)
     .maybeSingle();
 
   if (fetchError || !draft) {
@@ -1095,20 +1103,30 @@ export const fetchPipelineStats = async () => {
   };
 
   const [
-    sourcesActive, sourcesTotal, rawTotal, rawEmbedded,
-    rawExtractionPending, contentExtracted, contentPaywalled, contentBlocked, lowQualityExtractions,
-    clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published, jobs24h, jobErr24h
+    sourcesActive, sourcesTotal,
+    rawTotal, rawStatusRaw, rawStatusEmbedded, rawStatusClustered, rawStatusFailed, rawEmbeddedByFlag, rawClusteredByFlag,
+    extractionPending, extractionFailed, contentExtracted, contentPaywalled, contentBlocked, lowQualityExtractions,
+    clustersTotal, clustersReady, clustersWithoutDraft, refreshPending,
+    draftsPending, draftsReady, draftsFailed, published, jobs24h, jobErr24h, runsFailed24h
   ] = await Promise.all([
     countOf('sources', q => q.eq('activo', true)),
     countOf('sources'),
     countOf('raw_articles'),
+    countOf('raw_articles', q => q.eq('status', 'raw')),
+    countOf('raw_articles', q => q.eq('status', 'embedded')),
+    countOf('raw_articles', q => q.eq('status', 'clustered')),
+    countOf('raw_articles', q => q.eq('status', 'failed')),
     countOf('raw_articles', q => q.eq('embedded', true)),
+    countOf('raw_articles', q => q.eq('clustered', true)),
     countOf('raw_articles', q => q.in('extraction_status', ['pending', 'failed'])),
+    countOf('raw_articles', q => q.eq('extraction_status', 'failed')),
     countOf('article_content', q => q.eq('extraction_status', 'completed')),
     countOf('article_content', q => q.eq('paywall_detected', true)),
     countOf('article_content', q => q.not('blocked_reason', 'is', null)),
     countOf('article_content', q => q.lt('extraction_quality_score', 0.35).not('extraction_status', 'eq', 'skipped_policy')),
     countOf('story_clusters'),
+    countOf('story_clusters', q => q.eq('status', 'ready')),
+    countOf('story_clusters', q => q.eq('status', 'ready').is('story_id', null)),
     countOf('story_clusters', q => q.eq('status', 'refresh_pending')),
     countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true)),
     countOf('stories', q => q.eq('status', 'draft').eq('is_auto_generated', true).eq('review_status', 'ready_for_review')),
@@ -1116,6 +1134,7 @@ export const fetchPipelineStats = async () => {
     countOf('stories', q => q.eq('status', 'published')),
     countOf('ingestion_jobs', q => q.gte('created_at', since24h)),
     countOf('ingestion_jobs', q => q.gte('created_at', since24h).or('status.eq.failed,status.eq.error')),
+    countOf('pipeline_runs', q => q.gte('created_at', since24h).eq('status', 'failed')),
   ]);
 
   let lastIngestAt = null;
@@ -1163,10 +1182,36 @@ export const fetchPipelineStats = async () => {
 
   return {
     sourcesActive, sourcesTotal,
-    rawTotal, rawEmbedded, rawBacklog: Math.max(0, rawTotal - rawEmbedded), rawExtractionPending,
+    rawTotal,
+    rawStatusRaw,
+    rawStatusEmbedded,
+    rawStatusClustered,
+    rawStatusFailed,
+    rawEmbedded: rawStatusEmbedded || rawEmbeddedByFlag,
+    rawEmbeddedByFlag,
+    rawClustered: rawStatusClustered || rawClusteredByFlag,
+    rawClusteredByFlag,
+    rawBacklog: Math.max(0, rawTotal - (rawStatusEmbedded || rawEmbeddedByFlag)),
+    extractionPending,
+    extractionFailed,
+    rawExtractionPending: extractionPending,
     contentExtracted, contentPaywalled, contentBlocked, lowQualityExtractions,
-    clusters, refreshPending, draftsPending, draftsReady, draftsFailed, published,
-    jobs24h, jobErr24h, jobOk24h: Math.max(0, jobs24h - jobErr24h),
+    clustersTotal,
+    clustersReady,
+    clustersWithoutDraft,
+    clusters: clustersTotal,
+    refreshPending,
+    draftsPending,
+    draftsReady,
+    draftsFailed,
+    draftsAnalysisFailed: draftsFailed,
+    draftsWithoutSynthesis: Math.max(0, draftsPending - draftsReady - draftsFailed),
+    published,
+    jobs24h,
+    jobErr24h,
+    jobsFailed24h: jobErr24h,
+    runsFailed24h,
+    jobOk24h: Math.max(0, jobs24h - jobErr24h),
     llmTokens24h: llmStats.inputTokens + llmStats.outputTokens,
     llmInputTokens24h: llmStats.inputTokens,
     llmOutputTokens24h: llmStats.outputTokens,

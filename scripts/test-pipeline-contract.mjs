@@ -213,6 +213,36 @@ const checks = [
     ],
   },
   {
+    name: "public story detail fetch blocks unpublished stories by default",
+    file: "src/supabaseService.js",
+    mustInclude: [
+      "includeUnpublished = false",
+      "query = query.eq('status', 'published')",
+      "query.maybeSingle()",
+    ],
+  },
+  {
+    name: "manager approval is limited to generated draft stories",
+    file: "src/supabaseService.js",
+    mustInclude: [
+      "export const approveDraftStory",
+      ".eq('status', 'draft')",
+      ".eq('is_auto_generated', true)",
+      "validateDraftForApproval(draft)",
+    ],
+  },
+  {
+    name: "pipeline dashboard exposes canonical and legacy-compatible counters",
+    file: "src/supabaseService.js",
+    mustInclude: [
+      "rawStatusEmbedded",
+      "rawStatusClustered",
+      "clustersTotal",
+      "clustersWithoutDraft",
+      "rawExtractionPending: extractionPending",
+    ],
+  },
+  {
     name: "category contract is canonical across app and service",
     file: "src/supabaseService.js",
     mustInclude: [
@@ -257,14 +287,31 @@ const checks = [
       "error_count",
     ],
   },
+  {
+    name: "tools compatibility route is not exposed in visible footer navigation",
+    file: "src/components/Footer.jsx",
+    mustInclude: [
+      "Producto",
+      "/daily-summary",
+      "/pricing",
+    ],
+    mustNotInclude: [
+      "/tools",
+      "Herramientas",
+    ],
+  },
 ];
 
 const failures = [];
 for (const check of checks) {
   const content = read(check.file);
   const missing = check.mustInclude.filter((needle) => !content.includes(needle));
+  const forbidden = (check.mustNotInclude || []).filter((needle) => content.includes(needle));
   if (missing.length) {
     failures.push(`${check.name}: missing ${missing.join(", ")}`);
+  }
+  if (forbidden.length) {
+    failures.push(`${check.name}: forbidden ${forbidden.join(", ")}`);
   }
 }
 

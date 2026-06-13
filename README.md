@@ -1,16 +1,80 @@
-# React + Vite
+# Trust News Espana
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SaaS editorial para recopilar noticias, agrupar cobertura entre medios, analizar sesgo, generar borradores revisables y explicar cada noticia con Toddy, el agente IA contextual.
 
-Currently, two official plugins are available:
+## Arquitectura
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Frontend: React + Vite en `src/`.
+- Datos: Supabase Postgres como sistema de verdad.
+- Pipeline: Supabase Edge Functions en `supabase/functions/`.
+- API Node/Vercel: rutas en `api/`.
+- Servidor local: `server/index.js`, solo como wrapper local sobre los nucleos compartidos de `api/`.
+- Pagos: Stripe Checkout, Stripe Portal y webhooks centralizados en `api/_billingCore.js`.
+- Toddy: core compartido en `api/_toddyCore.js`.
 
-## React Compiler
+## Flujo editorial principal
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```text
+ingest-rss
+  -> extract-article-content
+  -> embed-articles
+  -> cluster-articles
+  -> materialize-cluster
+  -> generate-synthesis
+  -> manager review
+  -> published story
+```
 
-## Expanding the ESLint configuration
+El contrato vivo esta documentado en `PIPELINE_CONTRACT_2026-06-13.md`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run test:pipeline
+npm run test:llm-contract
+npm run test:toddy-contract
+```
+
+`npm run dev` arranca Vite y el servidor local Express.
+
+## Variables clave
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_PREMIUM_MONTHLY`
+- `STRIPE_PRICE_PREMIUM_YEARLY`
+- `STRIPE_PRICE_ELITE_MONTHLY`
+- `STRIPE_PRICE_ELITE_YEARLY`
+- `STRIPE_PRICE_AI_CREDITS_SMALL`
+- `STRIPE_PRICE_AI_CREDITS_MEDIUM`
+- `STRIPE_PRICE_AI_CREDITS_LARGE`
+
+## Contratos importantes
+
+- Las lecturas publicas de stories deben filtrar `status = 'published'`.
+- Las pantallas manager deben leer drafts mediante helpers explicitos.
+- El enlace canonico a clusters es `stories.pipeline_cluster_id`.
+- `stories.cluster_id` queda como compatibilidad legacy.
+- El lifecycle canonico de articulos vive en `raw_articles.status`.
+- `raw_articles.embedded` y `raw_articles.clustered` son espejos legacy.
+- Toddy solo responde sobre stories publicadas.
+- La publicacion editorial siempre requiere manager review.
+
+## Verificacion esperada
+
+Antes de cerrar cambios de arquitectura:
+
+```bash
+npm run test:pipeline
+npm run test:llm-contract
+npm run test:toddy-contract
+npm run build
+```
+

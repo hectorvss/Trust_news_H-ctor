@@ -562,10 +562,25 @@ const App = () => {
                   const storyId = location.pathname.split('/').pop();
                   let currentStory = selectedStory || finalStories.find(s => String(s.id) === storyId);
                   
-                  if (!currentStory || (storiesLoading && !currentStory.title)) {
+                  if (storiesLoading && (!currentStory || !currentStory.title)) {
                     return (
                       <div style={{ padding: '20vh 0', textAlign: 'center', fontFamily: 'var(--font-mono)', background: 'white', minHeight: '80vh' }}>
                          <h2 style={{ fontSize: '12px', opacity: 0.3 }}>IDENTIFICANDO NOTICIA...</h2>
+                      </div>
+                    );
+                  }
+
+                  if (!currentStory) {
+                    return (
+                      <div style={{ padding: '20vh 24px', textAlign: 'center', fontFamily: 'var(--font-mono)', background: 'white', minHeight: '80vh' }}>
+                        <div style={{ fontSize: '64px', fontWeight: 800, opacity: 0.05, marginBottom: '24px' }}>-</div>
+                        <div style={{ fontSize: '12px', fontWeight: 900, opacity: 0.4, letterSpacing: '2px', marginBottom: '16px' }}>NOTICIA NO DISPONIBLE</div>
+                        <p style={{ fontSize: '14px', opacity: 0.55, maxWidth: '440px', margin: '0 auto 36px auto', lineHeight: 1.6 }}>
+                          Esta noticia no existe, todavia no esta publicada o ya no esta disponible para lectura publica.
+                        </p>
+                        <button onClick={() => navigate('/')} style={{ padding: '14px 28px', background: 'black', color: 'white', border: 'none', fontWeight: 900, fontSize: '11px', cursor: 'pointer', letterSpacing: '1px' }}>
+                          VOLVER AL INICIO
+                        </button>
                       </div>
                     );
                   }
