@@ -81,8 +81,13 @@ const Discover = ({ navigate, setActiveCategory }) => {
     });
   };
 
+  // Solo estas categorías existen realmente en el feed (pipeline + seeds). El
+  // resto de temas de Discover (CLIMA, INMIGRACIÓN, ENERGÍA…) no son categorías
+  // asignables: deben buscarse por texto, no fijar un filtro de categoría vacío.
+  const REAL_CATEGORIES = ['POLÍTICA', 'ECONOMÍA', 'INTERNACIONAL', 'SOCIEDAD', 'TECNOLOGÍA', 'DEPORTES', 'CIENCIA', 'CULTURA'];
+
   const goTopic = (topic) => {
-    if (setActiveCategory && TOPICS.includes(topic)) setActiveCategory(topic);
+    if (setActiveCategory) setActiveCategory(REAL_CATEGORIES.includes(topic) ? topic : 'TODO');
     navigate(`/?topic=${encodeURIComponent(topic)}`);
   };
 

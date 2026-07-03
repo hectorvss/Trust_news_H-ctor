@@ -291,7 +291,7 @@ const App = () => {
     navigate(`/story/${storyId}`);
   };
 
-  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'ECONOMÍA', 'SOCIEDAD', 'TECNOLOGÍA', 'DEPORTES', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE', 'CIENCIA', 'SUCESOS', 'VIVIENDA'];
+  const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'ECONOMÍA', 'INTERNACIONAL', 'SOCIEDAD', 'TECNOLOGÍA', 'DEPORTES', 'CIENCIA', 'CULTURA'];
 
   // Stories from Supabase (single source of truth)
   const searchParams = new URLSearchParams(location.search);

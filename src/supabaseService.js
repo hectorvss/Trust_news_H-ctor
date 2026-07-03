@@ -1,17 +1,19 @@
 import { supabase } from './supabaseClient';
 
 const CATEGORY_ALIASES = {
-  'ECONOMÍA': ['ECONOMÍA', 'FINANZAS'],
-  'SOCIEDAD': ['SOCIEDAD', 'SOCIAL'],
+  'ECONOMÍA': ['ECONOMÍA', 'FINANZAS', 'VIVIENDA'],
+  'SOCIEDAD': ['SOCIEDAD', 'SOCIAL', 'SUCESOS'],
   'DEPORTES': ['DEPORTES', 'DEPORTE'],
+  'CIENCIA': ['CIENCIA', 'MEDIO AMBIENTE', 'MEDIOAMBIENTE', 'CLIMA', 'SANIDAD'],
 };
 
 export const normalizeCategory = (value) => {
   const raw = String(value || '').trim().toUpperCase();
   if (!raw) return 'SOCIEDAD';
-  if (raw === 'FINANZAS') return 'ECONOMÍA';
-  if (raw === 'SOCIAL') return 'SOCIEDAD';
+  if (raw === 'FINANZAS' || raw === 'VIVIENDA') return 'ECONOMÍA';
+  if (raw === 'SOCIAL' || raw === 'SUCESOS') return 'SOCIEDAD';
   if (raw === 'DEPORTE') return 'DEPORTES';
+  if (raw === 'MEDIO AMBIENTE' || raw === 'MEDIOAMBIENTE' || raw === 'CLIMA' || raw === 'SANIDAD') return 'CIENCIA';
   return raw;
 };
 
