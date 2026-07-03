@@ -44,6 +44,8 @@ import AccessLimitModal from './components/AccessLimitModal';
 import { getEffectiveUserRole, hasManagerAccess } from './utils/managerAccess';
 import { normalizeCategory } from './supabaseService';
 import { findStoryByText } from './utils/storyMatch';
+import SideRails from './components/ads/SideRails';
+import { useMediaQuery } from './hooks/useMediaQuery';
 
 const PageLoader = () => (
   <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 900, letterSpacing: '2px', opacity: 0.3 }}>
@@ -85,7 +87,15 @@ const App = () => {
   const effectiveRole = getEffectiveUserRole({ user, profile });
   const canAccessManager = hasManagerAccess({ user, profile });
   const isPremium = profile?.subscription_tier === 'premium' || canAccessManager;
-  
+
+  // Ads (solo no-pagantes, solo en la home). Los rails salen desde 1280px; en
+  // pantallas medianas (1280-1839px) inseta el contenido para no solaparse, y
+  // en pantallas anchas caen en el hueco vacío sin tocar el layout.
+  const isHome = location.pathname === '/';
+  const showAds = !authLoading && !isPremium && isHome;
+  const needsAdInset = useMediaQuery('(min-width: 1280px) and (max-width: 1839px)');
+  const adInset = showAds && needsAdInset ? 200 : 0;
+
   // Track Reading Time
   useEffect(() => {
     // Only track if there is a selected story/article and user is NOT premium
@@ -404,7 +414,8 @@ const App = () => {
         setShowForYou={setShowForYou} 
         categories={categories} 
       />
-      <main style={{ marginTop: '72px', minHeight: '100vh', background: 'white' }}>
+      <SideRails active={showAds} navigate={navigate} />
+      <main style={{ marginTop: '72px', minHeight: '100vh', background: 'white', paddingLeft: adInset, paddingRight: adInset, transition: 'padding 0.2s ease' }}>
         <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={
