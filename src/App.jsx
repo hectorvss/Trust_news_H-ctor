@@ -319,13 +319,18 @@ const App = () => {
   const activeTopic = searchParams.get('topic');
 
   const rawSource = stories;
-  let finalStories = activeCategory === 'TODO' 
-    ? rawSource 
+  // "PARA TI" is personalized from the user's saved favorite_categories
+  // (Account → Mis Temas Favoritos). Falls back to a sensible default set for
+  // users without preferences. normalizeCategory folds synonyms (VIVIENDA→
+  // ECONOMÍA, SUCESOS→SOCIEDAD, etc.) so picks map to real feed categories.
+  const paraTiCategories = (() => {
+    const favs = (profile?.settings?.favorite_categories || []).map(normalizeCategory);
+    return favs.length ? [...new Set(favs)] : ['ECONOMÍA', 'TECNOLOGÍA', 'POLÍTICA', 'DEPORTES', 'SOCIEDAD'];
+  })();
+  let finalStories = activeCategory === 'TODO'
+    ? rawSource
     : (activeCategory === 'PARA_TI' || activeCategory === 'PARA TI'
-        ? rawSource.filter(s => {
-            const cat = normalizeCategory(s.category);
-            return ['ECONOMÍA', 'TECNOLOGÍA', 'POLÍTICA', 'DEPORTES', 'SOCIEDAD'].includes(cat);
-          })
+        ? rawSource.filter(s => paraTiCategories.includes(normalizeCategory(s.category)))
         : rawSource.filter(s => normalizeCategory(s.category) === normalizeCategory(activeCategory)));
 
   if (activeCity) {
