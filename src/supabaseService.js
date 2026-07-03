@@ -49,6 +49,19 @@ export const logReading = async (userId, storyId) => {
 // SUBSCRIPTION USAGE TRACKING
 // ==========================================
 
+// Colapsa cualquier representación de sesgo (5 puntos, etiquetas ES/EN,
+// acentos, guiones/espacios) a los 3 cubos canónicos que espera bias_logs.
+export const toBiasBucket = (value) => {
+  const s = String(value || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\s_]+/g, '-');
+  if (['LEFT', 'FAR-LEFT', 'IZQUIERDA', 'LEAN-LEFT', 'CENTER-LEFT', 'CENTRO-IZQUIERDA', 'CENTROIZQUIERDA'].includes(s)) return 'LEFT';
+  if (['RIGHT', 'FAR-RIGHT', 'DERECHA', 'LEAN-RIGHT', 'CENTER-RIGHT', 'CENTRO-DERECHA', 'CENTRODERECHA'].includes(s)) return 'RIGHT';
+  return 'CENTER';
+};
+
 export const getSessionId = () => {
   let sessionId = localStorage.getItem('tne_session_id');
   if (!sessionId) {
@@ -71,14 +84,16 @@ export const pingUsage = async (userId, storyId, readSeconds = 0, biasCategory =
 
     if (usageError) console.error('Error tracking usage:', usageError);
 
-    // 2. Log bias data if provided (real-time analysis)
-    if (biasCategory && readSeconds > 0) {
+    // 2. Log bias data whenever a lean is provided. Registering on open
+    // (readSeconds === 0) captures quick reads as exposure; the reading
+    // interval keeps adding time-weighted rows while the tab stays visible.
+    if (biasCategory) {
       const { error: biasError } = await supabase.rpc('log_bias_read', {
         p_session_id: sessionId,
         p_user_id: userId || null,
         p_story_id: String(storyId),
-        p_bias_category: biasCategory,
-        p_source_name: sourceName || 'Unknown',
+        p_bias_category: toBiasBucket(biasCategory),
+        p_source_name: sourceName || 'Cobertura agregada',
         p_seconds_read: readSeconds
       });
       if (biasError) console.error('Error tracking bias:', biasError);
@@ -139,6 +154,51 @@ export const getBiasStats = async (userId, days = null) => {
   } catch (err) {
     console.error('Error fetching bias stats:', err);
     return null;
+  }
+};
+
+// Serie temporal de "salud informativa" por día para el gráfico de evolución
+// de BiasAnalysis. Devuelve [{ day, diversity, reads }] ordenado por fecha.
+// Por-usuario (user_id) o por-sesión (anónimo). [] si no hay datos.
+export const getBiasTrend = async (userId, days = 30) => {
+  const sessionId = getSessionId();
+  try {
+    const span = days || 90;
+    const since = new Date(Date.now() - span * 86400000).toISOString();
+    let query = supabase
+      .from('bias_logs')
+      .select('bias_category, source_name, created_at')
+      .gte('created_at', since);
+    query = userId ? query.eq('user_id', userId) : query.eq('session_id', sessionId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Agrupa por día (YYYY-MM-DD)
+    const byDay = {};
+    for (const row of data) {
+      const day = new Date(row.created_at).toISOString().slice(0, 10);
+      (byDay[day] = byDay[day] || []).push(row);
+    }
+
+    return Object.keys(byDay).sort().map((day) => {
+      const rows = byDay[day];
+      const sources = new Set(rows.map((r) => r.source_name).filter(Boolean));
+      const counts = rows.reduce((acc, r) => {
+        if (r.bias_category) acc[r.bias_category] = (acc[r.bias_category] || 0) + 1;
+        return acc;
+      }, {});
+      const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+      const max = Math.max(...Object.values(counts), 0);
+      const spreadDiversity = Math.round((1 - max / total) * 150);
+      const sourceDiversity = Math.min(100, Math.round((sources.size / 8) * 100));
+      const diversity = Math.min(100, Math.max(spreadDiversity, sourceDiversity));
+      return { day, diversity, reads: rows.length };
+    });
+  } catch (err) {
+    console.error('Error fetching bias trend:', err);
+    return [];
   }
 };
 

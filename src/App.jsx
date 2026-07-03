@@ -105,9 +105,15 @@ const App = () => {
     const interval = setInterval(async () => {
       // log 10 seconds of reading
       if (document.visibilityState === 'visible') {
-        const biasCategory = selectedArticle ? selectedArticle.bias : null;
-        const sourceName = selectedArticle ? selectedArticle.source : (selectedStory ? 'TNE Editorial' : null);
-        
+        // Reading a story now records its dominant lean (from real coverage_*),
+        // so bias stats populate from normal usage — not only article-level reads.
+        const biasCategory = selectedArticle
+          ? selectedArticle.bias
+          : (selectedStory ? selectedStory.dominantLean : null);
+        const sourceName = selectedArticle
+          ? selectedArticle.source
+          : (selectedStory ? 'Cobertura agregada' : null);
+
         pingUsage(user?.id, activeStoryId, 10, biasCategory, sourceName);
         setUsageMetrics(prev => ({
           ...prev,
@@ -272,8 +278,11 @@ const App = () => {
        }
     }
 
-    // Ping usage (if it's new it adds to articles_read)
-    pingUsage(user?.id, storyId, 0).then(() => {
+    // Record the read for "Mi Sesgo": reading_history (Últimas Noticias Leídas)
+    // + an initial bias-exposure row from the story's dominant lean, so even a
+    // quick open counts before the 10s reading interval fires.
+    logReading(user?.id, storyId);
+    pingUsage(user?.id, storyId, 0, story?.dominantLean || null, 'Cobertura agregada').then(() => {
        getUsageMetrics(user?.id).then(setUsageMetrics);
     });
     

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getBiasStats, getReadingHistory, fetchStoryById } from '../supabaseService';
+import { getBiasStats, getReadingHistory, fetchStoryById, getBiasTrend } from '../supabaseService';
 import { useAuth } from '../context/AuthContext';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import Plus from './ui/Plus';
@@ -68,6 +68,7 @@ const BiasAnalysis = ({ onBack }) => {
   const [realStats, setRealStats] = useState(null);
   const [recentHistory, setRecentHistory] = useState([]);
   const [recentStories, setRecentStories] = useState([]);
+  const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,8 +78,10 @@ const BiasAnalysis = ({ onBack }) => {
     Promise.all([
       getBiasStats(user.id, days),
       getReadingHistory(user.id),
-    ]).then(([stats, history]) => {
+      getBiasTrend(user.id, days),
+    ]).then(([stats, history, trendData]) => {
       setRealStats(stats);
+      setTrend(Array.isArray(trendData) ? trendData : []);
       const recent = (history || []).slice(0, 3);
       setRecentHistory(recent);
       setLoading(false);
@@ -88,6 +91,20 @@ const BiasAnalysis = ({ onBack }) => {
       });
     });
   }, [user, period]);
+
+  // Build the real evolution polyline from the per-day diversity trend.
+  const trendPath = (() => {
+    if (trend.length < 2) return null;
+    const W = 1000, H = 300, PAD = 20;
+    const n = trend.length;
+    const pts = trend.map((p, i) => {
+      const x = n === 1 ? W / 2 : (i / (n - 1)) * W;
+      const y = H - PAD - (Math.max(0, Math.min(100, p.diversity)) / 100) * (H - PAD * 2);
+      return [Math.round(x), Math.round(y)];
+    });
+    const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
+    return { d, last: pts[pts.length - 1] };
+  })();
 
   const d = realStats?.bias_distribution || {};
   const totalBias = Object.values(d).reduce((a, b) => a + b, 0) || 1;
@@ -303,22 +320,26 @@ const BiasAnalysis = ({ onBack }) => {
               </div>
 
               <div style={{ height: '350px', width: '100%', position: 'relative', marginTop: '60px' }}>
-                <svg width="100%" height="100%" viewBox="0 0 1000 300" preserveAspectRatio="none">
-                  <line x1="0" y1="50" x2="1000" y2="50" stroke="#f5f5f5" strokeWidth="1" />
-                  <line x1="0" y1="150" x2="1000" y2="150" stroke="#000" strokeWidth="0.3" strokeDasharray="6 6" />
-                  <line x1="0" y1="250" x2="1000" y2="250" stroke="#f5f5f5" strokeWidth="1" />
-                  <path d="M0,250 C100,240 200,260 300,245 S500,255 600,240 S800,250 1000,230" fill="none" stroke="#ddd" strokeWidth="2" strokeDasharray="8 4" />
-                  <path d="M0,250 C100,220 200,180 300,150 S500,130 600,100 S800,70 1000,60" fill="none" stroke="black" strokeWidth="5" strokeLinecap="round" />
-                  <circle cx="1000" cy="60" r="8" fill="black" />
-                </svg>
+                {trendPath ? (
+                  <svg width="100%" height="100%" viewBox="0 0 1000 300" preserveAspectRatio="none">
+                    <line x1="0" y1="20" x2="1000" y2="20" stroke="#f5f5f5" strokeWidth="1" />
+                    <line x1="0" y1="150" x2="1000" y2="150" stroke="#000" strokeWidth="0.3" strokeDasharray="6 6" />
+                    <line x1="0" y1="280" x2="1000" y2="280" stroke="#f5f5f5" strokeWidth="1" />
+                    <path d={trendPath.d} fill="none" stroke="black" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx={trendPath.last[0]} cy={trendPath.last[1]} r="8" fill="black" />
+                  </svg>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3, fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 800, letterSpacing: '1px', textAlign: 'center', lineHeight: 1.8 }}>
+                    {realStats ? 'NECESITAS MÁS DÍAS DE LECTURA PARA TRAZAR TU EVOLUCIÓN' : 'SIN DATOS DE EVOLUCIÓN AÚN'}
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '32px 0px', fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '12px', height: '12px', border: '2px solid black', borderRadius: '50%' }} />
-                    <span>APERTURA CRÍTICA (ACTUAL)</span>
+                    <span>ÍNDICE DE DIVERSIDAD (DIARIO)</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.3 }}>
-                    <div style={{ width: '12px', height: '2px', background: '#aaa', borderTop: '2px dashed #aaa' }} />
-                    <span>CÁMARA DE ECO (HISTÓRICO)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.4 }}>
+                    <span>{trend.length > 0 ? `${trend.length} DÍA${trend.length === 1 ? '' : 'S'} CON ACTIVIDAD` : ''}</span>
                   </div>
                 </div>
               </div>
