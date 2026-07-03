@@ -27,6 +27,29 @@
 
 ---
 
+## 1b. Redesplegar `materialize-cluster` + backfill 035 — 🔴 CRÍTICO para Coverage Details
+- **Problema encontrado:** `materialize-cluster` calculaba el % agregado de sesgo
+  (coverage_left/center/right) pero **descartaba qué artículo/fuente producía
+  cada dato**. Resultado: el panel "Coverage Details" de cualquier noticia del
+  pipeline no tiene nada que enseñar por fuente (sin logos, sin clic a artículo).
+  `sources` y `raw_articles` son tablas manager/service-role-only (RLS), así que
+  el frontend no puede rellenar ese hueco por su cuenta.
+- **Ya arreglado en código:** `supabase/functions/materialize-cluster/index.ts`
+  ahora construye y persiste un array `articles` (fuente, url, título, sesgo
+  LEFT/LEAN_LEFT/CENTER/LEAN_RIGHT/RIGHT, factualidad, propiedad) en cada
+  `stories` que materializa, usando el join real con `sources`.
+- **Pasos al reactivar:**
+  1. Redesplegar la función: `deploy_edge_function` (o `supabase functions deploy materialize-cluster`).
+  2. Backfill de las stories ya materializadas: antes de ejecutar, comprobar el tipo real de `stories.article_ids`:
+     ```sql
+     select data_type from information_schema.columns
+     where table_name = 'stories' and column_name = 'article_ids';
+     ```
+     Si es `ARRAY` (uuid[]) → ejecutar el PATH A de `migrations/035_backfill_pipeline_article_details.sql` (ya activo por defecto). Si es `jsonb` → comentar el PATH A y descomentar el PATH B del mismo archivo.
+- **Sin esto:** Coverage Details sigue mostrando solo el % agregado, sin logos clicables, en cualquier noticia auto-generada por el pipeline.
+
+---
+
 ## 2. Secrets de Edge Functions (Supabase → Project Settings → Edge Functions → Secrets)
 - 🔴 `ANTHROPIC_API_KEY = sk-ant-...` → desbloquea `generate-synthesis`.
   Sin ella, las ~330 stories draft se quedan sin análisis IA y la cola de
@@ -74,6 +97,7 @@ select * from pg_proc where proname = 'log_bias_read';   -- debe existir tras mi
 ### Checklist rápido
 - [ ] Reactivar proyecto Supabase
 - [ ] Ejecutar `migrations/034_bias_reading_tracking.sql`
+- [ ] Redesplegar `materialize-cluster` + ejecutar `migrations/035_backfill_pipeline_article_details.sql` (verificar tipo de `article_ids` antes)
 - [ ] `ANTHROPIC_API_KEY` en Supabase Secrets
 - [ ] `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` en GitHub Secrets
 - [ ] (opc) plan Pro o keep-alive para no volver a pausar

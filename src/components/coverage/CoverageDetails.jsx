@@ -4,7 +4,7 @@ import FactualityBar from './FactualityBar';
 import OwnershipBar from './OwnershipBar';
 import { relativeTime, toBucket } from './helpers';
 
-const CoverageDetails = ({ story = {}, sources = [] }) => {
+const CoverageDetails = ({ story = {}, sources = [], onSourceClick = null }) => {
   const sourceCounts = (sources || []).reduce((acc, source) => {
     const bucket = toBucket(source.biasRating || source.biasLabel || source.bias);
     acc[bucket] = (acc[bucket] || 0) + 1;
@@ -57,6 +57,7 @@ const CoverageDetails = ({ story = {}, sources = [] }) => {
           sources={sources}
           dominantLean={story.dominantLean}
           dominantLeanPct={story.dominantLeanPct}
+          onSourceClick={onSourceClick}
         />
       </div>
 

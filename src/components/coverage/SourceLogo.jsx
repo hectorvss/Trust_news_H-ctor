@@ -5,7 +5,7 @@ import { BIAS_COLOR, toBucket, BUCKET_COLOR, normalizeBiasRating } from './helpe
  * Circular source avatar. Tries the favicon/logo; falls back to a
  * monogram on a bias-tinted ring. Monochrome, TNE design language.
  */
-const SourceLogo = ({ source = {}, size = 32, ring = true }) => {
+const SourceLogo = ({ source = {}, size = 32, ring = true, onClick }) => {
   const [failed, setFailed] = useState(false);
   const name = source.name || source.source || '?';
   const logoUrl = source.logoUrl || (source.domain ? `https://www.google.com/s2/favicons?domain=${source.domain}&sz=64` : null);
@@ -24,12 +24,16 @@ const SourceLogo = ({ source = {}, size = 32, ring = true }) => {
     justifyContent: 'center',
     background: '#fff',
     border: ring ? `2px solid ${ringColor}` : '1px solid #e5e5e5',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    cursor: onClick ? 'pointer' : 'default'
   };
+
+  const handleClick = onClick ? (e) => { e.stopPropagation(); onClick(source); } : undefined;
+  const title = onClick ? `${name} — ver artículo` : name;
 
   if (logoUrl && !failed) {
     return (
-      <div style={boxStyle} title={name}>
+      <div style={boxStyle} title={title} onClick={handleClick} role={onClick ? 'button' : undefined}>
         <img
           src={logoUrl}
           alt={name}
@@ -43,7 +47,7 @@ const SourceLogo = ({ source = {}, size = 32, ring = true }) => {
   }
 
   return (
-    <div style={{ ...boxStyle, background: ringColor }} title={name}>
+    <div style={{ ...boxStyle, background: ringColor }} title={title} onClick={handleClick} role={onClick ? 'button' : undefined}>
       <span style={{ color: '#fff', fontWeight: 900, fontFamily: 'var(--font-mono)', fontSize: size * 0.42, lineHeight: 1 }}>
         {monogram}
       </span>

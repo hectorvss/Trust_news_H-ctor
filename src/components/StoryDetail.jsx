@@ -210,14 +210,28 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
     ((_db.left || 0) + (_db.center || 0) + (_db.right || 0)) > 0;
   const coverageStory = _dbHasCoverage ? editedStory : computeClientCoverage();
 
-  // Sources list for the bias distribution logos
-  const coverageSources = allArticles.map(a => ({
+  // Sources list for the bias distribution logos. Each entry keeps its index
+  // into allArticles so clicking a logo can open that exact article, the same
+  // way clicking an article card does.
+  const coverageSources = allArticles.map((a, i) => ({
     id: a._src?.id || a.source,
     name: a.source,
     domain: a.domain,
     logoUrl: a.logoUrl,
-    biasRating: a.biasRating
+    biasRating: a.biasRating,
+    _articleIndex: i
   }));
+
+  // Clicking a source logo in Coverage Details opens its article exactly like
+  // clicking the article card does: it never dead-ends, since selectedArticle
+  // is the object StoryReader actually reads (the URL index is only a fallback).
+  const handleCoverageSourceClick = (source) => {
+    if (isEditing) return;
+    const article = allArticles[source._articleIndex];
+    if (!article) return;
+    onSelectArticle(article);
+    navigate(`/article/${source._articleIndex}`);
+  };
 
   const updateStory = (key, val) => {
     setEditedStory(prev => ({ ...prev, [key]: val }));
@@ -1091,7 +1105,7 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
 
           {/* COVERAGE DETAILS — distribución de sesgo / factualidad / propiedad derivadas */}
           <div style={{ marginBottom: '56px' }}>
-            <CoverageDetails story={coverageStory} sources={coverageSources} />
+            <CoverageDetails story={coverageStory} sources={coverageSources} onSourceClick={handleCoverageSourceClick} />
           </div>
 
           {/* FACT CHECK (Dynamic) */}

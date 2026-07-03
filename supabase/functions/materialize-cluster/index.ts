@@ -7,6 +7,13 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // right coverage so the Ground-News-style bias bars have real data. The rich
 // editorial analysis is filled later by generate-synthesis (needs ANTHROPIC key).
 // No external API key needed here.
+//
+// Also persists a per-article `articles` breakdown (source, url, bias,
+// factuality, ownership) so the reader-facing Coverage Details panel can show
+// real per-source logos and let each one open its actual article — instead of
+// only the aggregated left/center/right percentages. `sources`/`raw_articles`
+// are manager/service-role-only tables (RLS), so this is the one place with
+// the access to bake that classification into the public `stories` row.
 // ============================================================================
 
 const LIMIT = 20;
@@ -46,6 +53,44 @@ function inferLocation(title: string, summary: string, sourceCountries: string[]
   if (sourceScopes.some((scope) => /international/i.test(scope))) return 'Internacional';
   return 'España';
 }
+// Mirrors the frontend's _biasFromSource (supabaseService.js): the 020 seed's
+// `bias` enum is canonical (izquierda/centroizquierda/centro/centroderecha/
+// derecha); fall back to a fuzzy match on legacy free-text fields, then to
+// bias_score, so every source resolves to one of the 5 granular buckets.
+function biasBucket(source: any): string {
+  const enumValue = String(source?.bias || '').toLowerCase().trim();
+  const ENUM_MAP: Record<string, string> = {
+    izquierda: 'LEFT',
+    centroizquierda: 'LEAN_LEFT',
+    centro: 'CENTER',
+    centroderecha: 'LEAN_RIGHT',
+    derecha: 'RIGHT',
+  };
+  if (ENUM_MAP[enumValue]) return ENUM_MAP[enumValue];
+
+  const score = Number(source?.bias_score);
+  if (Number.isFinite(score)) {
+    if (score <= -2) return 'LEFT';
+    if (score === -1) return 'LEAN_LEFT';
+    if (score === 0) return 'CENTER';
+    if (score === 1) return 'LEAN_RIGHT';
+    if (score >= 2) return 'RIGHT';
+  }
+
+  const raw = String(source?.bias_label || source?.political_lean || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\s_]+/g, '-');
+  const FUZZY_MAP: Record<string, string> = {
+    'LEFT': 'LEFT', 'IZQUIERDA': 'LEFT',
+    'CENTER-LEFT': 'LEAN_LEFT', 'LEAN-LEFT': 'LEAN_LEFT', 'CENTRO-IZQUIERDA': 'LEAN_LEFT', 'CENTROIZQUIERDA': 'LEAN_LEFT',
+    'CENTER': 'CENTER', 'CENTRO': 'CENTER',
+    'CENTER-RIGHT': 'LEAN_RIGHT', 'LEAN-RIGHT': 'LEAN_RIGHT', 'CENTRO-DERECHA': 'LEAN_RIGHT', 'CENTRODERECHA': 'LEAN_RIGHT',
+    'RIGHT': 'RIGHT', 'DERECHA': 'RIGHT',
+  };
+  return FUZZY_MAP[raw] || 'CENTER';
+}
 function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
@@ -73,10 +118,11 @@ Deno.serve(async (_req: Request) => {
         let excerpt: string | null = null;
         let sourceCountries: string[] = [];
         let sourceScopes: string[] = [];
+        let articlesPayload: any[] = [];
         if (articleIds.length) {
           const { data: articles } = await supabase
             .from('raw_articles')
-            .select('image_url, excerpt, content_excerpt, sources!inner(country, pais, source_scope)')
+            .select('id, title, url, excerpt, content_excerpt, image_url, published_at, sources!inner(id, nombre, name, bias, bias_label, bias_score, political_lean, factuality, ownership, country, pais, source_scope)')
             .in('id', articleIds)
             .order('published_at', { ascending: false });
           const firstWithImage = (articles || []).find((a: any) => a.image_url);
@@ -85,6 +131,22 @@ Deno.serve(async (_req: Request) => {
           excerpt = firstWithExcerpt?.excerpt ?? firstWithExcerpt?.content_excerpt ?? null;
           sourceCountries = (articles || []).map((a: any) => a.sources?.country || a.sources?.pais || '').filter(Boolean);
           sourceScopes = (articles || []).map((a: any) => a.sources?.source_scope || '').filter(Boolean);
+
+          articlesPayload = (articles || []).map((a: any) => {
+            const src = a.sources || {};
+            return {
+              source: src.nombre || src.name || 'Fuente',
+              sourceId: src.id || null,
+              url: a.url || null,
+              title: a.title || null,
+              time: a.published_at || null,
+              origin: src.country || src.pais || null,
+              summary: a.excerpt || a.content_excerpt || null,
+              bias: biasBucket(src),
+              factuality: src.factuality || null,
+              ownershipCategory: src.ownership || null,
+            };
+          });
         }
 
         const storyId = `auto-${c.id}`;
@@ -113,6 +175,7 @@ Deno.serve(async (_req: Request) => {
           pipeline_cluster_id: c.id,
           cluster_status: 'draft', // CHECK allows draft/approved/published/rejected
           article_ids: articleIds,
+          articles: articlesPayload,
           source_ids: asArr(c.source_ids),
           source_count: c.source_count || 0,
           sources_count: c.source_count || 0,

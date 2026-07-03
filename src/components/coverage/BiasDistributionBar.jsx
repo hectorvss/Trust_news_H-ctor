@@ -71,21 +71,7 @@ const stackBackground = (key) => {
   return '#9fb4d4';
 };
 
-const pctPillStyle = (side) => ({
-  minWidth: 72,
-  padding: '8px 10px',
-  textAlign: 'center',
-  background: side === 'left' ? '#8f2d2d' : side === 'right' ? '#244f8f' : '#fff',
-  color: side === 'center' ? '#000' : '#fff',
-  border: side === 'center' ? '1px solid #ddd' : 'none',
-  borderRadius: 'var(--radius-sm)',
-  fontSize: '12px',
-  fontWeight: 900,
-  fontFamily: 'var(--font-mono)',
-  letterSpacing: '0'
-});
-
-const SourceStack = ({ bucket, sources }) => {
+const SourceStack = ({ bucket, sources, onSourceClick }) => {
   const visible = sources.slice(0, 5);
   const extra = Math.max(0, sources.length - visible.length);
   return (
@@ -108,7 +94,7 @@ const SourceStack = ({ bucket, sources }) => {
         {visible.length === 0 ? (
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.55)' }} />
         ) : visible.map((source, index) => (
-          <SourceLogo key={source.id || source.name || index} source={source} size={32} />
+          <SourceLogo key={source.id || source.name || index} source={source} size={32} onClick={onSourceClick} />
         ))}
       </div>
       <div style={{ height: 22, marginTop: 8, fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
@@ -117,6 +103,46 @@ const SourceStack = ({ bucket, sources }) => {
       <div style={{ marginTop: 4, fontSize: '9px', fontFamily: 'var(--font-mono)', opacity: 0.45, textAlign: 'center', lineHeight: 1.2 }}>
         {BIAS_LABEL[bucket]}
       </div>
+    </div>
+  );
+};
+
+// Barra continua de 3 segmentos (izq/centro/der) con % incrustado, siguiendo
+// la estructura del "Bias Distribution" de referencia pero con la paleta
+// monocroma de TNE (BUCKET_COLOR) en vez de rojo/azul.
+const ContinuousBar = ({ pct }) => {
+  const segs = [
+    { key: 'left', v: pct.left, bg: BUCKET_COLOR.LEFT, fg: '#fff' },
+    { key: 'center', v: pct.center, bg: '#f2f2f2', fg: '#000' },
+    { key: 'right', v: pct.right, bg: BUCKET_COLOR.RIGHT, fg: '#000' }
+  ].filter(s => s.v > 0);
+
+  if (segs.length === 0) {
+    return <div style={{ height: 34, borderRadius: 'var(--radius-sm)', background: '#f5f5f5', border: '1px solid #eee' }} />;
+  }
+
+  return (
+    <div style={{ display: 'flex', height: 34, borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid #000' }}>
+      {segs.map(s => (
+        <div
+          key={s.key}
+          style={{
+            width: `${s.v}%`,
+            background: s.bg,
+            color: s.fg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '11px',
+            fontWeight: 900,
+            fontFamily: 'var(--font-mono)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden'
+          }}
+        >
+          {s.v}%
+        </div>
+      ))}
     </div>
   );
 };
@@ -133,7 +159,8 @@ const BiasDistributionBar = ({
   sources = [],
   dominantLean = null,
   dominantLeanPct = 0,
-  showLogos = true
+  showLogos = true,
+  onSourceClick = null
 }) => {
   const { tracked, untracked, grouped, sideCounts } = deriveFromSources(sources);
   const pct = normalizeDistribution(distribution, tracked.length ? sideCounts : {
@@ -147,33 +174,26 @@ const BiasDistributionBar = ({
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            Distribucion de sesgo
-          </div>
-          <div style={{ marginTop: 5, fontSize: '12px', lineHeight: 1.45, opacity: 0.7 }}>
-            {pct.left}% izquierda, {pct.center}% centro y {pct.right}% derecha sobre {total || 0} fuentes rastreadas.
-          </div>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          Distribución de sesgo
         </div>
         {total > 0 && (
-          <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 900, opacity: 0.65 }}>
-            DOMINANTE<br />
-            <span style={{ color: BUCKET_COLOR[dominant], opacity: 1 }}>{dominantPct}% {BUCKET_LABEL[dominant]}</span>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: '13px', fontWeight: 600 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#000', flexShrink: 0 }} />
+            <span>{dominantPct}% de las fuentes son de {BUCKET_LABEL[dominant].toLowerCase()}</span>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={pctPillStyle('left')}>Izq. {pct.left}%</div>
-        <div style={pctPillStyle('center')}>Centro {pct.center}%</div>
-        <div style={{ ...pctPillStyle('right'), justifySelf: 'end' }}>Der. {pct.right}%</div>
+      <div style={{ marginBottom: 18 }}>
+        <ContinuousBar pct={pct} />
       </div>
 
       {showLogos && (
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 4 }}>
           {GRANULAR_BUCKETS.map((bucket) => (
-            <SourceStack key={bucket} bucket={bucket} sources={grouped[bucket] || []} />
+            <SourceStack key={bucket} bucket={bucket} sources={grouped[bucket] || []} onSourceClick={onSourceClick} />
           ))}
         </div>
       )}
