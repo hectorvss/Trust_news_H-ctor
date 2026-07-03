@@ -88,12 +88,13 @@ const App = () => {
   const canAccessManager = hasManagerAccess({ user, profile });
   const isPremium = profile?.subscription_tier === 'premium' || canAccessManager;
 
-  // Ads (solo no-pagantes, solo en la home). Los rails salen desde 1280px; en
-  // pantallas medianas (1280-1839px) inseta el contenido para no solaparse, y
-  // en pantallas anchas caen en el hueco vacío sin tocar el layout.
+  // Ads (solo no-pagantes, solo en la home). DESACTIVADOS por ahora — se deja
+  // toda la infraestructura (SideRails, AdSlot, useMediaQuery) lista para
+  // reactivar cuando haya tráfico: basta con volver ADS_ENABLED a true.
+  const ADS_ENABLED = false;
   const isHome = location.pathname === '/';
-  const showAds = !authLoading && !isPremium && isHome;
-  const needsAdInset = useMediaQuery('(min-width: 1280px) and (max-width: 1839px)');
+  const showAds = ADS_ENABLED && !authLoading && !isPremium && isHome;
+  const needsAdInset = useMediaQuery('(min-width: 1280px) and (max-width: 1839px)') && ADS_ENABLED;
   const adInset = showAds && needsAdInset ? 200 : 0;
 
   // Track Reading Time
