@@ -3,7 +3,7 @@ import React from 'react';
 const BlindSpotsCard = ({ blindSpotsData, onOpenStory }) => {
   return (
     <div style={{ marginBottom: '60px' }}>
-      <h2 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 40px 0', letterSpacing: '-1.5px', lineHeight: '1' }}>Puntos Ciegos —<br/>Destacados</h2>
+      <h3 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px' }}>PUNTOS CIEGOS DESTACADOS</h3>
 
       {blindSpotsData.map((spot, i) => (
         <div
