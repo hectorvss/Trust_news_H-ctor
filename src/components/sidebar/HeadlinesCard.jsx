@@ -3,7 +3,7 @@ import React from 'react';
 const HeadlinesCard = ({ headlines, onOpenStory }) => {
   return (
     <div style={{ marginBottom: '60px' }}>
-      <h3 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px' }}>TITULARES DESTACADOS</h3>
+      <h3 style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '1.5px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px' }}>TITULARES DESTACADOS</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
         {headlines.map((item, i) => (
           <div

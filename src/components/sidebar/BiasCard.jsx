@@ -4,7 +4,7 @@ const BiasCard = ({ navigate }) => {
   return (
     <div style={{ padding: '30px', border: 'var(--border-thin)', borderRadius: '24px', marginBottom: '32px', background: '#fff' }}>
       <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '-1px' }}>Mi Sesgo de Lectura</h2>
-      <div style={{ fontSize: '11px', opacity: 0.3, fontWeight: 800, fontFamily: 'var(--font-mono)', marginBottom: '24px', letterSpacing: '1px' }}>
+      <div style={{ fontSize: '12px', opacity: 0.45, fontWeight: 800, fontFamily: 'var(--font-mono)', marginBottom: '24px', letterSpacing: '0.5px' }}>
         ANÁLISIS BASADO EN TUS ÚLTIMOS 30 ARTÍCULOS
       </div>
       

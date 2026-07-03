@@ -3,7 +3,7 @@ import React from 'react';
 const BlindSpotsCard = ({ blindSpotsData, onOpenStory }) => {
   return (
     <div style={{ marginBottom: '60px' }}>
-      <h3 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px' }}>PUNTOS CIEGOS DESTACADOS</h3>
+      <h3 style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '1.5px', borderBottom: '2.5px solid black', paddingBottom: '12px', marginBottom: '24px' }}>PUNTOS CIEGOS DESTACADOS</h3>
 
       {blindSpotsData.map((spot, i) => (
         <div
@@ -18,12 +18,12 @@ const BlindSpotsCard = ({ blindSpotsData, onOpenStory }) => {
           onMouseEnter={e => { if (onOpenStory) e.currentTarget.style.opacity = 0.65; }}
           onMouseLeave={e => { e.currentTarget.style.opacity = 1; }}
         >
-          <span style={{ background: spot.type === 'LEFT' ? 'black' : '#888', color: 'white', fontSize: '10px', fontWeight: 900, padding: '4px 10px', borderRadius: '100px', fontFamily: 'var(--font-mono)' }}>
+          <span style={{ background: spot.type === 'LEFT' ? 'black' : '#888', color: 'white', fontSize: '11px', fontWeight: 900, padding: '5px 12px', borderRadius: '100px', fontFamily: 'var(--font-mono)' }}>
              PUNTO CIEGO DE {spot.type === 'LEFT' ? 'IZQUIERDA' : 'DERECHA'}
           </span>
           <p style={{ fontSize: '19px', fontWeight: 600, marginTop: '20px', lineHeight: '1.2' }}>{spot.text}</p>
           {onOpenStory && (
-            <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.35, letterSpacing: '1px', marginTop: '14px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.5, letterSpacing: '1px', marginTop: '14px' }}>
               VER COBERTURA ↗
             </div>
           )}

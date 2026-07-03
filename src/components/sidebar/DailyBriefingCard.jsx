@@ -27,7 +27,7 @@ const DailyBriefingCard = ({ navigate, stories = [], globalHeadlines = [], stori
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px', gap: '10px' }}>
         <span style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: 800, letterSpacing: '-0.6px' }}>Resumen Diario</span>
-        <span style={{ fontSize: '9px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.3, letterSpacing: '1px', textAlign: 'right', whiteSpace: 'nowrap' }}>{dateStr}</span>
+        <span style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap' }}>{dateStr}</span>
       </div>
 
       {leadImage && (
@@ -36,7 +36,7 @@ const DailyBriefingCard = ({ navigate, stories = [], globalHeadlines = [], stori
         </div>
       )}
 
-      <div style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '0.5px', marginBottom: lead ? '14px' : '20px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-mono)', opacity: 0.5, letterSpacing: '0.3px', marginBottom: lead ? '14px' : '20px' }}>
         {storiesCount || stories.length || '—'} historias • {articleEst} artículos • {readEst}m lectura
       </div>
 
@@ -64,7 +64,7 @@ const DailyBriefingCard = ({ navigate, stories = [], globalHeadlines = [], stori
         </div>
       )}
 
-      <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.35, marginTop: '20px', letterSpacing: '0.5px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.5, marginTop: '20px', letterSpacing: '0.3px' }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         VER RESUMEN COMPLETO ↗
       </div>
