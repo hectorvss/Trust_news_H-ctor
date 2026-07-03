@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import StoryCard from './StoryCard';
 import Plus from './ui/Plus';
 
-const FavoritesView = ({ favorites, onBack, onSelectStory }) => {
+const FavoritesView = ({ favorites, onBack, onSelectStory, onToggleFavorite, onShare }) => {
   const analytics = useMemo(() => {
     if (!favorites.length) return { topTags: [], diversityPct: 0, readingMin: 0, interestText: 'Sin datos aún.' };
 
@@ -165,7 +165,12 @@ const FavoritesView = ({ favorites, onBack, onSelectStory }) => {
                 {favorites.map((story) => (
                   <div key={story.id}>
                     <div onClick={() => onSelectStory(story)} style={{ cursor: 'pointer' }}>
-                      <StoryCard story={story} isFavorite={true} />
+                      <StoryCard
+                        story={story}
+                        isFavorite={true}
+                        onToggleFavorite={onToggleFavorite}
+                        onShare={onShare ? () => onShare(story) : undefined}
+                      />
                     </div>
                   </div>
                 ))}

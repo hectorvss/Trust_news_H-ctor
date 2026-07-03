@@ -547,10 +547,12 @@ const App = () => {
           <Route path="/daily-summary" element={<DailySummary onBack={() => navigate('/')} stories={stories} />} />
           <Route path="/favorites" element={
             <div className="container" style={{ padding: '60px 0' }}>
-              <FavoritesView 
-                favorites={favorites} 
-                onBack={() => navigate('/')} 
+              <FavoritesView
+                favorites={favorites}
+                onBack={() => navigate('/')}
                 onSelectStory={onSelectStory}
+                onToggleFavorite={toggleFavorite}
+                onShare={openShare}
               />
             </div>
           } />
