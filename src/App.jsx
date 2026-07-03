@@ -26,6 +26,7 @@ const BlindspotFeed = lazy(() => import('./components/BlindspotFeed'));
 const SearchResults = lazy(() => import('./components/SearchResults'));
 const LocalNews = lazy(() => import('./components/LocalNews'));
 const Discover = lazy(() => import('./components/Discover'));
+const Features = lazy(() => import('./components/Features'));
 
 import { useAuth } from './context/AuthContext';
 import {
@@ -572,6 +573,7 @@ const App = () => {
             <Discover navigate={navigate} setActiveCategory={setActiveCategory} />
           } />
           <Route path="/pricing" element={<div className="container" style={{ padding: '60px 24px' }}><Pricing onBack={() => navigate('/')} /></div>} />
+          <Route path="/features" element={<div className="container" style={{ padding: '60px 24px' }}><Features onBack={() => navigate('/')} /></div>} />
           <Route path="/auth" element={<div className="container" style={{ padding: '28px 24px 44px' }}><Auth onBack={() => navigate('/')} /></div>} />
           <Route path="/daily-summary" element={<DailySummary onBack={() => navigate('/')} stories={stories} />} />
           <Route path="/favorites" element={

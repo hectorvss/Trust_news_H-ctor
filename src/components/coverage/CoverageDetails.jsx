@@ -4,6 +4,14 @@ import FactualityBar from './FactualityBar';
 import OwnershipBar from './OwnershipBar';
 import { relativeTime, toBucket } from './helpers';
 
+// Factualidad ya viene normalizada (VERY_HIGH/HIGH/MIXED/LOW/VERY_LOW) desde
+// mapSource; este guard cubre el caso de que aún llegue el enum ES suelto.
+const factualityKey = (value) => {
+  const v = String(value || '').toUpperCase().trim().replace(/[\s-]+/g, '_');
+  const MAP = { MUY_ALTA: 'VERY_HIGH', ALTA: 'HIGH', MEDIA: 'MIXED', MIXTA: 'MIXED', BAJA: 'LOW', MUY_BAJA: 'VERY_LOW' };
+  return MAP[v] || (['VERY_HIGH', 'HIGH', 'MIXED', 'LOW', 'VERY_LOW'].includes(v) ? v : null);
+};
+
 const CoverageDetails = ({ story = {}, sources = [], onSourceClick = null }) => {
   const sourceCounts = (sources || []).reduce((acc, source) => {
     const bucket = toBucket(source.biasRating || source.biasLabel || source.bias);
@@ -11,6 +19,24 @@ const CoverageDetails = ({ story = {}, sources = [], onSourceClick = null }) => 
     return acc;
   }, { LEFT: 0, CENTER: 0, RIGHT: 0 });
   const hasSourceCounts = (sources || []).length > 0;
+
+  // Factualidad y propiedad se computan desde las fuentes reales de la historia
+  // (cada una lleva factuality + ownershipCategory). Así las barras se pueblan
+  // en toda noticia, en vez de depender del breakdown vacío del story.
+  const factualityBreakdown = hasSourceCounts
+    ? (sources || []).reduce((acc, s) => {
+        const k = factualityKey(s.factuality);
+        if (k) acc[k] = (acc[k] || 0) + 1;
+        return acc;
+      }, {})
+    : (story.factualityBreakdown || {});
+  const ownershipBreakdown = hasSourceCounts
+    ? (sources || []).reduce((acc, s) => {
+        const k = s.ownershipCategory || 'UNKNOWN';
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+      }, {})
+    : (story.ownershipBreakdown || {});
   const total = hasSourceCounts ? sources.length : story.totalSources || 0;
   const leftCount = hasSourceCounts ? sourceCounts.LEFT : story.leaningLeft || 0;
   const centerCount = hasSourceCounts ? sourceCounts.CENTER : story.leaningCenter || 0;
@@ -62,11 +88,11 @@ const CoverageDetails = ({ story = {}, sources = [], onSourceClick = null }) => 
       </div>
 
       <div style={{ padding: '20px', borderTop: '1px solid #eee' }}>
-        <FactualityBar breakdown={story.factualityBreakdown || {}} />
+        <FactualityBar breakdown={factualityBreakdown} />
       </div>
 
       <div style={{ padding: '20px', borderTop: '1px solid #eee' }}>
-        <OwnershipBar breakdown={story.ownershipBreakdown || {}} />
+        <OwnershipBar breakdown={ownershipBreakdown} />
       </div>
     </aside>
   );

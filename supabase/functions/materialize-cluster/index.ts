@@ -101,7 +101,7 @@ Deno.serve(async (_req: Request) => {
   try {
     const { data: clusters, error } = await supabase
       .from('story_clusters')
-      .select('id, title, topic_summary, article_ids, source_ids, source_count, bias_distribution, left_pct, center_pct, right_pct, synthesis_score')
+      .select('id, title, topic_summary, topic_keywords, article_ids, source_ids, source_count, bias_distribution, left_pct, center_pct, right_pct, synthesis_score')
       .eq('status', 'ready')
       .is('story_id', null)
       .order('synthesis_score', { ascending: false })
@@ -151,7 +151,10 @@ Deno.serve(async (_req: Request) => {
 
         const storyId = `auto-${c.id}`;
         const now = new Date().toISOString();
-        const category = inferCategory(c.title || '', c.topic_summary || '', Array.isArray(c.topic_keywords) ? c.topic_keywords : [], sourceScopes);
+        const topicKeywords = Array.isArray(c.topic_keywords)
+          ? c.topic_keywords.map((k: any) => String(k || '').trim()).filter(Boolean)
+          : [];
+        const category = inferCategory(c.title || '', c.topic_summary || '', topicKeywords, sourceScopes);
         const location = inferLocation(c.title || '', c.topic_summary || '', sourceCountries, sourceScopes);
         const biasPct = {
           left: Number(c.left_pct ?? 0),
@@ -184,6 +187,7 @@ Deno.serve(async (_req: Request) => {
           coverage_center: biasPct.center,
           coverage_right: biasPct.right,
           bias: biasPct,
+          related_topics: topicKeywords.slice(0, 10),
           image_url,
           created_at: now,
           updated_at: now,

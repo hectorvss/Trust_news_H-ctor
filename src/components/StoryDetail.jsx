@@ -11,6 +11,47 @@ import { CoverageDetails, SourceTag, SourceLogo, toBucket, MiniBiasBar } from '.
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { normalizeCategory } from '../supabaseService';
 
+// Construye temas relacionados con la noticia: primero las keywords reales del
+// pipeline (related_topics), luego entidades salientes extraídas del titular y
+// resumen (secuencias de palabras capitalizadas), y por último categoría/lugar.
+const STOP_ENTITY = new Set(['El', 'La', 'Los', 'Las', 'Un', 'Una', 'Y', 'O', 'En', 'De', 'Del', 'Al', 'Por', 'Para', 'Con', 'Su', 'Este', 'Esta', 'Ese', 'Esa', 'The', 'A', 'An']);
+const extractEntities = (text) => {
+  const words = String(text || '').replace(/[.,;:!?"'()»«]/g, ' ').split(/\s+/);
+  const out = [];
+  let cur = [];
+  words.forEach((w, i) => {
+    const isCap = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ0-9]+/.test(w);
+    // ignora la primera palabra de la frase (siempre va en mayúscula) salvo que se encadene
+    if (isCap && !(i === 0 && cur.length === 0) && !STOP_ENTITY.has(w)) {
+      cur.push(w);
+    } else {
+      if (cur.length) { out.push(cur.join(' ')); cur = []; }
+    }
+  });
+  if (cur.length) out.push(cur.join(' '));
+  return out.filter(e => e.length > 2);
+};
+const buildSimilarTopics = (story, articles = []) => {
+  const raw = [
+    ...(Array.isArray(story.relatedTopics) ? story.relatedTopics : []),
+    ...extractEntities(story.title),
+    ...extractEntities(story.summary),
+    story.category && story.category !== 'GENERAL' ? story.category : null,
+    story.location,
+  ];
+  const seen = new Set();
+  const out = [];
+  for (const t of raw) {
+    const clean = String(t || '').trim();
+    const key = clean.toLowerCase();
+    if (!clean || clean.length < 3 || key === 'españa' || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+    if (out.length >= 8) break;
+  }
+  return out;
+};
+
 const InlineEdit = ({ text, onChange, isEditing, tag = 'span', style = {}, multiline = false, placeholder = 'Añadir texto...' }) => {
   if (!isEditing) {
     if (!text && !isEditing) return null;
@@ -219,6 +260,8 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
     domain: a.domain,
     logoUrl: a.logoUrl,
     biasRating: a.biasRating,
+    factuality: a.factuality,
+    ownershipCategory: a.ownershipCategory,
     _articleIndex: i
   }));
 
@@ -1122,29 +1165,27 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
             </div>
           </div>
 
-          {/* SIMILAR NEWS TOPICS */}
+          {/* SIMILAR NEWS TOPICS — chips reales relacionados con la noticia */}
           {!isEditing && (() => {
-            const topics = Array.from(new Set([
-              editedStory.category,
-              editedStory.location,
-              ...allArticles.map(a => a.origin)
-            ].map(t => (t || '').toString().trim()).filter(t => t && t.toLowerCase() !== 'españa' && t.length > 1)));
-            const list = topics.slice(0, 6);
+            const list = buildSimilarTopics(editedStory, allArticles);
             if (list.length === 0) return null;
             return (
               <div style={{ marginBottom: '56px' }}>
                 <h4 style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '1px', marginBottom: '20px', fontFamily: 'var(--font-mono)', opacity: 0.3 }}>TEMAS RELACIONADOS</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eee', border: 'var(--border-thin)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {list.map((topic, idx) => (
                     <div
                       key={idx}
                       onClick={() => navigate(`/?topic=${encodeURIComponent(topic)}`)}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#fff', cursor: 'pointer' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px 8px 8px', border: 'var(--border-thin)', borderRadius: '999px', background: '#fff', cursor: 'pointer', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#000'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#000'; }}
                     >
+                      <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                        {topic.trim().charAt(0).toUpperCase()}
+                      </span>
                       <span style={{ fontSize: '14px', fontWeight: 700 }}>{topic}</span>
-                      <span style={{ fontSize: '16px', fontWeight: 900, lineHeight: 1, opacity: 0.5 }}>+</span>
+                      <span style={{ fontSize: '15px', fontWeight: 900, lineHeight: 1, opacity: 0.5 }}>+</span>
                     </div>
                   ))}
                 </div>

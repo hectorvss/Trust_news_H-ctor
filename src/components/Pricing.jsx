@@ -90,7 +90,8 @@ const Pricing = ({ onBack }) => {
       period: 'Gratis para siempre',
       features: [
         { text: '[+] Feed de noticias mundial', include: true },
-        { text: '[+] Sesgo basico (3 fuentes)', include: true },
+        { text: '[+] Distribucion de sesgo por fuente', include: true },
+        { text: '[+] Factualidad y propiedad de medios', include: true },
         { text: '[+] Toddy: 1 pregunta IA por noticia', include: true },
         { text: '[-] Noticias completas redactadas', include: false },
         { text: '[-] Analisis de blindspots ilimitado', include: false }
@@ -333,6 +334,12 @@ const Pricing = ({ onBack }) => {
           <br />
           Desde lectura casual hasta analisis profesional de datos.
         </p>
+        <span
+          onClick={() => navigate('/features')}
+          style={{ display: 'inline-block', marginTop: '24px', fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          VER TODAS LAS FUNCIONES {'->'}
+        </span>
       </section>
 
       <div

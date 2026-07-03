@@ -50,6 +50,21 @@
 
 ---
 
+## 1c. Migración 036 — ownership_category + related_topics  🟡 respaldo canónico
+- **Archivo:** `migrations/036_source_ownership_category_and_related_topics.sql`
+- **Qué hace:** añade `sources.ownership_category` (y la puebla para los medios
+  sembrados) + `stories.related_topics` (jsonb). El frontend ya deriva la
+  categoría de propiedad en cliente (`ownershipCategoryFrom`) y lee
+  `related_topics`/`topic_keywords`, así que esto es el respaldo en BD.
+- **materialize-cluster** (ya redesplegado en 1b) ahora persiste `related_topics`
+  desde `topic_keywords` del cluster; la columna debe existir → ejecutar 036
+  **antes o junto** al redeploy de la función.
+- **Sin esto:** factualidad/ownership siguen funcionando (derivados en cliente),
+  pero los "Temas relacionados" de noticias del pipeline caen al fallback
+  (entidades del titular) en vez de las keywords reales del cluster.
+
+---
+
 ## 2. Secrets de Edge Functions (Supabase → Project Settings → Edge Functions → Secrets)
 - 🔴 `ANTHROPIC_API_KEY = sk-ant-...` → desbloquea `generate-synthesis`.
   Sin ella, las ~330 stories draft se quedan sin análisis IA y la cola de
@@ -98,6 +113,7 @@ select * from pg_proc where proname = 'log_bias_read';   -- debe existir tras mi
 - [ ] Reactivar proyecto Supabase
 - [ ] Ejecutar `migrations/034_bias_reading_tracking.sql`
 - [ ] Redesplegar `materialize-cluster` + ejecutar `migrations/035_backfill_pipeline_article_details.sql` (verificar tipo de `article_ids` antes)
+- [ ] Ejecutar `migrations/036_source_ownership_category_and_related_topics.sql` (ownership_category + related_topics)
 - [ ] `ANTHROPIC_API_KEY` en Supabase Secrets
 - [ ] `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` en GitHub Secrets
 - [ ] (opc) plan Pro o keep-alive para no volver a pausar

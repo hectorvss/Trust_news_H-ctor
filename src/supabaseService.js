@@ -306,6 +306,8 @@ const mapStory = (s) => {
     dominantLeanPct: _dist ? Math.max(_dist.left, _dist.center, _dist.right) : 0,
     factualityBreakdown: {},
     ownershipBreakdown: {},
+    relatedTopics: Array.isArray(s.related_topics) ? s.related_topics
+      : (Array.isArray(s.topic_keywords) ? s.topic_keywords : []),
     coverageUpdatedAt: s.pipeline_generated_at || s.updated_at || null
   };
 };
@@ -429,6 +431,32 @@ export const getAiUsageMetrics = async (userId) => {
   };
 };
 
+// Normaliza la factualidad (enum ES del seed 020: muy_alta/alta/media/baja)
+// a las claves canónicas que usan los componentes de cobertura (helpers.js).
+export const normalizeFactuality = (value) => {
+  const v = String(value || '').toUpperCase().trim().replace(/[\s-]+/g, '_');
+  const MAP = {
+    MUY_ALTA: 'VERY_HIGH', ALTA: 'HIGH', MEDIA: 'MIXED', MIXTA: 'MIXED', BAJA: 'LOW', MUY_BAJA: 'VERY_LOW',
+    VERY_HIGH: 'VERY_HIGH', HIGH: 'HIGH', MIXED: 'MIXED', LOW: 'LOW', VERY_LOW: 'VERY_LOW'
+  };
+  return MAP[v] || (v ? 'UNKNOWN' : null);
+};
+
+// Deriva una categoría de propiedad normalizada (CONGLOMERATE/PUBLIC/NONPROFIT/
+// INDEPENDENT/PRIVATE/UNKNOWN) a partir del nombre del dueño (y del tipo/columna
+// canónica si existe). Cubre los ~30 dueños sembrados en el catálogo 020.
+export const ownershipCategoryFrom = (owner, tipo) => {
+  const t = String(tipo || '').toUpperCase().trim();
+  if (['CONGLOMERATE', 'INDEPENDENT', 'PUBLIC', 'NONPROFIT', 'PRIVATE'].includes(t)) return t;
+  const s = String(owner || '').toLowerCase();
+  if (!s) return 'UNKNOWN';
+  if (/p[úu]blic|estatal|rtve|efe|france m[ée]dias|deutsche welle|al jazeera|corporaci[óo]n de radio|state/.test(s)) return 'PUBLIC';
+  if (/sin [áa]nimo|asociaci[óo]n|nonprofit|non-profit|scott trust|episcopal|fundaci[óo]n|maldita/.test(s)) return 'NONPROFIT';
+  if (/cooperativa|independiente|titania|tinta libre|periodistas|topo tabernario/.test(s)) return 'INDEPENDENT';
+  if (/grupo|conglomerad|prisa|vocento|planeta|atresmedia|prensa ib[ée]rica|unidad editorial|god[óo]|mediapro|guardian media|new york times/.test(s)) return 'CONGLOMERATE';
+  return 'PRIVATE';
+};
+
 export const mapSource = (s) => {
   if (!s) return null;
   const biasRating = _biasFromSource(s);
@@ -444,9 +472,9 @@ export const mapSource = (s) => {
     biasRating,
     biasLabel: s.bias_label || s.political_lean || s.bias || biasRating,
     biasBucket,
-    factuality: s.factuality,
+    factuality: normalizeFactuality(s.factuality),
     ownershipName: s.ownership || null,
-    ownershipCategory: s.tipo || null,
+    ownershipCategory: s.ownership_category || ownershipCategoryFrom(s.ownership, s.tipo),
     country: s.country || s.pais
   };
 };
