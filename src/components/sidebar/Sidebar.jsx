@@ -10,6 +10,7 @@ import LocalNewsCard from './LocalNewsCard';
 
 const Sidebar = ({
   navigate,
+  onOpenStory,
   globalHeadlines,
   favoritesCount,
   blindSpotsData,
@@ -33,13 +34,13 @@ const Sidebar = ({
       <DailyBriefingCard navigate={navigate} stories={stories} globalHeadlines={globalHeadlines} storiesCount={storiesCount} />
       <BiasCard navigate={navigate} />
       <FavoritesCard navigate={navigate} favoritesCount={favoritesCount} />
-      <HeadlinesCard headlines={globalHeadlines?.length > 0 ? globalHeadlines : [
+      <HeadlinesCard onOpenStory={onOpenStory} headlines={globalHeadlines?.length > 0 ? globalHeadlines : [
         { t: 'El BCE mantiene los tipos pero apunta a junio.', w: '70%' },
         { t: 'Crisis de vivienda: el precio del alquiler sube un 12%.', w: '35%' },
         { t: 'Sánchez propone un pacto nacional por la IA.', w: '85%' },
         { t: 'La selección española se prepara para el amistoso.', w: '45%' }
       ]} />
-      <BlindSpotsCard blindSpotsData={blindSpotsData} />
+      <BlindSpotsCard onOpenStory={onOpenStory} blindSpotsData={blindSpotsData} />
       <RelatedTopicsCard navigate={navigate} relatedTopics={relatedTopics} activeTopic={activeTopic} />
       <LocalNewsCard navigate={navigate} />
     </div>

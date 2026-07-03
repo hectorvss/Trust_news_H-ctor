@@ -43,6 +43,7 @@ import {
 import AccessLimitModal from './components/AccessLimitModal';
 import { getEffectiveUserRole, hasManagerAccess } from './utils/managerAccess';
 import { normalizeCategory } from './supabaseService';
+import { findStoryByText } from './utils/storyMatch';
 
 const PageLoader = () => (
   <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 900, letterSpacing: '2px', opacity: 0.3 }}>
@@ -300,6 +301,16 @@ const App = () => {
     navigate(`/story/${storyId}`);
   };
 
+  // Editorial blocks (titulares destacados, puntos ciegos, secciones especiales)
+  // are text without a reliable story_id. Resolve the closest real story and
+  // open it like a normal click; fall back to search so it always leads to news.
+  const openStoryFromText = (text) => {
+    if (!text) return;
+    const match = findStoryByText(text, stories);
+    if (match) { onSelectStory(match); return; }
+    navigate(`/search?q=${encodeURIComponent(String(text).slice(0, 80))}`);
+  };
+
   const categories = ['TODO', 'PARA TI', 'POLÍTICA', 'ECONOMÍA', 'INTERNACIONAL', 'SOCIEDAD', 'TECNOLOGÍA', 'DEPORTES', 'CIENCIA', 'CULTURA'];
 
   // Stories from Supabase (single source of truth)
@@ -426,6 +437,7 @@ const App = () => {
               <section className="layout-split">
                 <Sidebar
                   navigate={navigate}
+                  onOpenStory={openStoryFromText}
                   globalHeadlines={globalHeadlines}
                   favoritesCount={favorites.length}
                   blindSpotsData={blindSpotsData}
