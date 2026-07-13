@@ -4,6 +4,66 @@ import { supabase } from '../../supabaseClient';
 const mono = 'var(--font-mono)';
 const REST_BASE = 'https://trustnews.es';
 const MCP_URL = 'https://trustnews.es/mcp';
+const OPENAPI_URL = 'https://trustnews.es/v1/openapi.json';
+
+const MCP_JSON = `{
+  "mcpServers": {
+    "trust-news": {
+      "url": "${MCP_URL}",
+      "headers": { "Authorization": "Bearer TU_CLAVE" }
+    }
+  }
+}`;
+
+// Each connector defines how the "Cómo conectar" panel reads when selected.
+const CONNECTORS = [
+  { id: 'claude', name: 'Claude', kind: 'MCP', note: 'Conector personalizado',
+    steps: ['Crea una API key arriba y cópiala.', 'En Claude → Ajustes → Conectores → «Añadir conector personalizado».', 'Pega la URL del servidor MCP (abajo) y añade la cabecera Authorization: Bearer TU_CLAVE.', 'Listo: search_news, get_story_context, list_blindspots… aparecen como herramientas.'],
+    primary: { label: 'URL DEL SERVIDOR MCP', value: MCP_URL } },
+  { id: 'cursor', name: 'Cursor', kind: 'MCP', note: 'MCP server',
+    steps: ['Crea y copia una API key.', 'Settings → MCP → «Add new global MCP server», o edita ~/.cursor/mcp.json:'],
+    code: MCP_JSON, primary: { label: 'URL DEL SERVIDOR MCP', value: MCP_URL } },
+  { id: 'windsurf', name: 'Windsurf', kind: 'MCP', note: 'MCP server',
+    steps: ['Crea y copia una API key.', 'Settings → Cascade → MCP servers, o edita mcp_config.json:'],
+    code: MCP_JSON, primary: { label: 'URL', value: MCP_URL } },
+  { id: 'zed', name: 'Zed', kind: 'MCP', note: 'MCP server',
+    steps: ['Crea y copia una API key.', 'Abre settings.json de Zed y añade en context_servers:'],
+    code: `"context_servers": {\n  "trust-news": {\n    "source": "custom",\n    "url": "${MCP_URL}",\n    "headers": { "Authorization": "Bearer TU_CLAVE" }\n  }\n}`,
+    primary: { label: 'URL', value: MCP_URL } },
+  { id: 'copilot', name: 'GitHub Copilot', kind: 'MCP', note: 'MCP · VS Code',
+    steps: ['Crea y copia una API key.', 'En VS Code crea .vscode/mcp.json:'],
+    code: `{\n  "servers": {\n    "trust-news": {\n      "type": "http",\n      "url": "${MCP_URL}",\n      "headers": { "Authorization": "Bearer TU_CLAVE" }\n    }\n  }\n}`,
+    primary: { label: 'URL', value: MCP_URL } },
+  { id: 'chatgpt', name: 'ChatGPT', kind: 'REST', note: 'GPT Actions · OpenAPI',
+    steps: ['Crea y copia una API key.', 'Crea un GPT → Configure → Actions → «Import from URL» y pega el OpenAPI (abajo).', 'Authentication → API Key → tipo «Bearer» → pega tu clave.'],
+    primary: { label: 'OPENAPI', value: OPENAPI_URL } },
+  { id: 'n8n', name: 'n8n', kind: 'REST', note: 'HTTP / webhooks',
+    steps: ['Crea y copia una API key.', 'Añade un nodo «HTTP Request» con la URL de abajo.', 'Authentication → Generic → Header Auth → Name: Authorization, Value: Bearer TU_CLAVE.'],
+    code: `GET ${REST_BASE}/v1/search?q=vivienda`, primary: { label: 'BASE URL', value: `${REST_BASE}/v1` } },
+  { id: 'make', name: 'Make', kind: 'REST', note: 'REST · OpenAPI',
+    steps: ['Crea y copia una API key.', 'Módulo «HTTP → Make a request»: método GET, URL de abajo.', 'Headers: Authorization = Bearer TU_CLAVE. (O importa el OpenAPI.)'],
+    primary: { label: 'BASE URL', value: `${REST_BASE}/v1` } },
+  { id: 'zapier', name: 'Zapier', kind: 'REST', note: 'REST · webhooks',
+    steps: ['Crea y copia una API key.', '«Webhooks by Zapier» → Custom Request → GET a la URL de abajo.', 'Headers: Authorization: Bearer TU_CLAVE.'],
+    primary: { label: 'BASE URL', value: `${REST_BASE}/v1` } },
+  { id: 'langchain', name: 'LangChain', kind: 'REST', note: 'OpenAPI tools',
+    steps: ['Crea y copia una API key.', 'Envuelve la REST como tool o consume el OpenAPI:'],
+    code: `import requests\nr = requests.get("${REST_BASE}/v1/search",\n  params={"q": "vivienda"},\n  headers={"Authorization": "Bearer TU_CLAVE"})\nprint(r.json())`,
+    primary: { label: 'OPENAPI', value: OPENAPI_URL } },
+  { id: 'own', name: 'Tu propia app', kind: 'REST', note: 'REST · OpenAPI',
+    steps: ['Crea y copia una API key.', 'Llama a la REST con tu clave en la cabecera:'],
+    code: `curl "${REST_BASE}/v1/search?q=vivienda" \\\n  -H "Authorization: Bearer TU_CLAVE"`,
+    primary: { label: 'OPENAPI', value: OPENAPI_URL } },
+];
+
+const planFor = (profile) => {
+  const role = profile?.role;
+  if (role === 'manager' || role === 'admin_editor') return { name: 'BUSINESS', limit: '100.000', free: false };
+  const sub = (profile?.subscription_tier || 'free').toLowerCase();
+  if (sub === 'elite' || sub === 'business') return { name: 'ELITE', limit: '100.000', free: false };
+  if (sub === 'premium' || sub === 'pro') return { name: 'PREMIUM', limit: '10.000', free: false };
+  return { name: 'FREE', limit: '1.000', free: true };
+};
 
 const SectionTitle = ({ children }) => (
   <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: mono, borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5, letterSpacing: '1px' }}>{children}</h3>
@@ -12,37 +72,23 @@ const SectionTitle = ({ children }) => (
 const CopyBtn = ({ text, label = 'COPIAR' }) => {
   const [done, setDone] = useState(false);
   return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 2000); }}
-      style={{ padding: '8px 14px', fontSize: '10px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', background: done ? '#16a34a' : 'black', color: 'white', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-    >
+    <button onClick={() => { navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 2000); }}
+      style={{ padding: '8px 14px', fontSize: '10px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', background: done ? '#16a34a' : 'black', color: 'white', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
       {done ? '✓ COPIADO' : label}
     </button>
   );
 };
 
-// Tools this API plugs into. kind: MCP (native tools) or REST (HTTP/OpenAPI).
-const WORKS_WITH = [
-  { name: 'Claude', kind: 'MCP', note: 'Conector personalizado' },
-  { name: 'ChatGPT', kind: 'REST', note: 'Actions / OpenAPI' },
-  { name: 'Cursor', kind: 'MCP', note: 'MCP server' },
-  { name: 'GitHub Copilot', kind: 'MCP', note: 'MCP · VS Code' },
-  { name: 'Windsurf', kind: 'MCP', note: 'MCP server' },
-  { name: 'Zed', kind: 'MCP', note: 'MCP server' },
-  { name: 'n8n', kind: 'REST', note: 'HTTP / webhooks' },
-  { name: 'Make', kind: 'REST', note: 'REST · OpenAPI' },
-  { name: 'Zapier', kind: 'REST', note: 'REST · webhooks' },
-  { name: 'LangChain', kind: 'REST', note: 'OpenAPI tools' },
-  { name: 'Tu propia app', kind: 'REST', note: 'REST · OpenAPI' },
-];
-
-export default function ApiSection({ user }) {
+export default function ApiSection({ user, profile }) {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
-  const [tier, setTier] = useState('pro');
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState(null);
+  const [selected, setSelected] = useState('claude');
+
+  const plan = planFor(profile);
+  const conn = CONNECTORS.find((c) => c.id === selected) || CONNECTORS[0];
 
   const load = () => supabase
     .from('api_keys')
@@ -54,7 +100,7 @@ export default function ApiSection({ user }) {
 
   const create = async () => {
     setCreating(true);
-    const { data, error } = await supabase.rpc('create_api_key', { p_name: name || 'API key', p_tier: tier });
+    const { data, error } = await supabase.rpc('create_api_key', { p_name: name || 'API key' });
     setCreating(false);
     if (error) { alert('Error creando la clave: ' + error.message); return; }
     const row = Array.isArray(data) ? data[0] : data;
@@ -81,12 +127,9 @@ export default function ApiSection({ user }) {
         Conecta cualquier agente LLM a tus noticias y análisis de sesgo. Las claves se muestran <strong>una sola vez</strong> — guárdalas de forma segura.
       </p>
 
-      {/* ── Newly created key ── */}
       {justCreated && (
         <div style={{ border: '2px solid #16a34a', background: '#f0fdf4', padding: '24px', marginBottom: '48px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', marginBottom: '12px', color: '#15803d' }}>
-            ✓ CLAVE CREADA — CÓPIALA AHORA (no se volverá a mostrar)
-          </div>
+          <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', marginBottom: '12px', color: '#15803d' }}>✓ CLAVE CREADA — CÓPIALA AHORA (no se volverá a mostrar)</div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <code style={{ flex: 1, minWidth: '280px', fontSize: '13px', fontFamily: mono, background: 'white', border: '1px solid black', padding: '14px', wordBreak: 'break-all' }}>{justCreated.api_key}</code>
             <CopyBtn text={justCreated.api_key} />
@@ -98,23 +141,23 @@ export default function ApiSection({ user }) {
       {/* ── Create ── */}
       <div style={{ marginBottom: '60px' }}>
         <SectionTitle>CREAR UNA API KEY</SectionTitle>
-        <div style={{ border: 'var(--border-thin)', padding: '32px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, minWidth: '220px' }}>
-            <label style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, opacity: 0.5, letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NOMBRE (p.ej. Mi agente)</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Claude · Producción · Mi bot…"
-              style={{ width: '100%', padding: '14px', border: '1px solid #ccc', fontSize: '14px', background: '#fcfcfc', outline: 'none', boxSizing: 'border-box' }} />
+        <div style={{ border: 'var(--border-thin)', padding: '32px' }}>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <label style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, opacity: 0.5, letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NOMBRE (p.ej. Mi agente)</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Claude · Producción · Mi bot…"
+                style={{ width: '100%', padding: '14px', border: '1px solid #ccc', fontSize: '14px', background: '#fcfcfc', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <button onClick={create} disabled={creating} style={{ padding: '15px 26px', fontSize: '11px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', background: 'black', color: 'white', border: 'none', cursor: 'pointer', opacity: creating ? 0.5 : 1 }}>
+              {creating ? 'CREANDO…' : 'CREAR CLAVE'}
+            </button>
           </div>
-          <div>
-            <label style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, opacity: 0.5, letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>PLAN</label>
-            <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ padding: '14px', border: '1px solid #ccc', fontSize: '13px', background: '#fcfcfc', cursor: 'pointer' }}>
-              <option value="free">Free — 1.000 peticiones/día</option>
-              <option value="pro">Pro — 10.000/día</option>
-              <option value="business">Business — 100.000/día</option>
-            </select>
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '12px', fontFamily: mono }}>
+            <span style={{ opacity: 0.5, fontWeight: 900, letterSpacing: '1px' }}>TU PLAN</span>
+            <span style={{ background: 'black', color: 'white', fontWeight: 900, letterSpacing: '1px', padding: '4px 10px' }}>{plan.name}</span>
+            <span style={{ opacity: 0.7 }}>→ {plan.limit} peticiones/día por clave</span>
+            {plan.free && <a href="/pricing" style={{ marginLeft: 'auto', fontWeight: 900, textDecoration: 'underline', color: 'black' }}>SUBIR DE PLAN PARA MÁS ↗</a>}
           </div>
-          <button onClick={create} disabled={creating} style={{ padding: '15px 26px', fontSize: '11px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', background: 'black', color: 'white', border: 'none', cursor: 'pointer', opacity: creating ? 0.5 : 1 }}>
-            {creating ? 'CREANDO…' : 'CREAR CLAVE'}
-          </button>
         </div>
       </div>
 
@@ -124,9 +167,7 @@ export default function ApiSection({ user }) {
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', fontFamily: mono, opacity: 0.4, fontWeight: 900 }}>CARGANDO…</div>
         ) : keys.length === 0 ? (
-          <div style={{ padding: '32px', border: '1px dashed #ccc', textAlign: 'center', fontSize: '13px', fontFamily: mono, opacity: 0.5 }}>
-            Aún no tienes claves — crea una arriba.
-          </div>
+          <div style={{ padding: '32px', border: '1px dashed #ccc', textAlign: 'center', fontSize: '13px', fontFamily: mono, opacity: 0.5 }}>Aún no tienes claves — crea una arriba.</div>
         ) : (
           <div style={{ border: 'var(--border-thin)' }}>
             {keys.map((k, i) => {
@@ -156,7 +197,7 @@ export default function ApiSection({ user }) {
         <div style={{ marginBottom: '60px' }}>
           <SectionTitle>ACTIVIDAD</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '2px', background: '#e0e0e0', border: '1px solid #e0e0e0' }}>
-            {[['CLAVES ACTIVAS', active.length], ['PETICIONES TOTALES', totalReqs], ['PLAN MÁS ALTO', (active[0]?.tier || '—').toUpperCase()]].map(([l, v]) => (
+            {[['CLAVES ACTIVAS', active.length], ['PETICIONES TOTALES', totalReqs], ['TU PLAN', plan.name]].map(([l, v]) => (
               <div key={l} style={{ background: 'white', padding: '28px 24px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, opacity: 0.4, letterSpacing: '1px', marginBottom: '10px' }}>{l}</div>
                 <div style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>{v}</div>
@@ -166,70 +207,55 @@ export default function ApiSection({ user }) {
         </div>
       )}
 
-      {/* ── Works with ── */}
-      <div style={{ marginBottom: '60px' }}>
+      {/* ── Works with (selectable) ── */}
+      <div style={{ marginBottom: '40px' }}>
         <SectionTitle>COMPATIBLE CON</SectionTitle>
         <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px', lineHeight: 1.5, maxWidth: '720px' }}>
-          Conecta vía el <strong>servidor MCP</strong> (herramientas nativas) o la <strong>API REST / OpenAPI</strong>. Cualquier cliente compatible con MCP o que haga HTTP funciona — esta lista son los más comunes.
+          Elige tu herramienta para ver las instrucciones. Conecta vía <strong>MCP</strong> (herramientas nativas) o <strong>REST / OpenAPI</strong>.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1px', background: '#e0e0e0', border: '1px solid #e0e0e0' }}>
-          {WORKS_WITH.map((t) => (
-            <div key={t.name} style={{ background: 'white', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '15px', fontWeight: 800 }}>{t.name}</span>
-                <span style={{ fontSize: '8px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '3px 6px', background: t.kind === 'MCP' ? 'black' : '#eee', color: t.kind === 'MCP' ? 'white' : 'black' }}>{t.kind}</span>
-              </div>
-              <span style={{ fontSize: '11px', fontFamily: mono, opacity: 0.5 }}>{t.note}</span>
-            </div>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '1px', background: '#e0e0e0', border: '1px solid #e0e0e0' }}>
+          {CONNECTORS.map((t) => {
+            const on = t.id === selected;
+            return (
+              <button key={t.id} onClick={() => setSelected(t.id)}
+                style={{ background: on ? 'black' : 'white', color: on ? 'white' : 'black', padding: '18px 20px', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px', transition: 'background 0.15s' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '15px', fontWeight: 800 }}>{t.name}</span>
+                  <span style={{ fontSize: '8px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '3px 6px', background: on ? 'white' : (t.kind === 'MCP' ? 'black' : '#eee'), color: on ? 'black' : (t.kind === 'MCP' ? 'white' : 'black') }}>{t.kind}</span>
+                </div>
+                <span style={{ fontSize: '11px', fontFamily: mono, opacity: on ? 0.7 : 0.5 }}>{t.note}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* ── How to connect ── */}
+      {/* ── How to connect (depends on selection) ── */}
       <div>
         <SectionTitle>CÓMO CONECTAR</SectionTitle>
-
-        {/* MCP */}
-        <div style={{ border: 'var(--border-thin)', padding: '32px', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '16px', fontWeight: 800 }}>Conectar por MCP (Claude, Cursor, Windsurf, Zed…)</span>
-            <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: mono, background: 'black', color: 'white', padding: '3px 8px', letterSpacing: '1px' }}>HERRAMIENTAS NATIVAS</span>
-          </div>
-          <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', lineHeight: 2, color: '#222' }}>
-            <li>Crea una <strong>API key</strong> arriba y cópiala.</li>
-            <li>En tu cliente (Claude → Ajustes → Conectores → «Añadir conector personalizado»), pega esta URL:</li>
-          </ol>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', margin: '12px 0 12px 20px', flexWrap: 'wrap' }}>
-            <code style={{ flex: 1, minWidth: '280px', fontSize: '13px', fontFamily: mono, background: '#0a0a0a', color: '#e5e5e5', padding: '12px 14px', wordBreak: 'break-all' }}>{MCP_URL}</code>
-            <CopyBtn text={MCP_URL} label="COPIAR URL" />
-          </div>
-          <ol start={3} style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', lineHeight: 2, color: '#222' }}>
-            <li>Añade la cabecera <code style={{ fontFamily: mono, background: '#f0f0f0', padding: '1px 5px' }}>Authorization: Bearer TU_CLAVE</code>.</li>
-            <li>Listo: <code style={{ fontFamily: mono }}>search_news</code>, <code style={{ fontFamily: mono }}>get_story_context</code>, <code style={{ fontFamily: mono }}>list_blindspots</code>… aparecen como herramientas.</li>
-          </ol>
-        </div>
-
-        {/* REST */}
         <div style={{ border: 'var(--border-thin)', padding: '32px' }}>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '16px', fontWeight: 800 }}>Conectar por REST / OpenAPI (ChatGPT, n8n, Make, tu app…)</span>
-            <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: mono, background: '#eee', color: 'black', padding: '3px 8px', letterSpacing: '1px' }}>HTTP</span>
+            <span style={{ fontSize: '18px', fontWeight: 800 }}>Conectar {conn.name}</span>
+            <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: mono, background: conn.kind === 'MCP' ? 'black' : '#eee', color: conn.kind === 'MCP' ? 'white' : 'black', padding: '3px 8px', letterSpacing: '1px' }}>{conn.kind === 'MCP' ? 'HERRAMIENTAS NATIVAS' : 'HTTP · OPENAPI'}</span>
           </div>
-          <pre style={{ margin: 0, fontSize: '12.5px', fontFamily: mono, background: '#0a0a0a', color: '#e5e5e5', padding: '18px', overflowX: 'auto', lineHeight: 1.7 }}>{`# Base URL
-${REST_BASE}
-
-# Buscar noticias
-curl "${REST_BASE}/v1/search?q=vivienda" \\
-  -H "Authorization: Bearer TU_CLAVE"
-
-# Contexto LLM-ready de una noticia
-curl "${REST_BASE}/v1/stories/{id}/context" -H "Authorization: Bearer TU_CLAVE"
-
-# Puntos ciegos · Fuentes · OpenAPI
-GET ${REST_BASE}/v1/blindspots
-GET ${REST_BASE}/v1/sources
-GET ${REST_BASE}/v1/openapi.json`}</pre>
-          <div style={{ marginTop: '14px' }}><CopyBtn text={`${REST_BASE}/v1/openapi.json`} label="COPIAR URL OPENAPI" /></div>
+          <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', lineHeight: 2, color: '#222' }}>
+            {conn.steps.map((s, i) => <li key={i}>{s}</li>)}
+          </ol>
+          {conn.code && (
+            <div style={{ marginTop: '16px' }}>
+              <pre style={{ margin: 0, fontSize: '12.5px', fontFamily: mono, background: '#0a0a0a', color: '#e5e5e5', padding: '16px', overflowX: 'auto', lineHeight: 1.6 }}>{conn.code}</pre>
+              <div style={{ marginTop: '10px' }}><CopyBtn text={conn.code} label="COPIAR" /></div>
+            </div>
+          )}
+          {conn.primary && (
+            <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid #eee' }}>
+              <div style={{ fontSize: '9px', fontWeight: 900, fontFamily: mono, opacity: 0.5, letterSpacing: '1px', marginBottom: '8px' }}>{conn.primary.label}</div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <code style={{ flex: 1, minWidth: '260px', fontSize: '13px', fontFamily: mono, background: '#f4f4f4', border: '1px solid #ddd', padding: '12px 14px', wordBreak: 'break-all' }}>{conn.primary.value}</code>
+                <CopyBtn text={conn.primary.value} label="COPIAR" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

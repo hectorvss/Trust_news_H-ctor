@@ -31,32 +31,37 @@ create policy "owner manages own api_keys" on public.api_keys
   with check (user_id = auth.uid());
 
 -- Generates the key server-side, stores only the sha256 hash, returns the
--- plaintext exactly once. security definer so RLS doesn't block the insert.
-create or replace function public.create_api_key(p_name text default 'API key', p_tier text default 'free')
+-- plaintext exactly once. Quota is DERIVED from the caller's subscription /
+-- role (never chosen by the user). p_tier is kept for compat but ignored.
+create or replace function public.create_api_key(p_name text default 'API key', p_tier text default null)
 returns table(id uuid, api_key text, key_prefix text, tier text, daily_limit int)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_full text;
-  v_hash text;
-  v_pfx text;
-  v_limit int;
-  v_scopes text[];
+  v_full text; v_hash text; v_pfx text;
+  v_role text; v_sub text; v_tier text; v_limit int; v_scopes text[];
 begin
   if auth.uid() is null then
     raise exception 'authentication required';
   end if;
+  select role, subscription_tier into v_role, v_sub from public.profiles where id = auth.uid();
+  if v_role in ('manager', 'admin_editor') then
+    v_tier := 'business'; v_limit := 100000; v_scopes := array['read','search','context','drafts'];
+  elsif lower(coalesce(v_sub, '')) in ('elite', 'business') then
+    v_tier := 'elite'; v_limit := 100000; v_scopes := array['read','search','context'];
+  elsif lower(coalesce(v_sub, '')) in ('premium', 'pro') then
+    v_tier := 'premium'; v_limit := 10000; v_scopes := array['read','search','context'];
+  else
+    v_tier := 'free'; v_limit := 1000; v_scopes := array['read','search','context'];
+  end if;
   v_full := 'tnf_live_' || encode(gen_random_bytes(24), 'hex');
   v_hash := encode(digest(v_full, 'sha256'), 'hex');
   v_pfx := left(v_full, 17);
-  v_limit := case p_tier when 'business' then 100000 when 'pro' then 10000 else 1000 end;
-  v_scopes := case p_tier when 'business' then array['read','search','context','drafts']
-                          else array['read','search','context'] end;
   return query
     insert into public.api_keys(user_id, name, key_prefix, key_hash, tier, daily_limit, scopes)
-    values (auth.uid(), coalesce(nullif(trim(p_name), ''), 'API key'), v_pfx, v_hash, coalesce(p_tier, 'free'), v_limit, v_scopes)
+    values (auth.uid(), coalesce(nullif(trim(p_name), ''), 'API key'), v_pfx, v_hash, v_tier, v_limit, v_scopes)
     returning api_keys.id, v_full, api_keys.key_prefix, api_keys.tier, api_keys.daily_limit;
 end;
 $$;

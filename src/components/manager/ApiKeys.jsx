@@ -17,7 +17,6 @@ export default function ApiKeys() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
-  const [tier, setTier] = useState('pro');
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState(null); // { api_key, key_prefix, tier }
   const [copied, setCopied] = useState(false);
@@ -32,7 +31,7 @@ export default function ApiKeys() {
 
   const create = async () => {
     setCreating(true);
-    const { data, error } = await supabase.rpc('create_api_key', { p_name: name || 'API key', p_tier: tier });
+    const { data, error } = await supabase.rpc('create_api_key', { p_name: name || 'API key' });
     setCreating(false);
     if (error) { alert('Error creando la clave: ' + error.message); return; }
     const row = Array.isArray(data) ? data[0] : data;
@@ -83,13 +82,8 @@ export default function ApiKeys() {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="p.ej. Mi agente / Producción"
             style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
         </div>
-        <div>
-          <label style={{ fontSize: '9px', fontWeight: 900, fontFamily: fontMono, opacity: 0.5, letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>TIER</label>
-          <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ padding: '10px 12px', border: '1px solid #ddd', fontSize: '13px' }}>
-            <option value="free">free — 1.000/día</option>
-            <option value="pro">pro — 10.000/día</option>
-            <option value="business">business — 100.000/día + drafts</option>
-          </select>
+        <div style={{ alignSelf: 'center', fontSize: '10px', fontFamily: fontMono, opacity: 0.55, letterSpacing: '0.5px', maxWidth: '220px', lineHeight: 1.5 }}>
+          La cuota se asigna por rol/suscripción (manager → business · 100.000/día).
         </div>
         <button onClick={create} disabled={creating} style={{ ...btn, background: 'black', color: 'white', border: 'none', padding: '13px 22px', opacity: creating ? 0.5 : 1 }}>
           {creating ? 'CREANDO…' : '+ CREAR CLAVE'}

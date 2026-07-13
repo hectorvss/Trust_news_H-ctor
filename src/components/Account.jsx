@@ -870,7 +870,7 @@ const Account = ({ user, profile, onBack, onSaveSettings, onUpgrade }) => {
       case 'billing': return <TabBilling profile={profile} user={user} />;
       case 'notifications': return <TabNotifications user={user} profile={profile} />;
       case 'stats': return <TabStats user={user} />;
-      case 'api': return <ApiSection user={user} />;
+      case 'api': return <ApiSection user={user} profile={profile} />;
       case 'privacy': return <TabPrivacy user={user} profile={profile} key={profile?.id} />;
       default: return <TabProfile user={user} profile={profile} />;
     }
