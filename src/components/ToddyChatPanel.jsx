@@ -199,8 +199,8 @@ const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.m
                   {allowed ? (
                     isCurrent && <span style={{ fontSize: '11px', fontWeight: 900 }}>✓</span>
                   ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-mono)', fontSize: '8px', fontWeight: 900, letterSpacing: '0.5px', border: '1px solid #111', padding: '2px 6px' }}>
-                      <span aria-hidden="true">🔒</span>{item.tier}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 900, letterSpacing: '1px', background: '#111', color: '#fff', padding: '4px 9px' }}>
+                      {item.tier}
                     </span>
                   )}
                 </div>
