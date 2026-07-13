@@ -229,18 +229,44 @@ export default function ApiSection({ user, profile }) {
         <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px', lineHeight: 1.5, maxWidth: '720px' }}>
           Elige tu herramienta para ver las instrucciones. Conecta vía <strong>MCP</strong> (herramientas nativas) o <strong>REST / OpenAPI</strong>.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(122px, 1fr))', gap: '12px' }}>
           {CONNECTORS.map((t) => {
             const on = t.id === selected;
             return (
-              <button key={t.id} onClick={() => setSelected(t.id)}
-                style={{ background: on ? 'black' : 'white', color: on ? 'white' : 'black', border: '1px solid ' + (on ? 'black' : '#e0e0e0'), padding: '12px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', textAlign: 'center', transition: 'border-color 0.12s' }}
-                onMouseEnter={(e) => { if (!on) e.currentTarget.style.borderColor = '#000'; }}
-                onMouseLeave={(e) => { if (!on) e.currentTarget.style.borderColor = '#e0e0e0'; }}>
-                <Logo name={t.name} domain={t.domain} size={26} />
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t.name}</div>
-                  <div style={{ fontSize: '8px', fontFamily: mono, letterSpacing: '1px', opacity: on ? 0.6 : 0.35, marginTop: '3px' }}>{t.kind}</div>
+              <button
+                key={t.id}
+                onClick={() => setSelected(t.id)}
+                style={{
+                  background: on ? '#111' : '#fff',
+                  border: '1px solid ' + (on ? '#111' : '#ececec'),
+                  borderRadius: '16px',
+                  padding: '15px 12px 12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '10px',
+                  textAlign: 'center',
+                  boxShadow: on ? '0 8px 20px rgba(0,0,0,0.16)' : '0 1px 2px rgba(0,0,0,0.03)',
+                  transition: 'transform .15s ease, box-shadow .15s ease, border-color .15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = on ? '0 12px 26px rgba(0,0,0,0.22)' : '0 8px 20px rgba(0,0,0,0.08)';
+                  if (!on) e.currentTarget.style.borderColor = '#d6d6d6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = on ? '0 8px 20px rgba(0,0,0,0.16)' : '0 1px 2px rgba(0,0,0,0.03)';
+                  if (!on) e.currentTarget.style.borderColor = '#ececec';
+                }}
+              >
+                <div style={{ width: '46px', height: '46px', borderRadius: '13px', background: on ? 'rgba(255,255,255,0.12)' : '#f6f6f4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Logo name={t.name} domain={t.domain} size={26} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '-0.2px', lineHeight: 1.15, color: on ? '#fff' : '#111' }}>{t.name}</div>
+                  <div style={{ fontSize: '8px', fontWeight: 700, fontFamily: mono, letterSpacing: '1.5px', color: on ? '#fff' : '#111', opacity: on ? 0.5 : 0.32 }}>{t.kind}</div>
                 </div>
               </button>
             );
