@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/mcp", "destination": "https://xwkqtugupzpdnnvxrkyu.supabase.co/functions/v1/mcp" },
+    { "source": "/v1/:path*", "destination": "https://xwkqtugupzpdnnvxrkyu.supabase.co/functions/v1/api/v1/:path*" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }

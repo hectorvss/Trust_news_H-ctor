@@ -5,7 +5,8 @@ const fontMono = 'var(--font-mono)';
 const fontHeading = 'var(--font-heading)';
 const BORDER = '1px solid black';
 
-const API_BASE = 'https://xwkqtugupzpdnnvxrkyu.supabase.co/functions/v1/api';
+const API_BASE = 'https://trustnews.es';
+const MCP_URL = 'https://trustnews.es/mcp';
 
 const btn = {
   fontFamily: fontMono, fontSize: '11px', fontWeight: 900, letterSpacing: '1px',
@@ -131,8 +132,9 @@ export default function ApiKeys() {
       {/* ── Quick docs ── */}
       <div style={{ marginTop: '32px', border: '1px dashed #ccc', padding: '20px', borderRadius: 'var(--radius-sm)' }}>
         <div style={{ fontSize: '11px', fontWeight: 900, fontFamily: fontMono, letterSpacing: '1px', marginBottom: '12px', opacity: 0.6 }}>CÓMO USARLA</div>
-        <pre style={{ margin: 0, fontSize: '12px', fontFamily: fontMono, background: '#0a0a0a', color: '#e5e5e5', padding: '16px', borderRadius: '8px', overflowX: 'auto', lineHeight: 1.6 }}>{`# Base URL
+        <pre style={{ margin: 0, fontSize: '12px', fontFamily: fontMono, background: '#0a0a0a', color: '#e5e5e5', padding: '16px', borderRadius: '8px', overflowX: 'auto', lineHeight: 1.6 }}>{`# REST base URL
 ${API_BASE}
+# MCP (conector para agentes): ${MCP_URL}
 
 # Ejemplo (curl)
 curl "${API_BASE}/v1/search?q=vivienda" \\

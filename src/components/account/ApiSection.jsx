@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
 const mono = 'var(--font-mono)';
-const REST_BASE = 'https://xwkqtugupzpdnnvxrkyu.supabase.co/functions/v1/api';
-const MCP_URL = 'https://xwkqtugupzpdnnvxrkyu.supabase.co/functions/v1/mcp';
+const REST_BASE = 'https://trustnews.es';
+const MCP_URL = 'https://trustnews.es/mcp';
 
 const SectionTitle = ({ children }) => (
   <h3 style={{ fontSize: '12px', fontWeight: 900, fontFamily: mono, borderBottom: 'var(--border-thin)', paddingBottom: '16px', marginBottom: '24px', opacity: 0.5, letterSpacing: '1px' }}>{children}</h3>
