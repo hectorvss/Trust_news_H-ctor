@@ -82,15 +82,14 @@ const CopyBtn = ({ text, label = 'COPIAR' }) => {
 
 // Brand logo via the site's own favicon (nominative use for the integrations
 // grid); falls back to a monogram / code glyph if it can't load.
-const Logo = ({ name, domain, size = 34 }) => {
+const Logo = ({ name, domain, size = 34, color = '#111' }) => {
   const [failed, setFailed] = useState(false);
-  const src = domain && !failed ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;
-  const inner = Math.round(size * 0.62);
+  const src = domain && !failed ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
   return (
-    <div style={{ width: size, height: size, background: 'white', border: '1px solid #ececec', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+    <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       {src
-        ? <img src={src} alt="" width={inner} height={inner} style={{ display: 'block' }} onError={() => setFailed(true)} />
-        : <span style={{ fontWeight: 900, fontFamily: mono, fontSize: Math.round(size * 0.34), color: '#111' }}>{name === 'Tu propia app' ? '{ }' : (name || '?').charAt(0)}</span>}
+        ? <img src={src} alt="" width={size} height={size} style={{ display: 'block', objectFit: 'contain' }} onError={() => setFailed(true)} />
+        : <span style={{ fontWeight: 900, fontFamily: mono, fontSize: Math.round(size * 0.42), color }}>{name === 'Tu propia app' ? '{ }' : (name || '?').charAt(0)}</span>}
     </div>
   );
 };
@@ -261,9 +260,7 @@ export default function ApiSection({ user, profile }) {
                   if (!on) e.currentTarget.style.borderColor = '#ececec';
                 }}
               >
-                <div style={{ width: '46px', height: '46px', borderRadius: '13px', background: on ? 'rgba(255,255,255,0.12)' : '#f6f6f4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Logo name={t.name} domain={t.domain} size={26} />
-                </div>
+                <Logo name={t.name} domain={t.domain} size={40} color={on ? '#fff' : '#111'} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '-0.2px', lineHeight: 1.15, color: on ? '#fff' : '#111' }}>{t.name}</div>
                   <div style={{ fontSize: '8px', fontWeight: 700, fontFamily: mono, letterSpacing: '1.5px', color: on ? '#fff' : '#111', opacity: on ? 0.5 : 0.32 }}>{t.kind}</div>
