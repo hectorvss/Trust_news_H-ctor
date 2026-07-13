@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
         generation_metadata: {
           llm: {
             status: "schema_failed",
-            model: llmTrace.model || config.anthropicModel,
+            model: llmTrace.model || config.openaiModel,
             prompt_version: llmTrace.prompt_version,
             token_usage: llmTrace.token_usage,
             attempts: llmTrace.llm_attempts,
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       generation_metadata: {
         llm: {
           status: "completed",
-          model: llmTrace.model || config.anthropicModel,
+          model: llmTrace.model || config.openaiModel,
           prompt_version: llmTrace.prompt_version,
           token_usage: llmTrace.token_usage,
           attempts: llmTrace.llm_attempts,

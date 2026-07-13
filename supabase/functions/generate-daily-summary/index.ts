@@ -3,7 +3,6 @@ import { config, parseAnthropicJson, sha256, truncate } from "../_shared/pipelin
 import { finishRun, startRun } from "../_shared/runs.ts";
 import { handleCors, jsonResponse, parseJson } from "../_shared/http.ts";
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const DAILY_BRIEF_PROMPT_VERSION = "trust-news-daily-brief-v1";
 const DAILY_BRIEF_MAX_PROMPT_STORIES = Number(Deno.env.get("DAILY_BRIEF_MAX_PROMPT_STORIES") ?? 16);
 const DAILY_BRIEF_MAX_TOP_STORIES = Number(Deno.env.get("DAILY_BRIEF_MAX_TOP_STORIES") ?? 6);
@@ -302,42 +301,73 @@ const buildUserPrompt = (evidencePack: any) => [
   `<evidence_pack>${JSON.stringify(evidencePack)}</evidence_pack>`,
 ].join("\n");
 
-const callAnthropic = async (apiKey: string, body: any, retries = 3) => {
+// Single-provider (OpenAI). Acepta el mismo body en formato Anthropic que ya
+// construyen los call sites y lo traduce a Chat Completions con function-calling.
+const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const callOpenAI = async (apiKey: string, body: any, retries = 3) => {
+  const schema = asArray(body.tools)[0];
+  const systemText = Array.isArray(body.system)
+    ? (body.system[0]?.text || "")
+    : (typeof body.system === "string" ? body.system : "");
+  const oaBody: any = {
+    model: body.model,
+    max_completion_tokens: body.max_tokens,
+    messages: [
+      ...(systemText ? [{ role: "system", content: systemText }] : []),
+      ...asArray(body.messages),
+    ],
+  };
+  if (schema) {
+    oaBody.tools = [{ type: "function", function: { name: schema.name, description: schema.description, parameters: schema.input_schema } }];
+    oaBody.tool_choice = { type: "function", function: { name: schema.name } };
+  }
+
   let attempt = 0;
   while (true) {
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(OPENAI_CHAT_URL, {
       method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "prompt-caching-2024-07-31",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(oaBody),
     });
     if (res.ok) {
       const data = await res.json();
-      const content = asArray(data.content);
-      const toolUse = content.find((part: any) => part?.type === "tool_use" && part?.name === dailyBriefSchema.name);
-      const text = content.map((part: any) => part?.text || "").join("\n").trim();
-      const payload = toolUse?.input || (text ? parseAnthropicJson(text) : null);
-      if (!payload) throw new Error("Empty Anthropic response");
+      const msg = data.choices?.[0]?.message || {};
+      const toolCall = asArray(msg.tool_calls).find((t: any) => t?.function?.name === schema?.name);
+      let payload: any;
+      let rawText: string;
+      let usedTool: boolean;
+      if (toolCall?.function?.arguments) {
+        rawText = toolCall.function.arguments;
+        try { payload = JSON.parse(rawText); } catch { payload = parseAnthropicJson(rawText); }
+        usedTool = true;
+      } else {
+        rawText = String(msg.content || "").trim();
+        payload = rawText ? parseAnthropicJson(rawText) : null;
+        usedTool = false;
+      }
+      if (!payload) throw new Error("Empty OpenAI response");
+      const u = data.usage || {};
       return {
         payload,
-        rawText: toolUse?.input ? JSON.stringify(toolUse.input) : text,
-        usage: data.usage || {},
-        stopReason: data.stop_reason || null,
-        usedTool: Boolean(toolUse?.input),
+        rawText,
+        usage: {
+          input_tokens: Number(u.prompt_tokens || 0),
+          output_tokens: Number(u.completion_tokens || 0),
+          cache_read_input_tokens: Number(u.prompt_tokens_details?.cached_tokens || 0),
+          cache_creation_input_tokens: 0,
+        },
+        stopReason: data.choices?.[0]?.finish_reason || null,
+        usedTool,
       };
     }
-    if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < retries) {
+    if ((res.status === 429 || res.status >= 500) && attempt < retries) {
       const wait = Math.min(8000, 2 ** attempt * 1000) + Math.random() * 400;
       await new Promise((resolve) => setTimeout(resolve, wait));
       attempt++;
       continue;
     }
     const text = await res.text();
-    throw new Error(`Anthropic daily brief failed: ${res.status} ${text.slice(0, 300)}`);
+    throw new Error(`OpenAI daily brief failed: ${res.status} ${text.slice(0, 300)}`);
   }
 };
 
@@ -569,7 +599,7 @@ const persistDailyBrief = async (args: {
     generation_metadata: {
       llm: {
         status: args.trace?.source === "fallback" ? "fallback" : "completed",
-        model: args.trace?.model || config.anthropicModel,
+        model: args.trace?.model || config.openaiModel,
         prompt_version: args.trace?.prompt_version || DAILY_BRIEF_PROMPT_VERSION,
         token_usage: args.trace?.token_usage || {},
         attempts: args.trace?.llm_attempts || [],
@@ -728,14 +758,14 @@ Deno.serve(async (req) => {
     }, {});
 
     const evidencePack = await buildPromptPack(briefDate, scope, stories, clustersMap);
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
+    const apiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let result: any;
     if (!apiKey) {
-      result = buildFallbackBrief(briefDate, scope, stories, clustersMap, evidencePack, "anthropic_api_key_missing");
+      result = buildFallbackBrief(briefDate, scope, stories, clustersMap, evidencePack, "openai_api_key_missing");
     } else {
-      const primary = await callAnthropic(apiKey, {
-        model: config.anthropicModel,
+      const primary = await callOpenAI(apiKey, {
+        model: config.openaiModel,
         max_tokens: DAILY_BRIEF_MAX_OUTPUT_TOKENS,
         system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
         tools: [dailyBriefSchema],
@@ -748,7 +778,7 @@ Deno.serve(async (req) => {
       let rawText = primary.rawText;
       let trace = {
         prompt_version: DAILY_BRIEF_PROMPT_VERSION,
-        model: config.anthropicModel,
+        model: config.openaiModel,
         repair_used: false,
         llm_attempts: [{
           kind: "primary",
@@ -780,8 +810,8 @@ Deno.serve(async (req) => {
       };
 
       if (!validation.ready) {
-        const repair = await callAnthropic(apiKey, {
-          model: config.anthropicModel,
+        const repair = await callOpenAI(apiKey, {
+          model: config.openaiModel,
           max_tokens: Math.max(1600, Math.floor(DAILY_BRIEF_MAX_OUTPUT_TOKENS * 0.75)),
           system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
           tools: [dailyBriefSchema],

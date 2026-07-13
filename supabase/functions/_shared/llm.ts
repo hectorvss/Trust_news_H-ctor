@@ -1,10 +1,8 @@
 import { biasBucketOf, buildEmbeddingInput, config, parseAnthropicJson, sha256, truncate } from "./pipeline.ts";
 
 const openAiKey = () => Deno.env.get("OPENAI_API_KEY") || "";
-const anthropicKey = () => Deno.env.get("ANTHROPIC_API_KEY") || "";
 
 export const LLM_PROMPT_VERSION = "trust-news-story-draft-v2";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MAX_EVIDENCE_ARTICLES = Number(Deno.env.get("PIPELINE_LLM_MAX_EVIDENCE_ARTICLES") ?? 16);
 const MAX_ARTICLE_EXTRACT_CHARS = Number(Deno.env.get("PIPELINE_LLM_ARTICLE_EXTRACT_CHARS") ?? 900);
 const REPAIR_MAX_TOKENS = Number(Deno.env.get("PIPELINE_LLM_REPAIR_MAX_TOKENS") ?? 2200);
@@ -495,47 +493,76 @@ const buildUserPrompt = (evidencePack: any) => [
   `<evidence_pack>${JSON.stringify(evidencePack)}</evidence_pack>`,
 ].join("\n");
 
-const parseToolOrJson = (data: any): { payload: any; rawText: string; usedTool: boolean } => {
-  const content = asArray(data.content);
-  const toolUse = content.find((part: any) => part?.type === "tool_use" && part?.name === storyDraftSchema.name);
-  if (toolUse?.input) return { payload: toolUse.input, rawText: JSON.stringify(toolUse.input), usedTool: true };
-  const text = content.map((part: any) => part?.text || "").join("\n").trim();
-  if (!text) throw new Error("Empty Anthropic response");
-  return { payload: parseAnthropicJson(text), rawText: text, usedTool: false };
-};
+// Single-provider: OpenAI Chat Completions con function-calling forzado, para
+// obtener la misma salida estructurada que daba el tool_use de Claude. La usage
+// se normaliza al formato input/output/cache que espera el resto del código.
+const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 
-const callAnthropic = async (apiKey: string, body: any, retries = 3): Promise<LlmCallResult> => {
+const callOpenAI = async (
+  apiKey: string,
+  args: { model: string; maxTokens: number; system: string; user: string; schema: any },
+  retries = 3,
+): Promise<LlmCallResult> => {
+  const body = {
+    model: args.model,
+    max_completion_tokens: args.maxTokens,
+    messages: [
+      { role: "system", content: args.system },
+      { role: "user", content: args.user },
+    ],
+    tools: [{
+      type: "function",
+      function: {
+        name: args.schema.name,
+        description: args.schema.description,
+        parameters: args.schema.input_schema,
+      },
+    }],
+    tool_choice: { type: "function", function: { name: args.schema.name } },
+  };
+
   let attempt = 0;
   while (true) {
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(OPENAI_CHAT_URL, {
       method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "prompt-caching-2024-07-31",
-        "Content-Type": "application/json",
-      },
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (res.ok) {
       const data = await res.json();
-      const parsed = parseToolOrJson(data);
-      return {
-        ...parsed,
-        usage: data.usage || {},
-        stopReason: data.stop_reason || null,
+      const msg = data.choices?.[0]?.message || {};
+      const toolCall = asArray(msg.tool_calls).find((t: any) => t?.function?.name === args.schema.name);
+      let payload: any;
+      let rawText: string;
+      let usedTool: boolean;
+      if (toolCall?.function?.arguments) {
+        rawText = toolCall.function.arguments;
+        try { payload = JSON.parse(rawText); } catch { payload = parseAnthropicJson(rawText); }
+        usedTool = true;
+      } else {
+        rawText = asText(msg.content);
+        if (!rawText) throw new Error("Empty OpenAI response");
+        payload = parseAnthropicJson(rawText);
+        usedTool = false;
+      }
+      const u = data.usage || {};
+      const usage = {
+        input_tokens: Number(u.prompt_tokens || 0),
+        output_tokens: Number(u.completion_tokens || 0),
+        cache_read_input_tokens: Number(u.prompt_tokens_details?.cached_tokens || 0),
+        cache_creation_input_tokens: 0,
       };
+      return { payload, rawText, usage, stopReason: data.choices?.[0]?.finish_reason || null, usedTool };
     }
-    // Retry transient failures (429 rate-limit, 529 overloaded, 5xx) with
-    // exponential backoff + jitter instead of failing the whole draft (audit #9).
-    if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < retries) {
+    // Retry transient failures (429 rate-limit, 5xx) with backoff + jitter.
+    if ((res.status === 429 || res.status >= 500) && attempt < retries) {
       const wait = Math.min(8000, 2 ** attempt * 1000) + Math.random() * 400;
       await new Promise((resolve) => setTimeout(resolve, wait));
       attempt++;
       continue;
     }
     const text = await res.text();
-    throw new Error(`Anthropic analysis failed: ${res.status} ${text.slice(0, 300)}`);
+    throw new Error(`OpenAI analysis failed: ${res.status} ${text.slice(0, 300)}`);
   }
 };
 
@@ -651,13 +678,12 @@ export const repairTrustNewsDraft = async (args: {
     `Evidence pack: ${JSON.stringify(args.evidencePack).slice(0, 16000)}`,
   ].join("\n");
 
-  return callAnthropic(args.apiKey, {
-    model: config.anthropicModel,
-    max_tokens: REPAIR_MAX_TOKENS,
-    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-    tools: [storyDraftSchema],
-    tool_choice: { type: "tool", name: storyDraftSchema.name },
-    messages: [{ role: "user", content: repairPrompt }],
+  return callOpenAI(args.apiKey, {
+    model: config.openaiModel,
+    maxTokens: REPAIR_MAX_TOKENS,
+    system: systemPrompt,
+    user: repairPrompt,
+    schema: storyDraftSchema,
   });
 };
 
@@ -679,20 +705,19 @@ export const analyzeCluster = async (
   }>,
   sourcesMap: Record<string, any>,
 ) => {
-  const apiKey = anthropicKey();
+  const apiKey = openAiKey();
   if (!apiKey) return null;
 
   const distinctSources = new Set(articles.map((article) => article.source_id).filter(Boolean));
   if (distinctSources.size < config.analysisMinSources) return null;
 
   const evidencePack = await buildEvidencePack(cluster, articles, sourcesMap);
-  const primary = await callAnthropic(apiKey, {
-    model: config.anthropicModel,
-    max_tokens: Number(Deno.env.get("PIPELINE_LLM_MAX_OUTPUT_TOKENS") ?? 3600),
-    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-    tools: [storyDraftSchema],
-    tool_choice: { type: "tool", name: storyDraftSchema.name },
-    messages: [{ role: "user", content: buildUserPrompt(evidencePack) }],
+  const primary = await callOpenAI(apiKey, {
+    model: config.openaiModel,
+    maxTokens: Number(Deno.env.get("PIPELINE_LLM_MAX_OUTPUT_TOKENS") ?? 3600),
+    system: systemPrompt,
+    user: buildUserPrompt(evidencePack),
+    schema: storyDraftSchema,
   });
 
   let attempts = [{
@@ -740,7 +765,7 @@ export const analyzeCluster = async (
     validation,
     trace: {
       prompt_version: LLM_PROMPT_VERSION,
-      model: config.anthropicModel,
+      model: config.openaiModel,
       repair_used: repairUsed,
       llm_attempts: attempts,
       token_usage: tokenUsage,

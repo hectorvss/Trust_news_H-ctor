@@ -20,6 +20,9 @@ export const config = {
   analysisMaxClustersPerRun: Number(Deno.env.get("PIPELINE_ANALYSIS_MAX_CLUSTERS_PER_RUN") ?? 15),
   analysisMaxArticlesInPrompt: Number(Deno.env.get("PIPELINE_ANALYSIS_MAX_ARTICLES_IN_PROMPT") ?? 24),
   openaiEmbeddingModel: Deno.env.get("OPENAI_EMBEDDING_MODEL") ?? "text-embedding-3-small",
+  // Single-provider (OpenAI). Modelo barato por defecto para la síntesis editorial;
+  // gpt-4o-mini soporta function-calling y JSON, coste ~$0.15/$0.60 por 1M tokens.
+  openaiModel: Deno.env.get("OPENAI_MODEL") ?? Deno.env.get("OPENAI_SYNTHESIS_MODEL") ?? "gpt-4o-mini",
   anthropicModel: Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6",
 };
 

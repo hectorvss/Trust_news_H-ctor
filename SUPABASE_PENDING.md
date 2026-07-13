@@ -65,12 +65,25 @@
 
 ---
 
-## 2. Secrets de Edge Functions (Supabase → Project Settings → Edge Functions → Secrets)
-- 🔴 `ANTHROPIC_API_KEY = sk-ant-...` → desbloquea `generate-synthesis`.
-  Sin ella, las ~330 stories draft se quedan sin análisis IA y la cola de
-  revisión no deja publicarlas (validación exige `consensus_narrative`).
-- 🟡 `OPENAI_API_KEY = sk-proj-...` → solo si se vuelve a embeddings OpenAI.
-  Actualmente los embeddings usan dim=384 (modelo alternativo).
+## 2. Secret de Edge Functions — SINGLE PROVIDER OpenAI (Supabase → Edge Functions → Secrets)
+- 🔴 `OPENAI_API_KEY = sk-...` → **única key necesaria**. Desbloquea embeddings,
+  `generate-synthesis` (redacción con `gpt-4o-mini`) y `generate-daily-summary`.
+  Sin ella, las stories draft se quedan sin análisis y la cola no deja publicarlas.
+- ✅ Ya **NO se necesita `ANTHROPIC_API_KEY`** (todo migrado a OpenAI, ver `AI_PROVIDERS_AUDIT.md`).
+- (opcionales) `OPENAI_MODEL` (def. gpt-4o-mini), `OPENAI_EMBEDDING_MODEL` (def. text-embedding-3-small).
+
+### 2b. Redeploy de las funciones migradas a OpenAI  🔴
+Importan `_shared/llm.ts` → desplegar **con bundling** (no self-contained):
+`supabase functions deploy generate-synthesis` y `... generate-daily-summary`
+(o MCP `deploy_edge_function` incluyendo los ficheros `_shared`).
+
+### 2c. Toddy (Vercel `api/`)
+Poner `OPENAI_API_KEY` en las env de **Vercel** (Project Settings → Environment Variables).
+Toddy (`api/_toddyCore.js`) ya usa OpenAI; se despliega solo al hacer push.
+
+### 2d. ⚠️ Verificar dimensión del vector (crítico)
+Confirmar `raw_articles.embedding` = `vector(1536)`; si es `vector(384)`, alterar a 1536 y
+limpiar embeddings viejos (ver `AI_PROVIDERS_AUDIT.md`).
 
 ---
 
