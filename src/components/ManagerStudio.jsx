@@ -12,6 +12,7 @@ import Plus from './ui/Plus';
 import PipelineDashboard from './manager/PipelineDashboard';
 import ClustersView from './manager/ClustersView';
 import ReviewQueue from './manager/ReviewQueue';
+import ApiKeys from './manager/ApiKeys';
 import { hasAdminEditorAccess, hasManagerAccess } from '../utils/managerAccess';
 
 const BIAS_OPTIONS = ['LEFT', 'CENTER', 'RIGHT'];
@@ -340,7 +341,7 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
 
       {/* NAVIGATION TABS */}
       <div style={{ display: 'flex', gap: '40px', marginBottom: '40px', flexWrap: 'wrap' }}>
-        {['POSTS', 'REVISIÓN', 'MOTOR', 'CLÚSTERS', 'SECCIONES', 'DESTACADOS', 'USUARIOS', 'COMUNICACIÓN'].map(tab => (
+        {['POSTS', 'REVISIÓN', 'MOTOR', 'CLÚSTERS', 'API', 'SECCIONES', 'DESTACADOS', 'USUARIOS', 'COMUNICACIÓN'].map(tab => (
           <h2
             key={tab}
             onClick={() => setActiveView(tab)}
@@ -1089,6 +1090,7 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
       {/* Paneles del motor de noticias — componentes dedicados (src/components/manager/) */}
       {activeView === 'MOTOR' && <PipelineDashboard />}
       {activeView === 'CLÚSTERS' && <ClustersView />}
+      {activeView === 'API' && <ApiKeys />}
       {activeView === 'REVISIÓN' && <ReviewQueue onEditStory={(id) => handleEditStory({ id })} />}
 
       {/* Legacy inline review queue — superseded by <ReviewQueue/>, disabled pending cleanup */}
