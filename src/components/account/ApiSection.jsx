@@ -229,18 +229,18 @@ export default function ApiSection({ user, profile }) {
         <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px', lineHeight: 1.5, maxWidth: '720px' }}>
           Elige tu herramienta para ver las instrucciones. Conecta vía <strong>MCP</strong> (herramientas nativas) o <strong>REST / OpenAPI</strong>.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: '8px' }}>
           {CONNECTORS.map((t) => {
             const on = t.id === selected;
             return (
               <button key={t.id} onClick={() => setSelected(t.id)}
-                style={{ aspectRatio: '1 / 1', background: on ? 'black' : 'white', color: on ? 'white' : 'black', border: '1px solid ' + (on ? 'black' : '#e0e0e0'), padding: '14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', textAlign: 'center', transition: 'border-color 0.12s' }}
+                style={{ background: on ? 'black' : 'white', color: on ? 'white' : 'black', border: '1px solid ' + (on ? 'black' : '#e0e0e0'), padding: '12px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', textAlign: 'center', transition: 'border-color 0.12s' }}
                 onMouseEnter={(e) => { if (!on) e.currentTarget.style.borderColor = '#000'; }}
                 onMouseLeave={(e) => { if (!on) e.currentTarget.style.borderColor = '#e0e0e0'; }}>
-                <Logo name={t.name} domain={t.domain} size={44} />
+                <Logo name={t.name} domain={t.domain} size={26} />
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 800, lineHeight: 1.2 }}>{t.name}</div>
-                  <div style={{ fontSize: '9px', fontFamily: mono, letterSpacing: '1px', opacity: on ? 0.65 : 0.4, marginTop: '5px' }}>{t.kind}</div>
+                  <div style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t.name}</div>
+                  <div style={{ fontSize: '8px', fontFamily: mono, letterSpacing: '1px', opacity: on ? 0.6 : 0.35, marginTop: '3px' }}>{t.kind}</div>
                 </div>
               </button>
             );
