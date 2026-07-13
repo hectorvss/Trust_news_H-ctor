@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { updateProfile, updateUserSettings, getBiasStats, getUsageMetrics, getAiUsageMetrics } from '../supabaseService';
+import ApiSection from './account/ApiSection';
 
 // --- ELEMENTOS UI REUSABLES ---
 
@@ -66,6 +67,7 @@ const TABS = [
   { id: 'billing', label: 'Mi Suscripción' },
   { id: 'notifications', label: 'Notificaciones' },
   { id: 'stats', label: 'Mis Estadísticas' },
+  { id: 'api', label: 'API & MCP' },
   { id: 'privacy', label: 'Privacidad y Datos' }
 ];
 
@@ -868,6 +870,7 @@ const Account = ({ user, profile, onBack, onSaveSettings, onUpgrade }) => {
       case 'billing': return <TabBilling profile={profile} user={user} />;
       case 'notifications': return <TabNotifications user={user} profile={profile} />;
       case 'stats': return <TabStats user={user} />;
+      case 'api': return <ApiSection user={user} />;
       case 'privacy': return <TabPrivacy user={user} profile={profile} key={profile?.id} />;
       default: return <TabProfile user={user} profile={profile} />;
     }
