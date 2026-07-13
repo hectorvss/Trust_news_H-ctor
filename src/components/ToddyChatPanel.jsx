@@ -11,11 +11,29 @@ const QUICK_PROMPTS = [
 ];
 
 const DEPTHS = [
-  { id: 'quick', label: 'Rapido', description: 'Breve y directo' },
-  { id: 'deep', label: 'Profundo', description: 'Contexto, cifras y sesgo' },
-  { id: 'research', label: 'Investigacion', description: 'Puede consultar web' },
-  { id: 'audit', label: 'Auditoria', description: 'Maxima trazabilidad' }
+  { id: 'quick', label: 'Rapido', description: 'Respuesta breve y directa sobre la noticia.', level: 1, tier: 'ESTANDAR' },
+  { id: 'deep', label: 'Profundo', description: 'Contexto, cifras y analisis de sesgo con mas razonamiento.', level: 2, tier: 'PREMIUM' },
+  { id: 'research', label: 'Investigacion', description: 'Consulta la web y cruza fuentes externas.', level: 3, tier: 'ELITE' },
+  { id: 'audit', label: 'Auditoria', description: 'Maxima trazabilidad: verifica cada afirmacion y cita.', level: 4, tier: 'ELITE' }
 ];
+
+// Barras que representan la capacidad de razonamiento del modo (1..4).
+const ReasoningLevel = ({ level, active }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'flex-end', gap: '2px', height: '12px' }}>
+    {[1, 2, 3, 4].map((step) => (
+      <span
+        key={step}
+        style={{
+          width: '3px',
+          height: `${4 + step * 2}px`,
+          background: step <= level ? (active ? '#111' : '#111') : '#d6d0c3',
+          opacity: step <= level ? 1 : 0.7,
+          display: 'block'
+        }}
+      />
+    ))}
+  </span>
+);
 
 const STATUS_COPY = {
   'leyendo la noticia': 'Leyendo la noticia',
@@ -74,11 +92,13 @@ const MarkdownText = ({ text }) => {
   );
 };
 
-const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.map((item) => item.id) }) => {
+const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.map((item) => item.id), onLocked }) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
-  const options = DEPTHS.filter((item) => allowedDepths.includes(item.id));
-  const selected = options.find((item) => item.id === depth) || options[0] || DEPTHS[0];
+  // Se muestran TODOS los modos de razonamiento; los que el plan no permite
+  // aparecen bloqueados (candado + plan) para que el usuario los vea y suba.
+  const selected = DEPTHS.find((item) => item.id === depth) || DEPTHS[0];
+  const isAllowed = (id) => allowedDepths.includes(id);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -101,10 +121,10 @@ const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.m
         type="button"
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
-        aria-label="Elegir razonamiento de Toddy"
+        aria-label="Elegir capacidad de razonamiento de Toddy"
         aria-expanded={open}
         style={{
-          minWidth: '96px',
+          minWidth: '116px',
           height: '44px',
           border: '1px solid #111',
           background: '#fff',
@@ -122,7 +142,10 @@ const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.m
           boxShadow: open ? '0 6px 18px rgba(0,0,0,0.08)' : 'none'
         }}
       >
-        <span>{selected.label}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <ReasoningLevel level={selected.level} active />
+          <span>{selected.label}</span>
+        </span>
         <span style={{ fontSize: '12px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 160ms ease' }}>^</span>
       </button>
       {open && (
@@ -131,35 +154,60 @@ const ReasoningSelector = ({ depth, onChange, disabled, allowedDepths = DEPTHS.m
             position: 'absolute',
             left: 0,
             bottom: '50px',
-            width: '240px',
+            width: '288px',
             background: '#fff',
             border: '1px solid #111',
             boxShadow: '0 18px 38px rgba(0,0,0,0.16)',
             zIndex: 4
           }}
         >
-          {options.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                onChange(item.id);
-                setOpen(false);
-              }}
-              style={{
-                width: '100%',
-                border: 'none',
-                borderBottom: item.id === options[options.length - 1].id ? 'none' : '1px solid #e1ded6',
-                background: item.id === depth ? '#f1eee6' : '#fff',
-                padding: '11px 12px',
-                textAlign: 'left',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>{item.label}</div>
-              <div style={{ marginTop: '3px', fontSize: '11px', opacity: 0.58, lineHeight: 1.25 }}>{item.description}</div>
-            </button>
-          ))}
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid #111', fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 900, letterSpacing: '1.5px', opacity: 0.5 }}>
+            CAPACIDAD DE RAZONAMIENTO
+          </div>
+          {DEPTHS.map((item, index) => {
+            const allowed = isAllowed(item.id);
+            const isCurrent = item.id === depth;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (allowed) {
+                    onChange(item.id);
+                    setOpen(false);
+                  } else if (onLocked) {
+                    onLocked(item);
+                    setOpen(false);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  borderBottom: index === DEPTHS.length - 1 ? 'none' : '1px solid #e1ded6',
+                  background: isCurrent ? '#f1eee6' : '#fff',
+                  padding: '11px 12px',
+                  textAlign: 'left',
+                  cursor: allowed ? 'pointer' : 'pointer',
+                  opacity: allowed ? 1 : 0.62
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ReasoningLevel level={item.level} active={allowed} />
+                    <span style={{ fontSize: '12px', fontWeight: 900 }}>{item.label}</span>
+                  </div>
+                  {allowed ? (
+                    isCurrent && <span style={{ fontSize: '11px', fontWeight: 900 }}>✓</span>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-mono)', fontSize: '8px', fontWeight: 900, letterSpacing: '0.5px', border: '1px solid #111', padding: '2px 6px' }}>
+                      <span aria-hidden="true">🔒</span>{item.tier}
+                    </span>
+                  )}
+                </div>
+                <div style={{ marginTop: '4px', fontSize: '11px', opacity: 0.58, lineHeight: 1.3 }}>{item.description}</div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -526,6 +574,7 @@ const ToddyChatPanel = ({ story, open, onClose }) => {
                 depth={depth}
                 onChange={setDepth}
                 allowedDepths={availableDepths}
+                onLocked={() => navigate('/pricing')}
                 disabled={!canAsk || needsCredits || freeBlocked || loading}
               />
               <input
