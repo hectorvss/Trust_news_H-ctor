@@ -82,14 +82,15 @@ const CopyBtn = ({ text, label = 'COPIAR' }) => {
 
 // Brand logo via the site's own favicon (nominative use for the integrations
 // grid); falls back to a monogram / code glyph if it can't load.
-const Logo = ({ name, domain }) => {
+const Logo = ({ name, domain, size = 34 }) => {
   const [failed, setFailed] = useState(false);
   const src = domain && !failed ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;
+  const inner = Math.round(size * 0.62);
   return (
-    <div style={{ width: 34, height: 34, borderRadius: 8, background: 'white', border: '1px solid #ececec', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+    <div style={{ width: size, height: size, background: 'white', border: '1px solid #ececec', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
       {src
-        ? <img src={src} alt="" width={22} height={22} style={{ display: 'block' }} onError={() => setFailed(true)} />
-        : <span style={{ fontWeight: 900, fontFamily: mono, fontSize: '12px', color: '#111' }}>{name === 'Tu propia app' ? '{ }' : (name || '?').charAt(0)}</span>}
+        ? <img src={src} alt="" width={inner} height={inner} style={{ display: 'block' }} onError={() => setFailed(true)} />
+        : <span style={{ fontWeight: 900, fontFamily: mono, fontSize: Math.round(size * 0.34), color: '#111' }}>{name === 'Tu propia app' ? '{ }' : (name || '?').charAt(0)}</span>}
     </div>
   );
 };
@@ -156,7 +157,7 @@ export default function ApiSection({ user, profile }) {
       {/* ── Create ── */}
       <div style={{ marginBottom: '60px' }}>
         <SectionTitle>CREAR UNA API KEY</SectionTitle>
-        <div style={{ border: '1px solid #e5e5e5', borderRadius: '12px', padding: '32px' }}>
+        <div style={{ border: '1px solid #e0e0e0', padding: '32px' }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: 1, minWidth: '220px' }}>
               <label style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, opacity: 0.5, letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NOMBRE (p.ej. Mi agente)</label>
@@ -184,7 +185,7 @@ export default function ApiSection({ user, profile }) {
         ) : keys.length === 0 ? (
           <div style={{ padding: '32px', border: '1px dashed #ccc', borderRadius: '12px', textAlign: 'center', fontSize: '13px', fontFamily: mono, opacity: 0.5 }}>Aún no tienes claves — crea una arriba.</div>
         ) : (
-          <div style={{ border: '1px solid #e5e5e5', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ border: '1px solid #e0e0e0' }}>
             {keys.map((k, i) => {
               const revoked = !!k.revoked_at;
               const usageToday = k.usage_date === today ? (k.usage_count || 0) : 0;
@@ -213,7 +214,7 @@ export default function ApiSection({ user, profile }) {
           <SectionTitle>ACTIVIDAD</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
             {[['CLAVES ACTIVAS', active.length], ['PETICIONES TOTALES', totalReqs], ['TU PLAN', plan.name]].map(([l, v]) => (
-              <div key={l} style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '28px 24px' }}>
+              <div key={l} style={{ background: 'white', border: '1px solid #e0e0e0', padding: '28px 24px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, opacity: 0.4, letterSpacing: '1px', marginBottom: '10px' }}>{l}</div>
                 <div style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>{v}</div>
               </div>
@@ -228,21 +229,18 @@ export default function ApiSection({ user, profile }) {
         <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px', lineHeight: 1.5, maxWidth: '720px' }}>
           Elige tu herramienta para ver las instrucciones. Conecta vía <strong>MCP</strong> (herramientas nativas) o <strong>REST / OpenAPI</strong>.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
           {CONNECTORS.map((t) => {
             const on = t.id === selected;
             return (
               <button key={t.id} onClick={() => setSelected(t.id)}
-                style={{ background: on ? 'black' : 'white', color: on ? 'white' : 'black', padding: '16px', border: on ? '2px solid black' : '1px solid #e5e5e5', borderRadius: '14px', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '14px', transition: 'transform 0.12s, box-shadow 0.12s', boxShadow: on ? '0 8px 24px rgba(0,0,0,0.18)' : 'none' }}
-                onMouseEnter={(e) => { if (!on) e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.08)'; }}
-                onMouseLeave={(e) => { if (!on) e.currentTarget.style.boxShadow = 'none'; }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Logo name={t.name} domain={t.domain} />
-                  <span style={{ fontSize: '8px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '3px 6px', borderRadius: '4px', background: on ? 'white' : (t.kind === 'MCP' ? 'black' : '#f0f0f0'), color: on ? 'black' : (t.kind === 'MCP' ? 'white' : 'black') }}>{t.kind}</span>
-                </div>
+                style={{ aspectRatio: '1 / 1', background: on ? 'black' : 'white', color: on ? 'white' : 'black', border: '1px solid ' + (on ? 'black' : '#e0e0e0'), padding: '14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', textAlign: 'center', transition: 'border-color 0.12s' }}
+                onMouseEnter={(e) => { if (!on) e.currentTarget.style.borderColor = '#000'; }}
+                onMouseLeave={(e) => { if (!on) e.currentTarget.style.borderColor = '#e0e0e0'; }}>
+                <Logo name={t.name} domain={t.domain} size={44} />
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, marginBottom: '3px' }}>{t.name}</div>
-                  <div style={{ fontSize: '11px', fontFamily: mono, opacity: on ? 0.7 : 0.5 }}>{t.note}</div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, lineHeight: 1.2 }}>{t.name}</div>
+                  <div style={{ fontSize: '9px', fontFamily: mono, letterSpacing: '1px', opacity: on ? 0.65 : 0.4, marginTop: '5px' }}>{t.kind}</div>
                 </div>
               </button>
             );
@@ -253,7 +251,7 @@ export default function ApiSection({ user, profile }) {
       {/* ── How to connect (depends on selection) ── */}
       <div>
         <SectionTitle>CÓMO CONECTAR</SectionTitle>
-        <div style={{ border: '1px solid #e5e5e5', borderRadius: '14px', padding: '32px' }}>
+        <div style={{ border: '1px solid #e0e0e0', padding: '32px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
             <Logo name={conn.name} domain={conn.domain} />
             <span style={{ fontSize: '18px', fontWeight: 800 }}>Conectar {conn.name}</span>
