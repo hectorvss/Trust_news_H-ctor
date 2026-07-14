@@ -212,7 +212,11 @@ LONGITUDES OBLIGATORIAS (respétalas para que la ficha quede completa):
 - "impacto_social": 3-4 frases completas. "impacto_sistemico": 3 frases completas.
 - "protagonistas": beneficiados y afectados, 1-2 frases cada uno.
 - "preguntas": 3-4 preguntas abiertas relevantes.
-- "cifras_clave": MUY IMPORTANTE. Peina UNO A UNO los ${MAX_ARTICLES} extractos y titulares y extrae todo dato cuantificable literal (cantidades, %, importes, años, edades, nº de premios/títulos/víctimas/millones, ediciones, marcadores, duraciones). Ej.: "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}; "sucede a Serena Williams" no es cifra, pero "Premio 2026", "su último Mundial" (año), "campeón del mundo" sí pueden dar dato. OBJETIVO FIRME: reúne 5-6 cifras combinando datos de TODOS los extractos. Solo devuelve [] si de verdad es imposible juntar 5 datos numéricos relevantes. No inventes valores falsos.
+- "cifras_clave": extrae SOLO datos CONCRETOS, NUMÉRICOS y CIERTOS que aparezcan literalmente en algún extracto o titular (un número, porcentaje, año, edad, importe, cantidad exacta). Reglas ESTRICTAS:
+    · El "value" DEBE contener una cifra concreta y verdadera (ej.: "8", "2026", "20 millones", "3,5%"). PROHIBIDO valores vagos como "todos los títulos posibles", "varios", "muchos", "numerosos", o nombres propios (p.ej. "Serena Williams" NO es una cifra).
+    · Si no estás seguro de que el dato sea cierto, NO lo incluyas. Prefiere pocas cifras verdaderas a muchas dudosas.
+    · El "label" empieza SIEMPRE en Mayúscula y es claro (ej.: "Balones de Oro de Messi").
+  Ej. válido: "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}. Reúne las que de verdad existan (idealmente 4-6); si solo hay 2-3 ciertas, devuelve esas. No rellenes ni inventes.
 - "documentos_info": SOLO documentos/informes/sentencias citados textualmente; si no hay, [].
 
 Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
@@ -275,10 +279,15 @@ Devuelve SOLO JSON válido, sin markdown, SOLO con esos idx: {"articulos":[{"idx
       const ABSENT = 'Sin cobertura de medios de este espectro en esta historia.';
       const narrPart = (v: any) => asStr(v) || ABSENT;
       const narr = [narrPart(p.consenso_izq), narrPart(p.consenso_centro), narrPart(p.consenso_dcha)].join(' | ');
-      // Cifras: todo o nada. El usuario quiere ≥5 cifras relevantes, o ninguna
-      // (evita un bloque con 1-2 datos triviales). El prompt ya empuja a 5-6.
-      const cifrasRaw = asArr(p.cifras_clave).map((c: any) => ({ label: asStr(c?.label), value: asStr(c?.value) })).filter((c: any) => c.label && c.value);
-      const cifras = cifrasRaw.length >= 5 ? cifrasRaw : [];
+      // Cifras: solo datos NUMÉRICOS y CIERTOS. Descartamos valores vagos o sin
+      // dígito (nombres propios, "todos los títulos...") y capitalizamos el label.
+      // El usuario prefiere pocas verdaderas a muchas dudosas → umbral bajo (3).
+      const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+      const VAGUE = /\b(todos?|toda?s?|varios?|muchos?|numerosos?|m[úu]ltiples|posibles?|diversos?)\b/i;
+      const cifrasRaw = asArr(p.cifras_clave)
+        .map((c: any) => ({ label: cap(asStr(c?.label)), value: asStr(c?.value) }))
+        .filter((c: any) => c.label && c.value && /\d/.test(c.value) && !VAGUE.test(c.value));
+      const cifras = cifrasRaw.length >= 2 ? cifrasRaw : [];
       const prot = (p.protagonistas && typeof p.protagonistas === 'object')
         ? { beneficiados: asStr(p.protagonistas.beneficiados), afectados: asStr(p.protagonistas.afectados) }
         : { beneficiados: '', afectados: '' };

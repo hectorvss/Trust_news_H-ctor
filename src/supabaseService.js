@@ -37,8 +37,11 @@ export const logReading = async (userId, storyId) => {
         read_at: new Date().toISOString()
       }, { onConflict: 'user_id, story_id' });
 
-    if (error && error.code !== '23503') { // Ignore foreign key violation for mock stories
-      console.error('Error logging reading:', error);
+    // 23503 = FK (stories mock); 42501/PGRST301 = RLS aún sin política de insert
+    // para reading_history (pendiente en Supabase). Ninguno es fatal → no spam.
+    const IGNORE = ['23503', '42501', 'PGRST301'];
+    if (error && !IGNORE.includes(error.code)) {
+      console.warn('reading_history no registrado:', error?.message || error);
     }
   } catch (e) {
     // Silent fail
@@ -223,6 +226,7 @@ export const getBiasTrend = async (userId, days = 30) => {
 };
 
 
+let _usageWarned = false;
 export const getUsageMetrics = async (userId) => {
   const sessionId = getSessionId();
   let query = supabase.from('usage_metrics').select('*');
@@ -232,12 +236,16 @@ export const getUsageMetrics = async (userId) => {
     query = query.eq('session_id', sessionId);
   }
 
+  const DEFAULT_USAGE = { articles_read: 0, reading_seconds: 0, read_article_ids: [] };
   const { data, error } = await query.maybeSingle();
   if (error) {
-    console.error('Error fetching usage metrics:', error);
-    return null;
+    // No es fatal (RLS/tabla sin fila para el usuario): devolvemos el objeto por
+    // defecto en vez de null para que ningún consumidor lea .reading_seconds de
+    // null y tumbe la app. Avisamos UNA sola vez para no ensuciar la consola.
+    if (!_usageWarned) { _usageWarned = true; console.warn('usage_metrics no disponible, uso valores por defecto:', error?.message || error); }
+    return { ...DEFAULT_USAGE };
   }
-  return data || { articles_read: 0, reading_seconds: 0, read_article_ids: [] };
+  return data || { ...DEFAULT_USAGE };
 };
 
 
