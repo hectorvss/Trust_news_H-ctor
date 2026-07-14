@@ -10,7 +10,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // genera también el titular, y el consenso nunca deja columnas vacías.
 // Soporta {"story_id": "..."} para forzar re-síntesis de una story concreta.
 const MIN_SOURCES = 2;
-const BATCH_SIZE = 5;
+// 1 noticia por ciclo: cada una lanza varias llamadas OpenAI y la Edge Function
+// tiene ~150s de wall-clock; procesar más de una en serie se pasaría del límite.
+const BATCH_SIZE = 1;
 const MAX_ARTICLES = 16;
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
 const MAX_TOKENS = 11000;
@@ -30,7 +32,7 @@ const biasToBucket = (label: string | null, num: number | null): string => {
 };
 
 // Una llamada a OpenAI con salida JSON. Devuelve el objeto parseado o null.
-async function openaiJSON(openaiKey: string, prompt: string, maxTokens: number): Promise<any | null> {
+async function openaiOnce(openaiKey: string, prompt: string, maxTokens: number): Promise<any | null> {
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
@@ -53,6 +55,17 @@ async function openaiJSON(openaiKey: string, prompt: string, maxTokens: number):
     if (m) { try { return JSON.parse(m[0]); } catch { /* ignore */ } }
   }
   return null;
+}
+
+// gpt-4o-mini a veces se auto-trunca (cuerpo corto, array incompleto). Reintenta
+// hasta que `valid` acepte el resultado o se agoten los intentos.
+async function openaiJSON(openaiKey: string, prompt: string, maxTokens: number, valid?: (r: any) => boolean, tries = 2): Promise<any | null> {
+  let last: any = null;
+  for (let t = 0; t < tries; t++) {
+    const r = await openaiOnce(openaiKey, prompt, maxTokens);
+    if (r) { last = r; if (!valid || valid(r)) return r; }
+  }
+  return last;
 }
 
 Deno.serve(async (req: Request) => {
@@ -205,39 +218,57 @@ LONGITUDES OBLIGATORIAS (respétalas para que la ficha quede completa):
 Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
 {"titular":"...","category":"una de: ${CATEGORIES.join(', ')}","consensus":"ALTO|MEDIO|BAJO|POLARIZADO","impact":"ALTO|MEDIO|BAJO","factuality":"ALTA|MIXTA|BAJA","summary":"...","full_content":"...","contexto":"...","perspectivas_info":"...","bias_info":"...","desglose":["...","...","...","..."],"consenso_izq":"...","consenso_centro":"...","consenso_dcha":"...","analytical_snippet":"...","blind_spot":"...","fact_check":"...","verificacion_info":"...","impacto_social":["...","...","..."],"impacto_sistemico":["...","...","..."],"cifras_clave":[{"label":"concepto","value":"dato con unidad"}],"documentos_info":[{"name":"documento","context":"qué aporta"}],"protagonistas":{"beneficiados":"...","afectados":"..."},"preguntas":["...","...","..."]}`;
 
-      // ── LLAMADA 2: PIEZA DESARROLLADA POR FUENTE (contenido "dentro") ──
-      // Genera, por artículo: metadatos + un teaser mínimo para la preview + una
-      // pieza redactada por nosotros (párrafos con citas y comentario objetivo)
-      // que se muestra al abrir la fuente. No reproduce el original: lo cuenta y
-      // lo analiza para que el lector no necesite salir.
-      const sourcesPrompt = `${header}
+      // ── LLAMADA(S) 2: PIEZA DESARROLLADA POR FUENTE (contenido "dentro") ──
+      // Cada fuente lleva una pieza propia LARGA (≈70% del cuerpo, casi todo
+      // comentario/análisis nuestro). 14 piezas largas no caben en una llamada,
+      // así que troceamos las fuentes en lotes y los generamos en paralelo. Cada
+      // lote ve TODOS los artículos (para comparar) pero solo redacta los suyos.
+      const nArts = Math.min(articles.length, MAX_ARTICLES);
+      // Lotes pequeños (2 fuentes) = llamadas cortas y fiables. Van en paralelo,
+      // así que más lotes NO suman wall-clock, solo concurrencia.
+      const CHUNK = 2;
+      const chunks: number[][] = [];
+      for (let s = 0; s < nArts; s += CHUNK) {
+        const g: number[] = [];
+        for (let k = s; k < Math.min(s + CHUNK, nArts); k++) g.push(k);
+        chunks.push(g);
+      }
+      const sourceRules = (idxList: number[]) => `${header}
 
-TAREA: para CADA artículo del listado (uno por idx, TODOS) redacta una PIEZA PROPIA de Trust News España que cuente y analice lo que publica ese medio, para que el lector la entienda por completo SIN abrir el original. Usa SOLO lo que aparece en su extracto; NO inventes datos ni citas.
+TAREA: para los artículos con idx ${idxList.join(', ')} redacta, por cada uno, una PIEZA PROPIA y EXTENSA de Trust News España que cuente y analice a fondo lo que publica ese medio, de modo que el lector la entienda por completo SIN abrir el original. Ves TODOS los artículos arriba solo para comparar; redacta ÚNICAMENTE los idx indicados. NO inventes datos ni citas; usa solo lo que aparece en cada extracto, pero DESARROLLA con contexto y análisis propios.
 
-Para cada artículo devuelve:
+Por cada artículo devuelve:
 - "tipo": REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA|CRÓNICA|ENTREVISTA.
-- "tono": 1-3 palabras específicas (p.ej. "Celebratorio", "Institucional", "Neutral factual").
+- "tono": 1-3 palabras específicas.
 - "autor": firma si aparece; si no, "Redacción" o la agencia (EFE, Europa Press...).
 - "origen": ciudad/ámbito si se deduce, si no "Nacional".
-- "teaser": UNA sola frase muy breve (≤110 caracteres) para la vista previa. Concreta y sin relleno.
-- "parrafos": array de 3-4 párrafos (cada uno 220-360 caracteres) escritos por NOSOTROS. Estructura:
-    (1) qué cuenta esta pieza en concreto: hechos y datos.
-    (2) la declaración o detalle central, incorporando una frase TEXTUAL del extracto ENTRECOMILLADA y atribuida (p.ej.: el diario recoge que Messi destaca por su "continuada labor solidaria").
-    (3) nuestro ANÁLISIS OBJETIVO del encuadre de este medio: qué prioriza, qué enfatiza u omite frente a los demás, con neutralidad.
-    (4) (opcional) contexto o cierre.
-  Redacción fluida y periodística; comillas SOLO para frases textuales reales del extracto.
-- "cita": la frase textual más representativa del extracto como {"texto":"...","autor":"quién la dice o el medio"}. Si el extracto no tiene ninguna frase citable, {"texto":"","autor":""}.
+- "teaser": UNA frase breve (≤110 caracteres) para la vista previa.
+- "parrafos": array de 6-8 párrafos (cada uno 260-420 caracteres; en total 1600-2600 caracteres, aprox. el 70% de la noticia principal). Es una pieza LARGA en la que la mayor parte es COMENTARIO Y ANÁLISIS NUESTRO. Estructura sugerida:
+    (1) qué publica este medio: los hechos que da.
+    (2) el detalle o declaración central, con una frase TEXTUAL del extracto ENTRECOMILLADA y atribuida.
+    (3-4) NUESTRO análisis objetivo del encuadre: qué prioriza, qué lenguaje usa, qué enfatiza u OMITE frente a los otros medios, qué revela su tratamiento.
+    (5) contexto y antecedentes que ayuden a entender la noticia.
+    (6) implicaciones y qué queda abierto.
+    (7-8) cierre analítico.
+  Comentario abundante y objetivo, sin opinar ni tomar partido. Redacción fluida y periodística. Comillas SOLO para frases textuales reales del extracto; nunca inventes citas ni cifras.
+- "cita": la frase textual más representativa del extracto como {"texto":"...","autor":"quién la dice o el medio"}. Si no hay ninguna citable, {"texto":"","autor":""}.
 - "clave": 1 frase con el ángulo o dato ÚNICO que aporta este medio frente a los demás.
 
-Devuelve SOLO JSON válido, sin markdown: {"articulos":[{"idx":0,"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","origen":"Nacional","teaser":"...","parrafos":["...","...","..."],"cita":{"texto":"...","autor":"..."},"clave":"..."}]}`;
+Devuelve SOLO JSON válido, sin markdown, SOLO con esos idx: {"articulos":[{"idx":${idxList[0]},"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","origen":"Nacional","teaser":"...","parrafos":["...","...","...","...","...","..."],"cita":{"texto":"...","autor":"..."},"clave":"..."}]}`;
 
-      const [pEditorial, pSources] = await Promise.all([
-        openaiJSON(openaiKey, editorialPrompt, 5000),
-        openaiJSON(openaiKey, sourcesPrompt, 10000),
+      const editorialValid = (r: any) => !!r?.summary && String(r?.full_content || '').length >= 1400;
+      const chunkValid = (g: number[]) => (r: any) =>
+        Array.isArray(r?.articulos) && r.articulos.length >= g.length &&
+        r.articulos.every((a: any) => Array.isArray(a?.parrafos) && a.parrafos.filter((x: any) => String(x || '').trim()).length >= 4);
+      // tries acotados: editorial 2, lotes 2. Todo en paralelo (Promise.all), así
+      // el wall-clock ≈ el de la rama más lenta con su reintento, no la suma.
+      const [pEditorial, ...pSourceChunks] = await Promise.all([
+        openaiJSON(openaiKey, editorialPrompt, 5000, editorialValid, 2),
+        ...chunks.map((g) => openaiJSON(openaiKey, sourceRules(g), 6000, chunkValid(g), 2)),
       ]);
       const p = pEditorial || {};
       if (!p.summary) { console.error(`Bad editorial JSON for ${story.id}`); errors++; continue; }
-      p.articulos = (pSources && Array.isArray(pSources.articulos)) ? pSources.articulos : [];
+      p.articulos = pSourceChunks.flatMap((pc: any) => (pc && Array.isArray(pc.articulos)) ? pc.articulos : []);
 
       const asArr = (v: any) => Array.isArray(v) ? v.filter((x) => x != null && String(x).trim() !== '') : [];
       const asStr = (v: any) => (typeof v === 'string' ? v.trim() : '');
@@ -263,13 +294,15 @@ Devuelve SOLO JSON válido, sin markdown: {"articulos":[{"idx":0,"tipo":"NOTICIA
         // readerContent alimenta la vista "dentro" (StoryReader): pieza propia
         // con párrafos desarrollados, una cita destacada y comentario objetivo.
         const readerContent = paras.length ? {
+          body: paras,
+          claims: citaTexto ? [{ text: citaTexto, source: citaAutor }] : [],
+          blindSpot: asStr(x.clave),
+          // Compatibilidad con el render estructurado antiguo (fallback).
           whatHappened: paras[0] || '',
           context: paras[1] || '',
           preQuoteAnalysis: '',
-          claims: citaTexto ? [{ text: citaTexto, source: citaAutor }] : [],
-          postQuoteAnalysis: paras[2] || '',
-          implications: { owner: paras[3] || '' },
-          blindSpot: asStr(x.clave),
+          postQuoteAnalysis: paras.slice(2).join('\n\n'),
+          implications: { owner: '' },
         } : (a.readerContent || null);
         return {
           ...a,

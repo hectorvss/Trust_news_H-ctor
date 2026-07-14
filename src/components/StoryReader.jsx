@@ -21,8 +21,24 @@ const StoryReader = ({ article, onBack }) => {
   if (!article) return null;
 
   const px = isMobile ? 16 : 60;
-  // Stable pseudo-random based on source name length (avoids re-render flicker)
-  const stablePct = ((article.source?.length || 5) * 7 % 20) + 10;
+
+  // Etiquetas del Intelligence Report derivadas de datos REALES del catálogo
+  // (bias/factuality de la fuente), sin métricas inventadas.
+  const bias = (article.biasRating || article.bias || 'CENTER').toUpperCase();
+  const biasLabel = bias === 'LEFT' ? 'IZQUIERDA' : bias === 'RIGHT' ? 'DERECHA' : 'CENTRO';
+  const biasDesc = bias === 'LEFT'
+    ? 'Su línea editorial tiende a priorizar la función social y los colectivos vulnerables.'
+    : bias === 'RIGHT'
+      ? 'Su línea editorial tiende a priorizar el mercado, la iniciativa privada y la seguridad jurídica.'
+      : 'Cobertura de línea centrada, con tendencia al equilibrio institucional.';
+  const fact = (article.factuality || '').toUpperCase();
+  const factLabel = fact === 'ALTA' ? 'ALTA · DOCUMENTAL'
+    : fact === 'MIXTA' || fact === 'MEDIA' ? 'MIXTA · INTERPRETATIVA'
+    : fact === 'BAJA' ? 'BAJA · OPINIÓN'
+    : 'NO CLASIFICADA';
+  const factDesc = fact
+    ? `Fiabilidad factual clasificada como ${fact} para ${article.source} en el catálogo TNE.`
+    : `Factualidad no determinada para ${article.source}.`;
 
   const renderNote = (pos) => {
     const note = (article.readerContent?.interstitialNotes || []).find(n => n.pos === pos);
@@ -91,50 +107,46 @@ const StoryReader = ({ article, onBack }) => {
         </div>
 
         <div style={{ fontSize: isMobile ? '17px' : '24px', lineHeight: '1.9', textAlign: 'justify', color: '#111' }}>
-          {/* Drop cap */}
-          <p style={{ marginBottom: isMobile ? 32 : 60 }}>
-            {!isMobile && (
-              <span style={{ float: 'left', fontSize: '120px', lineHeight: '0.6', fontWeight: 800, marginRight: '20px', marginTop: '16px', fontFamily: 'var(--font-heading)' }}>
-                {article.readerContent?.whatHappened?.[0]}
-              </span>
-            )}
-            {isMobile
-              ? article.readerContent?.whatHappened
-              : article.readerContent?.whatHappened?.slice(1)}
-          </p>
-
-          {renderNote(1)}
-
-          <p style={{ marginBottom: isMobile ? 32 : 60 }}>{article.readerContent?.context}</p>
-
-          {renderNote(2)}
-
-          {article.readerContent?.preQuoteAnalysis && (
-            <p style={{ marginBottom: isMobile ? 32 : 60, fontStyle: 'italic', opacity: 0.7, borderLeft: '2px solid #eee', paddingLeft: isMobile ? '16px' : '32px' }}>
-              {article.readerContent.preQuoteAnalysis}
-            </p>
-          )}
-
-          {(article.readerContent?.claims || []).slice(0, 1).map((claim, idx) => (
-            <div key={idx} style={{ margin: `${isMobile ? 48 : 120}px 0`, padding: `${isMobile ? 32 : 80}px 0`, borderTop: '6px solid black', borderBottom: '6px solid black', textAlign: 'center' }}>
-              <span style={{ fontSize: isMobile ? '28px' : '68px', fontWeight: 700, lineHeight: '1.1', display: 'block', letterSpacing: isMobile ? '-1px' : '-4px', marginBottom: isMobile ? 16 : 32, fontStyle: 'italic' }}>
-                "{claim.text.replace(/"/g, '')}"
-              </span>
-              <span style={{ fontSize: '14px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, textTransform: 'uppercase', letterSpacing: '2px' }}>
-                — {claim.source}
-              </span>
-            </div>
-          ))}
-
-          {article.readerContent?.postQuoteAnalysis && (
-            <p style={{ marginTop: '-40px', marginBottom: isMobile ? 48 : 100, fontSize: isMobile ? '16px' : '22px', lineHeight: '1.7', color: '#333', padding: `0 ${isMobile ? 16 : 40}px`, borderRight: '10px solid black' }}>
-              {article.readerContent.postQuoteAnalysis}
-            </p>
-          )}
+          {(() => {
+            // Pieza propia desarrollada: párrafos en readerContent.body (nuevo) o,
+            // como fallback, los campos estructurados antiguos.
+            const rc = article.readerContent || {};
+            const paras = Array.isArray(rc.body) && rc.body.length
+              ? rc.body.filter(p => p && String(p).trim())
+              : [rc.whatHappened, rc.context, rc.postQuoteAnalysis, rc.implications?.owner].filter(p => p && String(p).trim());
+            const quote = (rc.claims || [])[0];
+            // Inserta la cita destacada tras el 2º párrafo (o al final si hay menos).
+            const quoteAfter = Math.min(2, paras.length);
+            if (!paras.length) {
+              return <p style={{ opacity: 0.5, fontStyle: 'italic' }}>{article.summary || article.teaser || 'Análisis en preparación.'}</p>;
+            }
+            return paras.map((para, idx) => (
+              <React.Fragment key={idx}>
+                <p style={{ marginBottom: isMobile ? 28 : 48 }}>
+                  {idx === 0 && !isMobile && (
+                    <span style={{ float: 'left', fontSize: '120px', lineHeight: '0.6', fontWeight: 800, marginRight: '20px', marginTop: '16px', fontFamily: 'var(--font-heading)' }}>
+                      {String(para).charAt(0)}
+                    </span>
+                  )}
+                  {idx === 0 && !isMobile ? String(para).slice(1) : para}
+                </p>
+                {idx === 0 && renderNote(1)}
+                {idx === quoteAfter - 1 && quote?.text && (
+                  <div style={{ margin: `${isMobile ? 40 : 90}px 0`, padding: `${isMobile ? 28 : 60}px 0`, borderTop: '6px solid black', borderBottom: '6px solid black', textAlign: 'center' }}>
+                    <span style={{ fontSize: isMobile ? '26px' : '54px', fontWeight: 700, lineHeight: '1.15', display: 'block', letterSpacing: isMobile ? '-1px' : '-3px', marginBottom: isMobile ? 16 : 28, fontStyle: 'italic' }}>
+                      "{String(quote.text).replace(/"/g, '')}"
+                    </span>
+                    <span style={{ fontSize: '14px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                      — {quote.source}
+                    </span>
+                  </div>
+                )}
+                {idx === 1 && renderNote(2)}
+              </React.Fragment>
+            ));
+          })()}
 
           {renderNote(3)}
-
-          <p style={{ marginBottom: isMobile ? 32 : 60 }}>{article.readerContent?.implications?.owner}</p>
 
           {/* Author signature */}
           <div style={{ marginTop: isMobile ? 40 : 80, paddingTop: '40px', borderTop: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -154,41 +166,46 @@ const StoryReader = ({ article, onBack }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '40px' : '100px', marginBottom: isMobile ? 40 : 100 }}>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '40px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>SESGO EDITORIAL</div>
+              <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>SESGO EDITORIAL DE LA FUENTE</div>
               <div style={{ fontSize: isMobile ? '22px' : '32px', fontWeight: 700, marginBottom: '20px' }}>
-                {article.bias === 'CENTER' ? 'EQUILIBRIO INSTITUCIONAL' : article.bias === 'LEFT' ? 'ENFOQUE PROGRESISTA' : 'PERSPECTIVA CONSERVADORA'}
+                {biasLabel}
               </div>
               <p style={{ fontSize: '18px', opacity: 0.7, lineHeight: '1.6' }}>
-                El análisis detecta una priorización de {article.bias === 'LEFT' ? 'la función social y la protección de colectivos vulnerables' : article.bias === 'RIGHT' ? 'la libertad de mercado y la seguridad jurídica' : 'la estabilidad legislativa y el consenso institucional'}.
-                Este ángulo influye en un {stablePct}% de la carga adjetival.
+                Clasificación del catálogo TNE para <strong>{article.source}</strong>. {biasDesc}
               </p>
             </div>
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '40px' }}>
               <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>FIABILIDAD FACTUAL</div>
               <div style={{ fontSize: isMobile ? '22px' : '32px', fontWeight: 700, marginBottom: '20px' }}>
-                {article.factuality === 'ALTA' ? 'GRADO A: DOCUMENTAL' : article.factuality === 'MEDIA' ? 'GRADO B: INTERPRETATIVO' : 'GRADO C: OPINIÓN'}
+                {factLabel}
               </div>
               <p style={{ fontSize: '18px', opacity: 0.7, lineHeight: '1.6' }}>
-                {article.diff || `Cobertura original de ${article.source}. Factualidad clasificada como ${article.factuality || 'no determinada'}.`}
+                {factDesc}
               </p>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '40px' : '100px', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '60px' }}>
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>PUNTO CIEGO CRÍTICO</div>
+              <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>QUÉ APORTA ESTA FUENTE</div>
               <p style={{ fontSize: '20px', fontWeight: 600, fontStyle: 'italic', lineHeight: '1.5' }}>
-                "{article.readerContent?.blindSpot || 'No identificado para este artículo.'}"
+                {article.readerContent?.blindSpot || article.whyOpened || `Cobertura de ${article.source} sobre esta noticia.`}
               </p>
             </div>
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>MÉTRICAS DE IMPACTO</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {[['Polarización', 'ALTA'], ['Sentimiento', article.tone?.toUpperCase() || 'N/D'], ['Complejidad', 'AVANZADA']].map(([k, v]) => (
-                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, marginBottom: '24px', letterSpacing: '2px' }}>FICHA DE LA PIEZA</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[
+                  ['Medio', article.source],
+                  ['Tipo', article.type || 'Noticia'],
+                  ['Tono', article.tone || 'N/D'],
+                  ['Propiedad', article.ownershipCategory || 'N/D'],
+                  ['Ámbito', article.origin || 'Nacional'],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
                     <span style={{ opacity: 0.6 }}>{k}:</span>
-                    <span style={{ fontWeight: 800 }}>{v}</span>
+                    <span style={{ fontWeight: 800, textAlign: 'right' }}>{v}</span>
                   </div>
                 ))}
               </div>
