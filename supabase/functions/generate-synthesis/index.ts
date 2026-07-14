@@ -10,10 +10,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // genera también el titular, y el consenso nunca deja columnas vacías.
 // Soporta {"story_id": "..."} para forzar re-síntesis de una story concreta.
 const MIN_SOURCES = 2;
-const BATCH_SIZE = 6;
+const BATCH_SIZE = 5;
 const MAX_ARTICLES = 16;
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
-const MAX_TOKENS = 9000;
+const MAX_TOKENS = 11000;
 
 const CATEGORIES = ['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE'];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,6 +28,32 @@ const biasToBucket = (label: string | null, num: number | null): string => {
   if (num != null) return num <= -20 ? 'LEFT' : num >= 20 ? 'RIGHT' : 'CENTER';
   return 'CENTER';
 };
+
+// Una llamada a OpenAI con salida JSON. Devuelve el objeto parseado o null.
+async function openaiJSON(openaiKey: string, prompt: string, maxTokens: number): Promise<any | null> {
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      max_completion_tokens: maxTokens,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!resp.ok) {
+    console.error(`OpenAI ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+    return null;
+  }
+  const data = await resp.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  try { return JSON.parse(content); } catch {
+    const m = content.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch { /* ignore */ } }
+  }
+  return null;
+}
 
 Deno.serve(async (req: Request) => {
   const supabase = createClient(
@@ -132,7 +158,7 @@ Deno.serve(async (req: Request) => {
         return `[ARTÍCULO ${i} | medio: ${a.source} | sesgo: ${a.bias || 'CENTER'}]\nTitular: ${a.title || ''}${body2 ? `\nExtracto: ${body2}` : ''}`;
       }).join('\n\n');
 
-      const prompt = `Eres el redactor jefe de Trust News España, un agregador que compara la cobertura mediática de una misma noticia. A partir EXCLUSIVAMENTE de los artículos reales de abajo, redacta una ficha de análisis completa en español.
+      const header = `Eres el redactor jefe de Trust News España, un agregador que compara la cobertura mediática de una misma noticia. Trabaja EXCLUSIVAMENTE con los artículos reales de abajo, en español de España.
 
 NOTICIA (tema del cluster): "${story.title && story.title !== 'Sin título' ? story.title : (articles[0]?.title || 'ver artículos')}"
 Distribución de cobertura por sesgo de las fuentes: Izquierda ${covL}% · Centro ${covC}% · Derecha ${covR}%
@@ -141,93 +167,68 @@ Medios de centro presentes: ${sides.center.join(', ') || 'NINGUNO'}
 Medios de derecha presentes: ${sides.right.join(', ') || 'NINGUNO'}
 
 ARTÍCULOS:
-${articlesText}
+${articlesText}`;
 
-REGLAS GENERALES:
-- Básate solo en los artículos. NO inventes cifras, nombres ni hechos que no aparezcan.
-- "cifras_clave": rastrea los ${MAX_ARTICLES} artículos y EXTRAE todo dato cuantificable RELEVANTE que aparezca literalmente: cantidades, porcentajes, importes, años, edades, número de premios/títulos/víctimas/millones, fechas señaladas, marcadores. Ej.: "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}. OBJETIVO: 5-6 cifras (o más). Esfuérzate al máximo por alcanzarlas combinando datos de todos los extractos. REGLA DE CALIDAD: si tras buscar a fondo NO consigues al menos 5 cifras que sean genuinamente relevantes e informativas, devuelve [] (vacío). Mejor NADA que rellenar con 1-2 cifras triviales o irrelevantes. No inventes ni fuerces datos que no aparezcan.
-- Tono informativo, neutral, prensa seria. Español de España. Redacción PROPIA (no copies frases literales largas de los medios).
-- Cada bloque debe tener entidad propia: no repitas el mismo párrafo entre bloques.
-- LONGITUDES OBLIGATORIAS (aproximadas, para que la ficha quede completa visualmente):
-  · "titular": 60-110 caracteres, específico, sin clickbait. NUNCA "Sin título".
-  · "summary": 2-3 frases (300-450 caracteres).
-  · "analytical_snippet": 2 frases con lectura editorial de TNE (200-350 caracteres).
-  · "full_content": 5-7 párrafos separados por \\n (1800-3000 caracteres). Estructura: qué ha pasado → detalles y declaraciones → contexto → en qué difieren los medios → qué queda abierto.
-  · "contexto": 2-3 párrafos separados por \\n (600-1000 caracteres): antecedentes, por qué importa ahora.
-  · "perspectivas_info": 2 párrafos (500-800 caracteres) comparando enfoques SOLO de los lados presentes; de los ausentes constata la ausencia.
-  · "bias_info": 1 párrafo (300-500 caracteres) que asigne cada periódico a su bloque: "De los N medios analizados, X se sitúan en la izquierda (nombres), Y en el centro (nombres) y Z en la derecha (nombres)", y qué implica ese reparto para el lector.
-  · "desglose": 4-6 claves, CADA UNA una frase completa de 12-25 palabras (no etiquetas sueltas).
-  · "consenso_izq/centro/dcha": 2-3 frases cada uno (250-450 caracteres) citando los NOMBRES de los medios (p.ej. "El País y elDiario subrayan..."). Si un lado no tiene medios presentes escribe EXACTAMENTE: "Sin cobertura de medios de este espectro en esta historia."
-  · "blind_spot": 2 frases (200-350 caracteres).
-  · "fact_check": 2-3 frases sobre el estado de verificación de las afirmaciones principales.
-  · "verificacion_info": 3-4 frases (300-500 caracteres): qué está confirmado por varios medios, qué solo por uno, qué falta por verificar.
-  · "impacto_social": 3-4 elementos, cada uno una frase completa.
-  · "impacto_sistemico": 3 elementos, cada uno una frase completa.
-  · "protagonistas": beneficiados y afectados, 1-2 frases cada uno.
-  · "preguntas": 3-4 preguntas abiertas relevantes.
-  · "documentos_info": SOLO documentos/informes/sentencias citados textualmente en los extractos, con {"name":"...","context":"..."}; si no hay, [].
-- "articulos": OBLIGATORIO un objeto por CADA artículo del listado (uno por idx, TODOS, sin dejar ninguno vacío). Este es el bloque MÁS IMPORTANTE: cada tarjeta debe llevar análisis sustancial y DIFERENTE del de los demás medios. Para cada artículo redacta con contenido propio:
-  · "tipo": REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA|CRÓNICA|ENTREVISTA (dedúcelo del texto).
-  · "tono": 1-3 palabras específicas (p.ej. "Celebratorio", "Institucional", "Crítico contenido", "Neutral factual").
-  · "autor": nombre del autor/firma si aparece en el extracto; si no, "Redacción" o la agencia (p.ej. "EFE", "Europa Press").
-  · "angulo": 1-2 frases (120-200 caracteres) sobre el ángulo concreto que elige ESTE medio y qué prioriza en su enfoque.
-  · "enfoque": 1-2 frases (120-220 caracteres) COMPARATIVAS: qué detalle enfatiza, añade u OMITE respecto a los otros medios de la cobertura. Debe ser distinto para cada medio.
-  · "resumen": 3-4 frases propias (300-480 caracteres) que expliquen qué cuenta esta pieza en concreto: datos, declaraciones o matices que aporta. NO repitas el titular; desarrolla.
-  · "clave": 1 frase con lo que este artículo aporta de forma única a la cobertura (lo que el lector se perdería si no lo leyera).
-  · "origen": ciudad o ámbito si se deduce, si no "Nacional".
-- Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
-{
-  "titular": "titular periodístico",
-  "category": "una de: ${CATEGORIES.join(', ')}",
-  "consensus": "ALTO|MEDIO|BAJO|POLARIZADO",
-  "impact": "ALTO|MEDIO|BAJO",
-  "factuality": "ALTA|MIXTA|BAJA",
-  "summary": "...",
-  "full_content": "...",
-  "contexto": "...",
-  "perspectivas_info": "...",
-  "bias_info": "...",
-  "desglose": ["...", "...", "...", "..."],
-  "consenso_izq": "...",
-  "consenso_centro": "...",
-  "consenso_dcha": "...",
-  "analytical_snippet": "...",
-  "blind_spot": "...",
-  "fact_check": "...",
-  "verificacion_info": "...",
-  "impacto_social": ["...", "...", "..."],
-  "impacto_sistemico": ["...", "...", "..."],
-  "cifras_clave": [{"label":"concepto","value":"dato con unidad"}],
-  "documentos_info": [{"name":"documento","context":"qué aporta"}],
-  "protagonistas": {"beneficiados":"...","afectados":"..."},
-  "preguntas": ["...", "...", "..."],
-  "articulos": [{"idx":0,"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","angulo":"...","enfoque":"...","resumen":"...","clave":"...","origen":"Nacional"}]
-}`;
+      // ── LLAMADA 1: FICHA EDITORIAL (cuerpo, contexto, análisis, cifras...) ──
+      // Prompt enfocado → el modelo no se queda sin presupuesto y el cuerpo sale
+      // completo (antes, con todo en una sola llamada, se truncaba).
+      const editorialPrompt = `${header}
 
-      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          max_completion_tokens: MAX_TOKENS,
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        console.error(`OpenAI ${resp.status} for ${story.id}: ${t.slice(0, 200)}`);
-        errors++; continue;
-      }
-      const data = await resp.json();
-      const content = data.choices?.[0]?.message?.content || '';
-      let p: any = {};
-      try { p = JSON.parse(content); } catch {
-        const m = content.match(/\{[\s\S]*\}/);
-        if (m) { try { p = JSON.parse(m[0]); } catch { /* ignore */ } }
-      }
-      if (!p || !p.summary) { console.error(`Bad JSON for ${story.id}: ${content.slice(0,160)}`); errors++; continue; }
+OBJETIVO DE CALIDAD: la ficha debe ser tan completa, clara y bien contada que el lector entienda por entero la noticia y NO necesite ir a la fuente original. Menciona frases o datos TEXTUALES de los medios (SIEMPRE entre comillas y atribuidos: según [medio], en palabras de [persona] citadas por [medio]) y coméntalos/analízalos de forma OBJETIVA, sin opinar ni tomar partido. Redacción propia, fluida y periodística. NO inventes cifras, nombres, hechos ni citas que no aparezcan en los extractos.
+
+LONGITUDES OBLIGATORIAS (respétalas para que la ficha quede completa):
+- "titular": 60-110 caracteres, específico, sin clickbait. NUNCA "Sin título".
+- "summary": 2-3 frases (300-450 caracteres).
+- "analytical_snippet": 2 frases con la lectura editorial de TNE (200-350 caracteres).
+- "full_content": CUERPO PRINCIPAL, 6-8 párrafos separados por \\n (2400-3600 caracteres). Es lo más importante: tan completo que el lector no necesite el original. Estructura párrafo a párrafo:
+    (1) Entradilla con los hechos esenciales: qué, quién, cuándo, dónde.
+    (2-3) Desarrollo con DETALLES y DECLARACIONES: incorpora 2-4 frases o datos TEXTUALES de los extractos, ENTRECOMILLADOS y atribuidos (p.ej.: según recoge Infobae, Teresa Perales subrayó que Messi se implica para "ayudar a muchísimas personas").
+    (4) Contexto y antecedentes para comprender por qué ocurre y por qué importa.
+    (5) ANÁLISIS OBJETIVO del significado e implicaciones, con neutralidad.
+    (6) Cómo lo han cubierto los distintos medios (coincidencias y matices), citando nombres.
+    (7) Qué queda abierto o pendiente.
+  Las comillas SOLO para frases textuales reales; nunca inventes citas.
+- "contexto": 2-3 párrafos separados por \\n (600-1000 caracteres): antecedentes, por qué importa ahora.
+- "perspectivas_info": 2 párrafos (500-800 caracteres) comparando enfoques SOLO de los lados presentes; de los ausentes constata la ausencia.
+- "bias_info": 1 párrafo (300-500 caracteres) que asigne cada periódico a su bloque: "De los N medios analizados, X se sitúan en la izquierda (nombres), Y en el centro (nombres) y Z en la derecha (nombres)", y qué implica ese reparto.
+- "desglose": 4-6 claves, cada una una frase completa de 12-25 palabras.
+- "consenso_izq/centro/dcha": 2-3 frases cada uno (250-450 caracteres) citando NOMBRES de medios. Si un lado no tiene medios presentes escribe EXACTAMENTE: "Sin cobertura de medios de este espectro en esta historia."
+- "blind_spot": 2 frases (200-350 caracteres).
+- "fact_check": 2-3 frases sobre el estado de verificación de las afirmaciones principales.
+- "verificacion_info": 3-4 frases (300-500 caracteres): qué está confirmado por varios medios, qué solo por uno, qué falta.
+- "impacto_social": 3-4 frases completas. "impacto_sistemico": 3 frases completas.
+- "protagonistas": beneficiados y afectados, 1-2 frases cada uno.
+- "preguntas": 3-4 preguntas abiertas relevantes.
+- "cifras_clave": MUY IMPORTANTE. Peina UNO A UNO los ${MAX_ARTICLES} extractos y titulares y extrae todo dato cuantificable literal (cantidades, %, importes, años, edades, nº de premios/títulos/víctimas/millones, ediciones, marcadores, duraciones). Ej.: "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}; "sucede a Serena Williams" no es cifra, pero "Premio 2026", "su último Mundial" (año), "campeón del mundo" sí pueden dar dato. OBJETIVO FIRME: reúne 5-6 cifras combinando datos de TODOS los extractos. Solo devuelve [] si de verdad es imposible juntar 5 datos numéricos relevantes. No inventes valores falsos.
+- "documentos_info": SOLO documentos/informes/sentencias citados textualmente; si no hay, [].
+
+Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
+{"titular":"...","category":"una de: ${CATEGORIES.join(', ')}","consensus":"ALTO|MEDIO|BAJO|POLARIZADO","impact":"ALTO|MEDIO|BAJO","factuality":"ALTA|MIXTA|BAJA","summary":"...","full_content":"...","contexto":"...","perspectivas_info":"...","bias_info":"...","desglose":["...","...","...","..."],"consenso_izq":"...","consenso_centro":"...","consenso_dcha":"...","analytical_snippet":"...","blind_spot":"...","fact_check":"...","verificacion_info":"...","impacto_social":["...","...","..."],"impacto_sistemico":["...","...","..."],"cifras_clave":[{"label":"concepto","value":"dato con unidad"}],"documentos_info":[{"name":"documento","context":"qué aporta"}],"protagonistas":{"beneficiados":"...","afectados":"..."},"preguntas":["...","...","..."]}`;
+
+      // ── LLAMADA 2: ANÁLISIS POR FUENTE (una tarjeta rica por artículo) ──
+      const sourcesPrompt = `${header}
+
+TAREA: analiza CADA artículo del listado (uno por idx, TODOS, ninguno vacío) con contenido propio, sustancial y DIFERENTE del de los demás. El objetivo es que el lector entienda qué aporta cada pieza sin abrir el original. NO inventes datos ni citas; usa solo lo que aparece en cada extracto.
+
+Para cada artículo:
+- "tipo": REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA|CRÓNICA|ENTREVISTA (dedúcelo).
+- "tono": 1-3 palabras específicas (p.ej. "Celebratorio", "Institucional", "Crítico contenido", "Neutral factual").
+- "autor": firma/autor si aparece en el extracto; si no, "Redacción" o la agencia (EFE, Europa Press...).
+- "angulo": 1-2 frases (120-200 car.) sobre el ángulo concreto de ESTE medio; específico, no genérico intercambiable.
+- "enfoque": 1-2 frases (120-220 car.) COMPARATIVAS: qué detalle o dato enfatiza, añade u OMITE frente a los demás. Distinto para cada medio; si reproduce un teletipo idéntico a otro, dilo.
+- "resumen": 4-5 frases (380-560 car.) contando CON DETALLE lo que dice esta pieza: hechos, cifras y declaraciones concretas. Si en su extracto hay una frase o dato textual, INCORPÓRALO ENTRECOMILLADO (p.ej.: destaca su "continuada labor solidaria"). Cierra con una frase de análisis objetivo de su encuadre. No repitas el titular; desarrolla.
+- "clave": 1 frase con el dato, matiz o declaración ÚNICOS que aporta este artículo y no está en los demás.
+- "origen": ciudad/ámbito si se deduce, si no "Nacional".
+
+Devuelve SOLO JSON válido, sin markdown: {"articulos":[{"idx":0,"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","angulo":"...","enfoque":"...","resumen":"...","clave":"...","origen":"Nacional"}]}`;
+
+      const [pEditorial, pSources] = await Promise.all([
+        openaiJSON(openaiKey, editorialPrompt, 5000),
+        openaiJSON(openaiKey, sourcesPrompt, 10000),
+      ]);
+      const p = pEditorial || {};
+      if (!p.summary) { console.error(`Bad editorial JSON for ${story.id}`); errors++; continue; }
+      p.articulos = (pSources && Array.isArray(pSources.articulos)) ? pSources.articulos : [];
 
       const asArr = (v: any) => Array.isArray(v) ? v.filter((x) => x != null && String(x).trim() !== '') : [];
       const asStr = (v: any) => (typeof v === 'string' ? v.trim() : '');
