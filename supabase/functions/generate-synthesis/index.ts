@@ -205,22 +205,31 @@ LONGITUDES OBLIGATORIAS (respétalas para que la ficha quede completa):
 Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
 {"titular":"...","category":"una de: ${CATEGORIES.join(', ')}","consensus":"ALTO|MEDIO|BAJO|POLARIZADO","impact":"ALTO|MEDIO|BAJO","factuality":"ALTA|MIXTA|BAJA","summary":"...","full_content":"...","contexto":"...","perspectivas_info":"...","bias_info":"...","desglose":["...","...","...","..."],"consenso_izq":"...","consenso_centro":"...","consenso_dcha":"...","analytical_snippet":"...","blind_spot":"...","fact_check":"...","verificacion_info":"...","impacto_social":["...","...","..."],"impacto_sistemico":["...","...","..."],"cifras_clave":[{"label":"concepto","value":"dato con unidad"}],"documentos_info":[{"name":"documento","context":"qué aporta"}],"protagonistas":{"beneficiados":"...","afectados":"..."},"preguntas":["...","...","..."]}`;
 
-      // ── LLAMADA 2: ANÁLISIS POR FUENTE (una tarjeta rica por artículo) ──
+      // ── LLAMADA 2: PIEZA DESARROLLADA POR FUENTE (contenido "dentro") ──
+      // Genera, por artículo: metadatos + un teaser mínimo para la preview + una
+      // pieza redactada por nosotros (párrafos con citas y comentario objetivo)
+      // que se muestra al abrir la fuente. No reproduce el original: lo cuenta y
+      // lo analiza para que el lector no necesite salir.
       const sourcesPrompt = `${header}
 
-TAREA: analiza CADA artículo del listado (uno por idx, TODOS, ninguno vacío) con contenido propio, sustancial y DIFERENTE del de los demás. El objetivo es que el lector entienda qué aporta cada pieza sin abrir el original. NO inventes datos ni citas; usa solo lo que aparece en cada extracto.
+TAREA: para CADA artículo del listado (uno por idx, TODOS) redacta una PIEZA PROPIA de Trust News España que cuente y analice lo que publica ese medio, para que el lector la entienda por completo SIN abrir el original. Usa SOLO lo que aparece en su extracto; NO inventes datos ni citas.
 
-Para cada artículo:
-- "tipo": REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA|CRÓNICA|ENTREVISTA (dedúcelo).
-- "tono": 1-3 palabras específicas (p.ej. "Celebratorio", "Institucional", "Crítico contenido", "Neutral factual").
-- "autor": firma/autor si aparece en el extracto; si no, "Redacción" o la agencia (EFE, Europa Press...).
-- "angulo": 1-2 frases (120-200 car.) sobre el ángulo concreto de ESTE medio; específico, no genérico intercambiable.
-- "enfoque": 1-2 frases (120-220 car.) COMPARATIVAS: qué detalle o dato enfatiza, añade u OMITE frente a los demás. Distinto para cada medio; si reproduce un teletipo idéntico a otro, dilo.
-- "resumen": 4-5 frases (380-560 car.) contando CON DETALLE lo que dice esta pieza: hechos, cifras y declaraciones concretas. Si en su extracto hay una frase o dato textual, INCORPÓRALO ENTRECOMILLADO (p.ej.: destaca su "continuada labor solidaria"). Cierra con una frase de análisis objetivo de su encuadre. No repitas el titular; desarrolla.
-- "clave": 1 frase con el dato, matiz o declaración ÚNICOS que aporta este artículo y no está en los demás.
+Para cada artículo devuelve:
+- "tipo": REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA|CRÓNICA|ENTREVISTA.
+- "tono": 1-3 palabras específicas (p.ej. "Celebratorio", "Institucional", "Neutral factual").
+- "autor": firma si aparece; si no, "Redacción" o la agencia (EFE, Europa Press...).
 - "origen": ciudad/ámbito si se deduce, si no "Nacional".
+- "teaser": UNA sola frase muy breve (≤110 caracteres) para la vista previa. Concreta y sin relleno.
+- "parrafos": array de 3-4 párrafos (cada uno 220-360 caracteres) escritos por NOSOTROS. Estructura:
+    (1) qué cuenta esta pieza en concreto: hechos y datos.
+    (2) la declaración o detalle central, incorporando una frase TEXTUAL del extracto ENTRECOMILLADA y atribuida (p.ej.: el diario recoge que Messi destaca por su "continuada labor solidaria").
+    (3) nuestro ANÁLISIS OBJETIVO del encuadre de este medio: qué prioriza, qué enfatiza u omite frente a los demás, con neutralidad.
+    (4) (opcional) contexto o cierre.
+  Redacción fluida y periodística; comillas SOLO para frases textuales reales del extracto.
+- "cita": la frase textual más representativa del extracto como {"texto":"...","autor":"quién la dice o el medio"}. Si el extracto no tiene ninguna frase citable, {"texto":"","autor":""}.
+- "clave": 1 frase con el ángulo o dato ÚNICO que aporta este medio frente a los demás.
 
-Devuelve SOLO JSON válido, sin markdown: {"articulos":[{"idx":0,"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","angulo":"...","enfoque":"...","resumen":"...","clave":"...","origen":"Nacional"}]}`;
+Devuelve SOLO JSON válido, sin markdown: {"articulos":[{"idx":0,"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","origen":"Nacional","teaser":"...","parrafos":["...","...","..."],"cita":{"texto":"...","autor":"..."},"clave":"..."}]}`;
 
       const [pEditorial, pSources] = await Promise.all([
         openaiJSON(openaiKey, editorialPrompt, 5000),
@@ -247,16 +256,34 @@ Devuelve SOLO JSON válido, sin markdown: {"articulos":[{"idx":0,"tipo":"NOTICIA
       for (const a of asArr(p.articulos)) { if (typeof a?.idx === 'number') perArt[a.idx] = a; }
       const mergedArticles = articles.map((a: any, i: number) => {
         const x = perArt[i] || {};
+        const paras = asArr(x.parrafos).map(asStr);
+        const citaTexto = asStr(x.cita?.texto);
+        const citaAutor = asStr(x.cita?.autor) || a.source;
+        const teaser = asStr(x.teaser);
+        // readerContent alimenta la vista "dentro" (StoryReader): pieza propia
+        // con párrafos desarrollados, una cita destacada y comentario objetivo.
+        const readerContent = paras.length ? {
+          whatHappened: paras[0] || '',
+          context: paras[1] || '',
+          preQuoteAnalysis: '',
+          claims: citaTexto ? [{ text: citaTexto, source: citaAutor }] : [],
+          postQuoteAnalysis: paras[2] || '',
+          implications: { owner: paras[3] || '' },
+          blindSpot: asStr(x.clave),
+        } : (a.readerContent || null);
         return {
           ...a,
           type: asStr(x.tipo) || a.type || 'NOTICIA',
           tone: asStr(x.tono) || a.tone || 'Informativo',
           author: asStr(x.autor) || a.author || 'Redacción',
-          angle: asStr(x.angulo) || a.angle || '',
-          diff: asStr(x.enfoque) || a.diff || '',
-          summary: asStr(x.resumen) || a.summary || a.excerpt || '',
           origin: asStr(x.origen) || a.origin || 'Nacional',
-          whyOpened: asStr(x.clave) || a.whyOpened || asStr(x.angulo) || 'Análisis comparativo',
+          // teaser = línea mínima para la PREVIEW; el desarrollo va en readerContent.
+          teaser: teaser || paras[0]?.slice(0, 110) || '',
+          diff: teaser || a.diff || '',
+          summary: paras.join(' ') || asStr(x.resumen) || a.summary || a.excerpt || '',
+          angle: asStr(x.angulo) || a.angle || '',
+          whyOpened: asStr(x.clave) || a.whyOpened || 'Análisis comparativo',
+          readerContent,
         };
       });
 

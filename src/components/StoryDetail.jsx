@@ -1049,33 +1049,42 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                     </div>
                   </div>
 
-                  <h4 style={{ fontSize: '32px', fontWeight: 800, margin: 0, letterSpacing: '-1.5px', lineHeight: '1.1' }}>
+                  <h4 style={{ fontSize: isEditing ? '32px' : '22px', fontWeight: 800, margin: 0, letterSpacing: '-1px', lineHeight: '1.15' }}>
                     <InlineEdit text={art.title || story.title} onChange={v => { const a = [...editedStory.articles]; a[i].title = v; updateStory('articles', a); }} isEditing={isEditing} multiline placeholder="Titular del artículo..." />
                   </h4>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 800, opacity: 0.4 }}>
-                    <span>AUTOR: <InlineEdit text={art.author} onChange={v => { const a = [...editedStory.articles]; a[i].author = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="..." /></span>
-                    <span>TONO: <InlineEdit text={art.tone} onChange={v => { const a = [...editedStory.articles]; a[i].tone = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="..." /></span>
-                    <span>ÁNGULO: <InlineEdit text={art.angle} onChange={v => { const a = [...editedStory.articles]; a[i].angle = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="..." /></span>
-                  </div>
-
-                  <div style={{ fontSize: '15px', lineHeight: '1.6', fontWeight: 600 }}>
-                    <span style={{ opacity: 0.3, marginRight: '12px', letterSpacing: '1px', fontSize: '11px' }}>ENFOQUE:</span>
-                    <span><InlineEdit text={art.diff} onChange={v => { const a = [...editedStory.articles]; a[i].diff = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="Escribe el enfoque detectado..." /></span>
-                  </div>
-
-                  <div style={{ fontSize: '14px', lineHeight: '1.5', opacity: 0.7, paddingLeft: '24px', borderLeft: '1px solid #eee' }}>
-                    <InlineEdit text={art.summary} onChange={v => { const a = [...editedStory.articles]; a[i].summary = v; updateStory('articles', a); }} isEditing={isEditing} multiline placeholder="Resumen exclusivo del artículo..." />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f9f9f9', paddingTop: '24px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--color-primary)' }}>
-                      CLAVE: <InlineEdit text={art.whyOpened || 'Análisis profundo'} onChange={v => { const a = [...editedStory.articles]; a[i].whyOpened = v; updateStory('articles', a); }} isEditing={isEditing} placeholder="Clave que explora..." />
-                    </div>
-                    <div style={{ display: 'flex', gap: '24px', fontSize: '11px', fontWeight: 800 }}>
-                      <span style={{ opacity: 0.4 }}>COMPARAR DIFERENCIAS</span>
-                    </div>
-                  </div>
+                  {isEditing ? (
+                    <>
+                      {/* MODO EDICIÓN: campos completos para el manager */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 800, opacity: 0.4 }}>
+                        <span>AUTOR: <InlineEdit text={art.author} onChange={v => { const a = [...editedStory.articles]; a[i].author = v; updateStory('articles', a); }} isEditing placeholder="..." /></span>
+                        <span>TONO: <InlineEdit text={art.tone} onChange={v => { const a = [...editedStory.articles]; a[i].tone = v; updateStory('articles', a); }} isEditing placeholder="..." /></span>
+                        <span>ÁNGULO: <InlineEdit text={art.angle} onChange={v => { const a = [...editedStory.articles]; a[i].angle = v; updateStory('articles', a); }} isEditing placeholder="..." /></span>
+                      </div>
+                      <div style={{ fontSize: '13px', lineHeight: '1.6', fontWeight: 600 }}>
+                        <span style={{ opacity: 0.3, marginRight: '12px', letterSpacing: '1px', fontSize: '11px' }}>TEASER (preview):</span>
+                        <InlineEdit text={art.teaser || art.diff} onChange={v => { const a = [...editedStory.articles]; a[i].teaser = v; updateStory('articles', a); }} isEditing placeholder="Frase corta para la vista previa..." />
+                      </div>
+                      <div style={{ fontSize: '14px', lineHeight: '1.5', opacity: 0.7, paddingLeft: '24px', borderLeft: '1px solid #eee' }}>
+                        <InlineEdit text={art.summary} onChange={v => { const a = [...editedStory.articles]; a[i].summary = v; updateStory('articles', a); }} isEditing multiline placeholder="Contenido desarrollado (se ve al abrir la fuente)..." />
+                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--color-primary)' }}>
+                        CLAVE: <InlineEdit text={art.whyOpened || 'Análisis profundo'} onChange={v => { const a = [...editedStory.articles]; a[i].whyOpened = v; updateStory('articles', a); }} isEditing placeholder="Clave que explora..." />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* PREVIEW MÍNIMA: una línea + acceso al análisis completo */}
+                      {(art.teaser || art.diff) && (
+                        <p style={{ fontSize: '15px', lineHeight: '1.5', fontWeight: 500, opacity: 0.75, margin: 0 }}>
+                          {art.teaser || art.diff}
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', borderTop: '1px solid #f4f4f4', paddingTop: '18px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '1px', color: 'var(--color-primary)' }}>
+                        VER ANÁLISIS COMPLETO →
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
