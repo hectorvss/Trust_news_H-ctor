@@ -132,3 +132,9 @@ select * from pg_proc where proname = 'log_bias_read';   -- debe existir tras mi
 - [ ] (opc) plan Pro o keep-alive para no volver a pausar
 - [ ] Verificar migraciones previas 026/027/028/030
 - [ ] Publicar drafts desde Manager Studio
+
+## RLS pendiente (detectado 14-jul, errores 403 en consola)
+- [ ] `reading_history`: falta política de INSERT/UPSERT para el usuario autenticado
+      (`user_id = auth.uid()`). Sin ella, "Mi Sesgo" no registra lecturas (403).
+- [ ] `usage_metrics`: falta política de SELECT para el usuario/sesión propia.
+      El cliente ya tolera el fallo (valores por defecto), pero conviene la política.
