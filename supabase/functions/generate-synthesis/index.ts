@@ -12,7 +12,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const MIN_SOURCES = 2;
 const BATCH_SIZE = 8;
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
-const MAX_TOKENS = 3600;
+const MAX_TOKENS = 6000;
 
 const CATEGORIES = ['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE'];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -142,13 +142,29 @@ Medios de derecha presentes: ${sides.right.join(', ') || 'NINGUNO'}
 ARTÍCULOS:
 ${articlesText}
 
-REGLAS:
-- Básate solo en los artículos. NO inventes cifras, nombres ni hechos que no aparezcan. Si no hay datos numéricos, devuelve "cifras_clave": [].
-- Tono informativo, neutral y conciso. Español de España.
-- "titular": titular periodístico específico y claro (60-110 caracteres), estilo prensa seria, sin clickbait. NUNCA "Sin título".
-- "full_content": 4-6 párrafos desarrollados separados por \\n. Estructura: qué ha pasado → detalles y declaraciones → contexto → en qué difieren los medios → qué queda abierto.
-- "consenso_izq/centro/dcha": describe el ENFOQUE de los medios de cada lado citando el NOMBRE de los medios (p.ej. "El País y elDiario subrayan..."). Si un lado no tiene medios presentes, escribe EXACTAMENTE: "Sin cobertura de medios de este espectro en esta historia." (nunca lo dejes vacío).
-- "perspectivas_info": compara los enfoques SOLO de los lados con medios presentes; sobre los ausentes limítate a constatar la ausencia.
+REGLAS GENERALES:
+- Básate solo en los artículos. NO inventes cifras, nombres ni hechos que no aparezcan. Si no hay datos numéricos reales, devuelve "cifras_clave": [].
+- Tono informativo, neutral, prensa seria. Español de España. Redacción PROPIA (no copies frases literales largas de los medios).
+- Cada bloque debe tener entidad propia: no repitas el mismo párrafo entre bloques.
+- LONGITUDES OBLIGATORIAS (aproximadas, para que la ficha quede completa visualmente):
+  · "titular": 60-110 caracteres, específico, sin clickbait. NUNCA "Sin título".
+  · "summary": 2-3 frases (300-450 caracteres).
+  · "analytical_snippet": 2 frases con lectura editorial de TNE (200-350 caracteres).
+  · "full_content": 5-7 párrafos separados por \\n (1800-3000 caracteres). Estructura: qué ha pasado → detalles y declaraciones → contexto → en qué difieren los medios → qué queda abierto.
+  · "contexto": 2-3 párrafos separados por \\n (600-1000 caracteres): antecedentes, por qué importa ahora.
+  · "perspectivas_info": 2 párrafos (500-800 caracteres) comparando enfoques SOLO de los lados presentes; de los ausentes constata la ausencia.
+  · "bias_info": 1 párrafo (300-500 caracteres) que asigne cada periódico a su bloque: "De los N medios analizados, X se sitúan en la izquierda (nombres), Y en el centro (nombres) y Z en la derecha (nombres)", y qué implica ese reparto para el lector.
+  · "desglose": 4-6 claves, CADA UNA una frase completa de 12-25 palabras (no etiquetas sueltas).
+  · "consenso_izq/centro/dcha": 2-3 frases cada uno (250-450 caracteres) citando los NOMBRES de los medios (p.ej. "El País y elDiario subrayan..."). Si un lado no tiene medios presentes escribe EXACTAMENTE: "Sin cobertura de medios de este espectro en esta historia."
+  · "blind_spot": 2 frases (200-350 caracteres).
+  · "fact_check": 2-3 frases sobre el estado de verificación de las afirmaciones principales.
+  · "verificacion_info": 3-4 frases (300-500 caracteres): qué está confirmado por varios medios, qué solo por uno, qué falta por verificar.
+  · "impacto_social": 3-4 elementos, cada uno una frase completa.
+  · "impacto_sistemico": 3 elementos, cada uno una frase completa.
+  · "protagonistas": beneficiados y afectados, 1-2 frases cada uno.
+  · "preguntas": 3-4 preguntas abiertas relevantes.
+  · "documentos_info": SOLO documentos/informes/sentencias citados textualmente en los extractos, con {"name":"...","context":"..."}; si no hay, [].
+- "articulos": OBLIGATORIO un objeto por CADA artículo del listado (usa su idx). Para cada uno redacta con contenido propio: "tipo" (REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA), "tono" (1-3 palabras), "angulo" (1 frase: el ángulo de ese medio), "enfoque" (1 frase: qué enfatiza u omite frente a los demás), "resumen" (2 frases propias sobre su pieza), "origen" (ciudad o ámbito si se deduce, si no "Nacional").
 - Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
 {
   "titular": "titular periodístico",
@@ -156,24 +172,26 @@ REGLAS:
   "consensus": "ALTO|MEDIO|BAJO|POLARIZADO",
   "impact": "ALTO|MEDIO|BAJO",
   "factuality": "ALTA|MIXTA|BAJA",
-  "summary": "resumen ejecutivo de 1-2 frases",
-  "full_content": "cuerpo de la noticia, 4-6 párrafos separados por \\n",
-  "contexto": "contexto y antecedentes, 1-2 párrafos separados por \\n",
-  "perspectivas_info": "cómo difieren los enfoques de los medios presentes, 1-2 párrafos",
-  "desglose": ["clave 1", "clave 2", "clave 3", "clave 4"],
-  "consenso_izq": "narrativa de los medios de izquierda (o la frase de ausencia)",
-  "consenso_centro": "narrativa de los medios de centro (o la frase de ausencia)",
-  "consenso_dcha": "narrativa de los medios de derecha (o la frase de ausencia)",
-  "analytical_snippet": "síntesis editorial de TNE, 1-2 frases",
-  "blind_spot": "el ángulo importante que la mayoría ignora",
-  "fact_check": "estado de verificación de las afirmaciones principales",
-  "verificacion_info": "detalle de qué está confirmado y qué no",
-  "impacto_social": ["efecto social 1", "efecto social 2"],
-  "impacto_sistemico": ["implicación sistémica 1", "implicación sistémica 2"],
-  "cifras_clave": [{"label":"concepto","value":"dato"}],
-  "protagonistas": {"beneficiados":"quién gana","afectados":"quién pierde"},
-  "preguntas": ["pregunta abierta 1", "pregunta abierta 2"],
-  "articulos": [{"idx":0,"tipo":"REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA","tono":"p.ej. Neutral/Crítico","angulo":"el ángulo del medio","enfoque":"qué enfatiza frente a otros","resumen":"resumen de 1 frase del artículo"}]
+  "summary": "...",
+  "full_content": "...",
+  "contexto": "...",
+  "perspectivas_info": "...",
+  "bias_info": "...",
+  "desglose": ["...", "...", "...", "..."],
+  "consenso_izq": "...",
+  "consenso_centro": "...",
+  "consenso_dcha": "...",
+  "analytical_snippet": "...",
+  "blind_spot": "...",
+  "fact_check": "...",
+  "verificacion_info": "...",
+  "impacto_social": ["...", "...", "..."],
+  "impacto_sistemico": ["...", "...", "..."],
+  "cifras_clave": [{"label":"concepto","value":"dato con unidad"}],
+  "documentos_info": [{"name":"documento","context":"qué aporta"}],
+  "protagonistas": {"beneficiados":"...","afectados":"..."},
+  "preguntas": ["...", "...", "..."],
+  "articulos": [{"idx":0,"tipo":"NOTICIA","tono":"Neutral","angulo":"...","enfoque":"...","resumen":"...","origen":"Nacional"}]
 }`;
 
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -222,6 +240,7 @@ REGLAS:
           angle: asStr(x.angulo) || a.angle || '',
           diff: asStr(x.enfoque) || a.diff || '',
           summary: asStr(x.resumen) || a.summary || a.excerpt || '',
+          origin: asStr(x.origen) || a.origin || 'Nacional',
           whyOpened: a.whyOpened || asStr(x.angulo) || 'Análisis comparativo',
         };
       });
@@ -239,6 +258,7 @@ REGLAS:
         full_content: asStr(p.full_content),
         contexto: asStr(p.contexto),
         perspectivas_info: asStr(p.perspectivas_info),
+        bias_info: asStr(p.bias_info),
         analytical_snippet: asStr(p.analytical_snippet),
         desglose: asArr(p.desglose).map(asStr),
         consenso_narrativo: narr,
@@ -249,6 +269,7 @@ REGLAS:
         impacto_social: asArr(p.impacto_social).map(asStr),
         impacto_sistemico: asArr(p.impacto_sistemico).map(asStr),
         cifras_clave: cifras,
+        documentos_info: asArr(p.documentos_info).map((d: any) => ({ name: asStr(d?.name), context: asStr(d?.context) })).filter((d: any) => d.name),
         key_figures: cifras.map((c: any) => `${c.label}: ${c.value}`),
         disputed_claims: asArr(p.preguntas).map(asStr),
         protagonistas_info: prot,
@@ -259,12 +280,11 @@ REGLAS:
         updated_at: new Date().toISOString(),
       };
 
-      // Titular: la IA siempre propone; lo escribimos si el actual falta, es
-      // placeholder, o si estamos re-sintetizando a la fuerza.
+      // Titular: en drafts auto-generados manda la IA (el titular previo era un
+      // placeholder o el titular prestado del primer artículo). El manager puede
+      // editarlo en revisión antes de publicar.
       const aiTitle = asStr(p.titular);
-      if (aiTitle && (!story.title || story.title === 'Sin título' || forceStoryId)) {
-        update.title = aiTitle.slice(0, 200);
-      }
+      if (aiTitle) update.title = aiTitle.slice(0, 200);
 
       const { error: upErr } = await supabase.from('stories').update(update).eq('id', story.id);
       if (upErr) { console.error(`Update ${story.id}: ${upErr.message}`); errors++; continue; }

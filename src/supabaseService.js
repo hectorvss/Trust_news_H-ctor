@@ -277,6 +277,7 @@ const mapStory = (s) => {
     consensus: s.consensus || 'MEDIO',
     impact: s.impact || 'ALTO',
     analyticalSnippet: s.analytical_snippet || s.summary,
+    biasInfo: s.bias_info || null,
     contexto: s.contexto,
     desglose: Array.isArray(s.desglose) ? s.desglose.join('\n') : (s.desglose || ''),
     cifrasClave: Array.isArray(s.cifras_clave) ? s.cifras_clave : [],
