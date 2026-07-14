@@ -10,9 +10,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // genera también el titular, y el consenso nunca deja columnas vacías.
 // Soporta {"story_id": "..."} para forzar re-síntesis de una story concreta.
 const MIN_SOURCES = 2;
-const BATCH_SIZE = 8;
+const BATCH_SIZE = 6;
+const MAX_ARTICLES = 16;
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
-const MAX_TOKENS = 6000;
+const MAX_TOKENS = 9000;
 
 const CATEGORIES = ['POLÍTICA', 'FINANZAS', 'SOCIAL', 'TECNOLOGÍA', 'DEPORTE', 'CULTURA', 'INTERNACIONAL', 'MEDIO AMBIENTE'];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -89,7 +90,7 @@ Deno.serve(async (req: Request) => {
         const ids: string[] = c?.article_ids || [];
         if (ids.length) {
           const { data: ra } = await supabase.from('raw_articles')
-            .select('title, excerpt, content_excerpt, url, source_id, published_at').in('id', ids.slice(0, 14));
+            .select('title, excerpt, content_excerpt, url, source_id, published_at').in('id', ids.slice(0, MAX_ARTICLES));
           const srcIds = [...new Set((ra || []).map((a: any) => a.source_id).filter(Boolean))];
           const { data: srcs } = srcIds.length
             ? await supabase.from('sources').select('id, nombre, name, bias_label, bias, factuality').in('id', srcIds)
@@ -126,8 +127,8 @@ Deno.serve(async (req: Request) => {
         right: articles.filter((a: any) => a.bias === 'RIGHT').map((a: any) => a.source),
       };
 
-      const articlesText = articles.slice(0, 12).map((a: any, i: number) => {
-        const body2 = String(a.excerpt || a.summary || '').slice(0, 320);
+      const articlesText = articles.slice(0, MAX_ARTICLES).map((a: any, i: number) => {
+        const body2 = String(a.excerpt || a.summary || '').slice(0, 500);
         return `[ARTÍCULO ${i} | medio: ${a.source} | sesgo: ${a.bias || 'CENTER'}]\nTitular: ${a.title || ''}${body2 ? `\nExtracto: ${body2}` : ''}`;
       }).join('\n\n');
 
@@ -143,7 +144,8 @@ ARTÍCULOS:
 ${articlesText}
 
 REGLAS GENERALES:
-- Básate solo en los artículos. NO inventes cifras, nombres ni hechos que no aparezcan. Si no hay datos numéricos reales, devuelve "cifras_clave": [].
+- Básate solo en los artículos. NO inventes cifras, nombres ni hechos que no aparezcan.
+- "cifras_clave": EXTRAE TODO dato cuantificable que aparezca literalmente en algún titular o extracto: cantidades, porcentajes, años, edades, número de premios/títulos/víctimas/millones, fechas señaladas, marcadores. Ej.: si un extracto dice "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}. Rastrea los ${MAX_ARTICLES} artículos y devuelve entre 3 y 8 cifras SI EXISTEN en el texto. Solo devuelve [] si de verdad no hay ningún número en ningún extracto.
 - Tono informativo, neutral, prensa seria. Español de España. Redacción PROPIA (no copies frases literales largas de los medios).
 - Cada bloque debe tener entidad propia: no repitas el mismo párrafo entre bloques.
 - LONGITUDES OBLIGATORIAS (aproximadas, para que la ficha quede completa visualmente):
@@ -164,7 +166,15 @@ REGLAS GENERALES:
   · "protagonistas": beneficiados y afectados, 1-2 frases cada uno.
   · "preguntas": 3-4 preguntas abiertas relevantes.
   · "documentos_info": SOLO documentos/informes/sentencias citados textualmente en los extractos, con {"name":"...","context":"..."}; si no hay, [].
-- "articulos": OBLIGATORIO un objeto por CADA artículo del listado (usa su idx). Para cada uno redacta con contenido propio: "tipo" (REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA), "tono" (1-3 palabras), "angulo" (1 frase: el ángulo de ese medio), "enfoque" (1 frase: qué enfatiza u omite frente a los demás), "resumen" (2 frases propias sobre su pieza), "origen" (ciudad o ámbito si se deduce, si no "Nacional").
+- "articulos": OBLIGATORIO un objeto por CADA artículo del listado (uno por idx, TODOS, sin dejar ninguno vacío). Este es el bloque MÁS IMPORTANTE: cada tarjeta debe llevar análisis sustancial y DIFERENTE del de los demás medios. Para cada artículo redacta con contenido propio:
+  · "tipo": REPORTAJE|OPINIÓN|ANÁLISIS|NOTICIA|CRÓNICA|ENTREVISTA (dedúcelo del texto).
+  · "tono": 1-3 palabras específicas (p.ej. "Celebratorio", "Institucional", "Crítico contenido", "Neutral factual").
+  · "autor": nombre del autor/firma si aparece en el extracto; si no, "Redacción" o la agencia (p.ej. "EFE", "Europa Press").
+  · "angulo": 1-2 frases (120-200 caracteres) sobre el ángulo concreto que elige ESTE medio y qué prioriza en su enfoque.
+  · "enfoque": 1-2 frases (120-220 caracteres) COMPARATIVAS: qué detalle enfatiza, añade u OMITE respecto a los otros medios de la cobertura. Debe ser distinto para cada medio.
+  · "resumen": 3-4 frases propias (300-480 caracteres) que expliquen qué cuenta esta pieza en concreto: datos, declaraciones o matices que aporta. NO repitas el titular; desarrolla.
+  · "clave": 1 frase con lo que este artículo aporta de forma única a la cobertura (lo que el lector se perdería si no lo leyera).
+  · "origen": ciudad o ámbito si se deduce, si no "Nacional".
 - Devuelve SOLO JSON válido, sin markdown, con EXACTAMENTE estas claves:
 {
   "titular": "titular periodístico",
@@ -191,7 +201,7 @@ REGLAS GENERALES:
   "documentos_info": [{"name":"documento","context":"qué aporta"}],
   "protagonistas": {"beneficiados":"...","afectados":"..."},
   "preguntas": ["...", "...", "..."],
-  "articulos": [{"idx":0,"tipo":"NOTICIA","tono":"Neutral","angulo":"...","enfoque":"...","resumen":"...","origen":"Nacional"}]
+  "articulos": [{"idx":0,"tipo":"NOTICIA","tono":"Neutral factual","autor":"Redacción","angulo":"...","enfoque":"...","resumen":"...","clave":"...","origen":"Nacional"}]
 }`;
 
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -237,11 +247,12 @@ REGLAS GENERALES:
           ...a,
           type: asStr(x.tipo) || a.type || 'NOTICIA',
           tone: asStr(x.tono) || a.tone || 'Informativo',
+          author: asStr(x.autor) || a.author || 'Redacción',
           angle: asStr(x.angulo) || a.angle || '',
           diff: asStr(x.enfoque) || a.diff || '',
           summary: asStr(x.resumen) || a.summary || a.excerpt || '',
           origin: asStr(x.origen) || a.origin || 'Nacional',
-          whyOpened: a.whyOpened || asStr(x.angulo) || 'Análisis comparativo',
+          whyOpened: asStr(x.clave) || a.whyOpened || asStr(x.angulo) || 'Análisis comparativo',
         };
       });
 

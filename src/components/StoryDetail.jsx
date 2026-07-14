@@ -745,8 +745,13 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                         </div>
                       </div>
                     ))}
+                    {!isEditing && (editedStory.cifrasClave || []).length === 0 && (
+                      <div style={{ fontSize: '13px', opacity: 0.35, fontFamily: 'var(--font-mono)', lineHeight: 1.6, padding: '4px 0' }}>
+                        Esta cobertura no incluye cifras cuantificables destacadas.
+                      </div>
+                    )}
                     {isEditing && (
-                      <button 
+                      <button
                         onClick={() => updateStory('cifrasClave', [...(editedStory.cifrasClave || []), { label: 'Nueva Cifra', value: '0' }])}
                         style={{ marginTop: '20px', padding: '8px', background: '#eee', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 800 }}
                       >+ AÑADIR CIFRA</button>
@@ -831,24 +836,55 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                          </div>
                       </div>
                    </div>
-                   <div>
-                      <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>DOCUMENTOS</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {(Array.isArray(editedStory.documentosInfo) ? editedStory.documentosInfo : []).map((d, idx) => (
-                           <div key={idx} style={{ padding: '16px 24px', border: '1px solid black', borderRadius: '8px', fontSize: '13px', fontWeight: 900, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <InlineEdit text={d.name || d} onChange={v => {
-                                 const next = [...(editedStory.documentosInfo || [])];
-                                 next[idx] = typeof d === 'object' ? { ...d, name: v } : v;
-                                 updateStory('documentosInfo', next);
-                              }} isEditing={isEditing} />
-                              <span style={{ fontSize: '16px' }}>↘</span>
+                   {/* DOCUMENTOS: solo si de verdad hay documentos citados. Si no,
+                       no dejamos un hueco vacío — mostramos los medios analizados
+                       en su lugar (información útil y ya disponible). */}
+                   {(() => {
+                     const docs = (Array.isArray(editedStory.documentosInfo) ? editedStory.documentosInfo : [])
+                       .filter(d => (typeof d === 'object' ? (d?.name || d?.context) : String(d || '').trim()));
+                     if (docs.length > 0 || isEditing) {
+                       return (
+                         <div>
+                           <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>DOCUMENTOS</div>
+                           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                             {docs.map((d, idx) => (
+                                <div key={idx} style={{ padding: '16px 24px', border: '1px solid black', borderRadius: '8px', fontSize: '13px', fontWeight: 900, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                     <InlineEdit text={d.name || d} onChange={v => {
+                                        const next = [...(editedStory.documentosInfo || [])];
+                                        next[idx] = typeof d === 'object' ? { ...d, name: v } : v;
+                                        updateStory('documentosInfo', next);
+                                     }} isEditing={isEditing} />
+                                     <span style={{ fontSize: '16px' }}>↘</span>
+                                   </div>
+                                   {d?.context && <div style={{ fontSize: '12px', fontWeight: 500, opacity: 0.55, lineHeight: 1.4 }}>{d.context}</div>}
+                                </div>
+                             ))}
+                             {isEditing && (
+                                <button onClick={() => updateStory('documentosInfo', [...(editedStory.documentosInfo || []), { name: 'NUEVO_DOC.PDF', context: '' }])} style={{ padding: '8px', border: '1px dashed #ccc', background: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 900 }}>+ AÑADIR DOCUMENTO</button>
+                             )}
                            </div>
-                        ))}
-                        {isEditing && (
-                           <button onClick={() => updateStory('documentosInfo', [...(editedStory.documentosInfo || []), 'NUEVO_DOC.PDF'])} style={{ padding: '8px', border: '1px dashed #ccc', background: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 900 }}>+ AÑADIR DOCUMENTO</button>
-                        )}
-                      </div>
-                   </div>
+                         </div>
+                       );
+                     }
+                     // Sin documentos → panel de MEDIOS ANALIZADOS en su lugar
+                     const medios = (Array.isArray(editedStory.mediosAnalizados) ? editedStory.mediosAnalizados
+                       : (Array.isArray(editedStory.origenInfo) ? editedStory.origenInfo : []));
+                     if (medios.length === 0) return null;
+                     return (
+                       <div>
+                         <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>MEDIOS ANALIZADOS</div>
+                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 24px' }}>
+                           {medios.map((m, idx) => (
+                             <div key={idx} style={{ padding: '10px 0', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, borderBottom: '1px solid #f4f4f4' }}>
+                               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'black', flexShrink: 0 }} />
+                               <span>{typeof m === 'string' ? m : (m?.name || '')}</span>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     );
+                   })()}
                 </div>
               </div>
             )}
