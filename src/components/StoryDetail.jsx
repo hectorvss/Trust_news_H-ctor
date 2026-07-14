@@ -801,24 +801,6 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                         )}
                       </div>
                    </div>
-                   <div>
-                      <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>MEDIOS ANALIZADOS</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', fontSize: '13px', fontWeight: 700 }}>
-                        {(Array.isArray(editedStory.mediosAnalizados) ? editedStory.mediosAnalizados : []).map((m, idx) => (
-                           <div key={idx} style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'black' }} />
-                              <InlineEdit text={m} onChange={v => {
-                                 const next = [...(editedStory.mediosAnalizados || [])];
-                                 next[idx] = v;
-                                 updateStory('mediosAnalizados', next);
-                              }} isEditing={isEditing} />
-                           </div>
-                        ))}
-                        {isEditing && (
-                           <button onClick={() => updateStory('mediosAnalizados', [...(editedStory.mediosAnalizados || []), 'Nuevo Medio'])} style={{ padding: '8px', border: '1px dashed #ccc', background: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 900 }}>+ AÑADIR MEDIO</button>
-                        )}
-                      </div>
-                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
                    <div style={{ minWidth: 0 }}>
@@ -836,39 +818,39 @@ const StoryDetail = ({ story, onBack, onRefresh, setSelectedStory, onSelectArtic
                          </div>
                       </div>
                    </div>
-                   {/* DOCUMENTOS: solo si de verdad hay documentos citados. Si no,
-                       no dejamos un hueco vacío — mostramos los medios analizados
-                       en su lugar (información útil y ya disponible). */}
+                   {/* DOCUMENTOS: solo si de verdad hay documentos citados. */}
                    {(() => {
                      const docs = (Array.isArray(editedStory.documentosInfo) ? editedStory.documentosInfo : [])
                        .filter(d => (typeof d === 'object' ? (d?.name || d?.context) : String(d || '').trim()));
-                     if (docs.length > 0 || isEditing) {
-                       return (
-                         <div>
-                           <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>DOCUMENTOS</div>
-                           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                             {docs.map((d, idx) => (
-                                <div key={idx} style={{ padding: '16px 24px', border: '1px solid black', borderRadius: '8px', fontSize: '13px', fontWeight: 900, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                     <InlineEdit text={d.name || d} onChange={v => {
-                                        const next = [...(editedStory.documentosInfo || [])];
-                                        next[idx] = typeof d === 'object' ? { ...d, name: v } : v;
-                                        updateStory('documentosInfo', next);
-                                     }} isEditing={isEditing} />
-                                     <span style={{ fontSize: '16px' }}>↘</span>
-                                   </div>
-                                   {d?.context && <div style={{ fontSize: '12px', fontWeight: 500, opacity: 0.55, lineHeight: 1.4 }}>{d.context}</div>}
-                                </div>
-                             ))}
-                             {isEditing && (
-                                <button onClick={() => updateStory('documentosInfo', [...(editedStory.documentosInfo || []), { name: 'NUEVO_DOC.PDF', context: '' }])} style={{ padding: '8px', border: '1px dashed #ccc', background: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 900 }}>+ AÑADIR DOCUMENTO</button>
-                             )}
-                           </div>
+                     if (docs.length === 0 && !isEditing) return null;
+                     return (
+                       <div>
+                         <div style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, marginBottom: '24px', letterSpacing: '1px' }}>DOCUMENTOS</div>
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                           {docs.map((d, idx) => (
+                              <div key={idx} style={{ padding: '16px 24px', border: '1px solid black', borderRadius: '8px', fontSize: '13px', fontWeight: 900, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                   <InlineEdit text={d.name || d} onChange={v => {
+                                      const next = [...(editedStory.documentosInfo || [])];
+                                      next[idx] = typeof d === 'object' ? { ...d, name: v } : v;
+                                      updateStory('documentosInfo', next);
+                                   }} isEditing={isEditing} />
+                                   <span style={{ fontSize: '16px' }}>↘</span>
+                                 </div>
+                                 {d?.context && <div style={{ fontSize: '12px', fontWeight: 500, opacity: 0.55, lineHeight: 1.4 }}>{d.context}</div>}
+                              </div>
+                           ))}
+                           {isEditing && (
+                              <button onClick={() => updateStory('documentosInfo', [...(editedStory.documentosInfo || []), { name: 'NUEVO_DOC.PDF', context: '' }])} style={{ padding: '8px', border: '1px dashed #ccc', background: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 900 }}>+ AÑADIR DOCUMENTO</button>
+                           )}
                          </div>
-                       );
-                     }
-                     // Sin documentos → panel de MEDIOS ANALIZADOS en su lugar
-                     const medios = (Array.isArray(editedStory.mediosAnalizados) ? editedStory.mediosAnalizados
+                       </div>
+                     );
+                   })()}
+                   {/* MEDIOS ANALIZADOS: único bloque, en la columna derecha. */}
+                   {(() => {
+                     const medios = (Array.isArray(editedStory.mediosAnalizados) && editedStory.mediosAnalizados.length
+                       ? editedStory.mediosAnalizados
                        : (Array.isArray(editedStory.origenInfo) ? editedStory.origenInfo : []));
                      if (medios.length === 0) return null;
                      return (

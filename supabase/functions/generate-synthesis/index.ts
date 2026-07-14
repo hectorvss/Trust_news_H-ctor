@@ -145,7 +145,7 @@ ${articlesText}
 
 REGLAS GENERALES:
 - Básate solo en los artículos. NO inventes cifras, nombres ni hechos que no aparezcan.
-- "cifras_clave": EXTRAE TODO dato cuantificable que aparezca literalmente en algún titular o extracto: cantidades, porcentajes, años, edades, número de premios/títulos/víctimas/millones, fechas señaladas, marcadores. Ej.: si un extracto dice "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}. Rastrea los ${MAX_ARTICLES} artículos y devuelve entre 3 y 8 cifras SI EXISTEN en el texto. Solo devuelve [] si de verdad no hay ningún número en ningún extracto.
+- "cifras_clave": rastrea los ${MAX_ARTICLES} artículos y EXTRAE todo dato cuantificable RELEVANTE que aparezca literalmente: cantidades, porcentajes, importes, años, edades, número de premios/títulos/víctimas/millones, fechas señaladas, marcadores. Ej.: "ocho Balones de Oro" → {"label":"Balones de Oro de Messi","value":"8"}. OBJETIVO: 5-6 cifras (o más). Esfuérzate al máximo por alcanzarlas combinando datos de todos los extractos. REGLA DE CALIDAD: si tras buscar a fondo NO consigues al menos 5 cifras que sean genuinamente relevantes e informativas, devuelve [] (vacío). Mejor NADA que rellenar con 1-2 cifras triviales o irrelevantes. No inventes ni fuerces datos que no aparezcan.
 - Tono informativo, neutral, prensa seria. Español de España. Redacción PROPIA (no copies frases literales largas de los medios).
 - Cada bloque debe tener entidad propia: no repitas el mismo párrafo entre bloques.
 - LONGITUDES OBLIGATORIAS (aproximadas, para que la ficha quede completa visualmente):
@@ -234,7 +234,10 @@ REGLAS GENERALES:
       const ABSENT = 'Sin cobertura de medios de este espectro en esta historia.';
       const narrPart = (v: any) => asStr(v) || ABSENT;
       const narr = [narrPart(p.consenso_izq), narrPart(p.consenso_centro), narrPart(p.consenso_dcha)].join(' | ');
-      const cifras = asArr(p.cifras_clave).map((c: any) => ({ label: asStr(c?.label), value: asStr(c?.value) })).filter((c: any) => c.label || c.value);
+      // Cifras: todo o nada. El usuario quiere ≥5 cifras relevantes, o ninguna
+      // (evita un bloque con 1-2 datos triviales). El prompt ya empuja a 5-6.
+      const cifrasRaw = asArr(p.cifras_clave).map((c: any) => ({ label: asStr(c?.label), value: asStr(c?.value) })).filter((c: any) => c.label && c.value);
+      const cifras = cifrasRaw.length >= 5 ? cifrasRaw : [];
       const prot = (p.protagonistas && typeof p.protagonistas === 'object')
         ? { beneficiados: asStr(p.protagonistas.beneficiados), afectados: asStr(p.protagonistas.afectados) }
         : { beneficiados: '', afectados: '' };
