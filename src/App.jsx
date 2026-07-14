@@ -34,6 +34,7 @@ import {
   addFavorite,
   removeFavorite,
   logReading,
+  logReadingExposure,
   fetchStories,
   fetchStoryById,
   fetchAppConfig,
@@ -118,16 +119,16 @@ const App = () => {
     const interval = setInterval(async () => {
       // log 10 seconds of reading
       if (document.visibilityState === 'visible') {
-        // Reading a story now records its dominant lean (from real coverage_*),
-        // so bias stats populate from normal usage — not only article-level reads.
-        const biasCategory = selectedArticle
-          ? selectedArticle.bias
-          : (selectedStory ? selectedStory.dominantLean : null);
-        const sourceName = selectedArticle
-          ? selectedArticle.source
-          : (selectedStory ? 'Cobertura agregada' : null);
-
-        pingUsage(user?.id, activeStoryId, 10, biasCategory, sourceName);
+        if (selectedArticle) {
+          // Article-level read: log the real source + bias of that article, and
+          // bump usage for the free-tier limit.
+          pingUsage(user?.id, activeStoryId, 10, selectedArticle.bias, selectedArticle.source);
+        } else {
+          // Story-level read: accumulate 10s across the story's real per-source
+          // bias rows (created on open); pingUsage only bumps the usage counter.
+          logReadingExposure(user?.id, activeStoryId, 10);
+          pingUsage(user?.id, activeStoryId, 10, null, null);
+        }
         setUsageMetrics(prev => ({
           ...prev,
           reading_seconds: prev.reading_seconds + 10
@@ -292,10 +293,12 @@ const App = () => {
     }
 
     // Record the read for "Mi Sesgo": reading_history (Últimas Noticias Leídas)
-    // + an initial bias-exposure row from the story's dominant lean, so even a
-    // quick open counts before the 10s reading interval fires.
+    // + per-source bias exposure (one row per real source of the story, with its
+    // own lean) so fuentes/diversidad/distribución KPIs get real data. pingUsage
+    // (biasCategory null) only bumps the usage counters for the free-tier limit.
     logReading(user?.id, storyId);
-    pingUsage(user?.id, storyId, 0, story?.dominantLean || null, 'Cobertura agregada').then(() => {
+    logReadingExposure(user?.id, storyId, 0);
+    pingUsage(user?.id, storyId, 0, null, null).then(() => {
        getUsageMetrics(user?.id).then(setUsageMetrics);
     });
     

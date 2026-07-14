@@ -103,6 +103,26 @@ export const pingUsage = async (userId, storyId, readSeconds = 0, biasCategory =
   }
 };
 
+// Registra la exposición por FUENTE real de una noticia leída: server-side
+// expande story.articles (source + bias) en una fila de bias_logs por fuente,
+// con dedup por (usuario/sesión, story, fuente). En reaperturas/ticks acumula
+// los segundos sobre las filas existentes. Esto alimenta TODOS los KPIs de
+// "Mi Sesgo de Lectura" (fuentes únicas, distribución, diversidad) con datos
+// reales en vez de un único bucket "Cobertura agregada".
+export const logReadingExposure = async (userId, storyId, seconds = 0) => {
+  try {
+    const { error } = await supabase.rpc('log_reading_exposure', {
+      p_user_id: userId || null,
+      p_session_id: userId ? null : getSessionId(),
+      p_story_id: String(storyId),
+      p_seconds: seconds
+    });
+    if (error) console.error('Error logging reading exposure:', error);
+  } catch (err) {
+    console.error('Error logging reading exposure:', err);
+  }
+};
+
 export const getBiasStats = async (userId, days = null) => {
   const sessionId = getSessionId();
   try {
