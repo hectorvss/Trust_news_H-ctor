@@ -226,12 +226,6 @@ export default function ApiSection({ user, profile }) {
               {creating ? 'CREANDO…' : 'CREAR CLAVE'}
             </button>
           </div>
-          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '12px', fontFamily: mono }}>
-            <span style={{ opacity: 0.5, fontWeight: 900, letterSpacing: '1px' }}>TU PLAN</span>
-            <span style={{ background: 'black', color: 'white', fontWeight: 900, letterSpacing: '1px', padding: '4px 10px', borderRadius: '4px' }}>{plan.name}</span>
-            <span style={{ opacity: 0.7 }}>→ {plan.limit} peticiones/día por clave</span>
-            {plan.free && <a href="/pricing" style={{ marginLeft: 'auto', fontWeight: 900, textDecoration: 'underline', color: 'black' }}>SUBIR DE PLAN PARA MÁS ↗</a>}
-          </div>
         </div>
       </div>
 
