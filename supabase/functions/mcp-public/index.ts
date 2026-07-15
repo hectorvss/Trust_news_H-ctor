@@ -65,6 +65,16 @@ const TOOLS = [
     description: 'Lista las categorías disponibles con el número de noticias publicadas en cada una.',
     inputSchema: { type: 'object', properties: {} },
   },
+  {
+    name: 'list_sources',
+    description: 'Catálogo de medios con su sesgo, factualidad y propiedad.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'rate_source',
+    description: 'Sesgo, factualidad, propiedad y un "trust score" de un medio concreto (nombre o URL).',
+    inputSchema: { type: 'object', properties: { source: { type: 'string' } }, required: ['source'] },
+  },
 ];
 
 const covLine = (s: any) => {
@@ -147,12 +157,39 @@ async function toolListCategories() {
   return textContent(rows.length ? `Categorías con noticias publicadas:\n${rows.join('\n')}` : 'No hay noticias publicadas todavía.');
 }
 
+async function toolListSources() {
+  const { data, error } = await db.from('sources').select('nombre, name, bias_label, factuality, ownership, url').eq('activo', true).order('nombre', { ascending: true }).limit(500);
+  if (error) return textContent(`Error: ${error.message}`);
+  const seen = new Set<string>();
+  const rows = (data || []).filter((s: any) => { const k = (s.nombre || s.name || '').toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; })
+    .map((s: any) => `  - ${s.nombre || s.name} · sesgo: ${s.bias_label || 'N/D'} · factualidad: ${s.factuality || 'N/D'} · propiedad: ${s.ownership || 'N/D'}`);
+  return textContent(`${rows.length} medios en el catálogo:\n${rows.join('\n')}`);
+}
+const fold = (x: string) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+async function toolRateSource(args: any) {
+  const q = String(args?.source || '').trim();
+  if (!q) return textContent('Indica el nombre o la URL de un medio en "source".');
+  let needle = q;
+  try { if (/^https?:\/\//i.test(q)) needle = new URL(q).hostname.replace(/^www\./, ''); } catch { /* */ }
+  const nf = fold(needle);
+  const { data } = await db.from('sources').select('nombre, name, bias_label, bias, factuality, ownership, url, pais').eq('activo', true).limit(500);
+  const s = (data || []).find((x: any) => { const n = fold(x.nombre || x.name || ''); return n === nf || n.includes(nf) || nf.includes(n) || fold(x.url || '').includes(nf); });
+  if (!s) return textContent(`Medio "${q}" no encontrado en el catálogo de Trust News.`);
+  const fact = String(s.factuality || '').toUpperCase();
+  const factScore = ({ ALTA: 90, HIGH: 90, 'VERY HIGH': 95, MIXTA: 60, MIXED: 60, MEDIA: 60, MEDIUM: 60, BAJA: 30, LOW: 30 } as any)[fact] ?? 55;
+  const penalty = typeof s.bias === 'number' ? Math.min(Math.abs(s.bias) * 2, 25) : 10;
+  const trust = Math.max(0, Math.min(100, Math.round(factScore - penalty)));
+  return textContent(`${s.nombre || s.name}\n  Sesgo: ${s.bias_label || 'N/D'}\n  Factualidad: ${s.factuality || 'N/D'}\n  Propiedad: ${s.ownership || 'N/D'}\n  País: ${s.pais || 'N/D'}\n  Trust score: ${trust}/100`);
+}
+
 async function callTool(name: string, args: any) {
   switch (name) {
     case 'list_news': return await toolListNews(args);
     case 'search_news': return await toolSearchNews(args);
     case 'get_news': return await toolGetNews(args);
     case 'list_categories': return await toolListCategories();
+    case 'list_sources': return await toolListSources();
+    case 'rate_source': return await toolRateSource(args);
     default: return { content: [{ type: 'text', text: `Herramienta desconocida: ${name}` }], isError: true };
   }
 }
