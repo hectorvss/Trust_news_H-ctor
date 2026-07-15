@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { updateProfile, updateUserSettings, getBiasStats, getUsageMetrics, getAiUsageMetrics } from '../supabaseService';
+import { useAuth } from '../context/AuthContext';
 import ApiSection from './account/ApiSection';
 
 // --- ELEMENTOS UI REUSABLES ---
@@ -233,6 +234,7 @@ const CategoriesSection = ({ settings, updateSetting }) => {
 const TabPreferences = ({ user, profile }) => {
   const [settings, setSettings] = useState(profile?.settings || {});
   const [success, setSuccess] = useState(false);
+  const { fetchProfile } = useAuth();
 
   const updateSetting = async (path, value) => {
     const keys = path.split('.');
@@ -243,9 +245,12 @@ const TabPreferences = ({ user, profile }) => {
       current = current[keys[i]];
     }
     current[keys[keys.length - 1]] = value;
-    
+
     setSettings(newSettings);
     await updateUserSettings(user.id, newSettings);
+    // Refresca el perfil global para que el feed (App.jsx) aplique el ajuste
+    // al instante (densidad, personalización, frecuencia…), sin recargar.
+    if (fetchProfile && user?.id) fetchProfile(user.id);
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);
   };
@@ -352,6 +357,98 @@ const TabPreferences = ({ user, profile }) => {
 };
 
 
+const TwoFactorSection = () => {
+  const [factors, setFactors] = useState([]);
+  const [phase, setPhase] = useState('idle');
+  const [enroll, setEnroll] = useState(null);
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async () => {
+    const { data } = await supabase.auth.mfa.listFactors();
+    setFactors((data?.totp || []).filter((f) => f.status === 'verified'));
+  };
+  useEffect(() => { refresh(); }, []);
+
+  const startEnroll = async () => {
+    setBusy(true); setMsg('');
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `TNE-${Date.now()}` });
+    setBusy(false);
+    if (error) { setMsg('Error: ' + error.message); return; }
+    setEnroll({ id: data.id, qr: data.totp?.qr_code, secret: data.totp?.secret });
+    setPhase('enrolling');
+  };
+
+  const verify = async () => {
+    if (!enroll) return;
+    setBusy(true); setMsg('');
+    const { data: ch, error: chErr } = await supabase.auth.mfa.challenge({ factorId: enroll.id });
+    if (chErr) { setBusy(false); setMsg('Error: ' + chErr.message); return; }
+    const { error: vErr } = await supabase.auth.mfa.verify({ factorId: enroll.id, challengeId: ch.id, code: code.trim() });
+    setBusy(false);
+    if (vErr) { setMsg('Codigo incorrecto. Revisa tu app y vuelve a intentarlo.'); return; }
+    setMsg('Doble verificacion activada correctamente.'); setPhase('idle'); setEnroll(null); setCode(''); refresh();
+  };
+
+  const disable = async (factorId) => {
+    if (!window.confirm('Vas a desactivar la doble verificacion. Continuar?')) return;
+    setBusy(true);
+    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    setBusy(false);
+    setMsg(error ? 'Error: ' + error.message : 'Doble verificacion desactivada.');
+    refresh();
+  };
+
+  const enabled = factors.length > 0;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '24px' }}>
+        <div style={{ maxWidth: '60%' }}>
+          <div style={{ fontSize: '15px', fontWeight: 800 }}>Doble verificacion (2FA)</div>
+          <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '4px', lineHeight: '1.5' }}>
+            Anade una proteccion extra con una app de autenticacion (Google Authenticator, Authy...). Muy recomendado.
+          </div>
+        </div>
+        {enabled ? (
+          <Button variant="danger" onClick={() => disable(factors[0].id)} disabled={busy}>DESACTIVAR</Button>
+        ) : phase === 'idle' ? (
+          <Button variant="primary" onClick={startEnroll} disabled={busy}>{busy ? 'GENERANDO...' : 'ACTIVAR'}</Button>
+        ) : null}
+      </div>
+
+      {enabled && (
+        <div style={{ marginTop: '16px', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#2e7d32' }}>ACTIVADA ✓</div>
+      )}
+
+      {!enabled && phase === 'enrolling' && enroll && (
+        <div style={{ marginTop: '24px', padding: '24px', border: '1px solid black', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ width: '180px', height: '180px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #eee' }}>
+            {enroll.qr && String(enroll.qr).trim().startsWith('<svg')
+              ? <div style={{ width: '180px', height: '180px' }} dangerouslySetInnerHTML={{ __html: enroll.qr }} />
+              : enroll.qr ? <img src={enroll.qr} alt="QR 2FA" style={{ width: '180px', height: '180px' }} /> : <span style={{ fontSize: '11px', opacity: 0.5 }}>QR no disponible</span>}
+          </div>
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <div style={{ fontSize: '13px', lineHeight: '1.5', marginBottom: '12px' }}>1. Escanea el codigo QR con tu app, o introduce esta clave manualmente:</div>
+            <code style={{ display: 'block', fontSize: '13px', fontWeight: 800, letterSpacing: '1px', background: '#f5f5f5', padding: '10px 12px', marginBottom: '16px', wordBreak: 'break-all' }}>{enroll.secret}</code>
+            <div style={{ fontSize: '13px', marginBottom: '8px' }}>2. Introduce el codigo de 6 digitos que muestra la app:</div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" inputMode="numeric" style={{ padding: '12px', border: '1px solid #ccc', fontSize: '18px', letterSpacing: '4px', width: '140px', textAlign: 'center', outline: 'none' }} />
+              <Button variant="primary" onClick={verify} disabled={busy || code.length !== 6}>{busy ? 'VERIFICANDO...' : 'VERIFICAR'}</Button>
+              <Button variant="ghost" onClick={() => { setPhase('idle'); setEnroll(null); setCode(''); setMsg(''); }} style={{ color: '#888' }}>CANCELAR</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {msg && (
+        <div style={{ marginTop: '16px', padding: '12px 16px', background: (msg.startsWith('Error') || msg.includes('incorrecto')) ? '#fff5f5' : 'black', color: (msg.startsWith('Error') || msg.includes('incorrecto')) ? '#d32f2f' : 'white', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>{msg}</div>
+      )}
+    </div>
+  );
+};
+
 const TabSecurity = ({ user }) => {
   const [pwMsg, setPwMsg] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
@@ -382,13 +479,7 @@ const TabSecurity = ({ user }) => {
                 </div>
                 <Button variant="secondary" onClick={handleChangePassword} disabled={pwLoading}>{pwLoading ? 'ENVIANDO...' : 'CAMBIAR CONTRASEÑA'}</Button>
              </div>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ maxWidth: '60%' }}>
-                   <div style={{ fontSize: '15px', fontWeight: 800 }}>Doble verificación</div>
-                   <div style={{ fontSize: '13px', opacity: 0.5, marginTop: '4px', lineHeight: '1.5' }}>Añade una protección extra usando tu móvil. Muy recomendado.</div>
-                </div>
-                <Button variant="primary">ACTIVAR</Button>
-             </div>
+             <TwoFactorSection />
          </div>
 
          <div style={{ border: 'var(--border-thin)', padding: '40px', marginBottom: '60px' }}>

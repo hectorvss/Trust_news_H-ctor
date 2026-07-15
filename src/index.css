@@ -369,3 +369,19 @@ footer .footer-link:hover {
 .fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+/* ── Ajustes de Lectura: densidad visual (layout_density) ──────────────
+   El feed usa estilos inline, así que estas reglas usan !important para
+   sobreescribir la base. data-density lo pone App.jsx en .app desde
+   profile.settings.layout_density. 'brutalista' = base (sin overrides). */
+.app[data-density="compacto"] .story-card h3 { font-size: 22px !important; line-height: 1.1 !important; }
+.app[data-density="compacto"] .story-card__summary { font-size: 13px !important; -webkit-line-clamp: 1 !important; }
+
+.app[data-density="comodo"] .story-card h3 { font-size: 34px !important; line-height: 1.15 !important; }
+.app[data-density="comodo"] .story-card__summary { font-size: 16px !important; line-height: 1.65 !important; -webkit-line-clamp: 3 !important; }
+
+/* ── Ajustes de Lectura: nivel de detalle en tarjetas (content_depth) ──
+   data-depth lo pone App.jsx en .app. 'Resumen rápido' muestra más gist,
+   'Artículos profundos' oculta el resumen de la tarjeta (vas al detalle). */
+.app[data-depth="rapido"] .story-card__summary { -webkit-line-clamp: 5 !important; opacity: 0.7 !important; }
+.app[data-depth="profundo"] .story-card__summary { display: none !important; }

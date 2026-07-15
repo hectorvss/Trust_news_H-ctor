@@ -71,7 +71,7 @@ const StoryCard = ({ story, onToggleFavorite, isFavorite, onShare }) => {
 
           {/* Summary */}
           {story.summary && (
-            <p style={{
+            <p className="story-card__summary" style={{
               fontSize: '14px',
               lineHeight: '1.5',
               opacity: 0.55,

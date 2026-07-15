@@ -338,30 +338,60 @@ const App = () => {
   // (Account → Mis Temas Favoritos). Falls back to a sensible default set for
   // users without preferences. normalizeCategory folds synonyms (VIVIENDA→
   // ECONOMÍA, SUCESOS→SOCIEDAD, etc.) so picks map to real feed categories.
+  // ── Ajustes de Lectura (Account → Ajustes de Lectura) aplicados al feed ──
+  const readingSettings = profile?.settings || {};
+  const personalizationOn = readingSettings.personalization !== false;
+  const diverseOpinionsOn = readingSettings.diverse_opinions !== false;
+  const newsFrequency = readingSettings.news_frequency || 'Selección editorial';
+  // Densidad visual + nivel de detalle se aplican por CSS via data-* en .app.
+  const densityAttr = readingSettings.layout_density || 'brutalista';
+  const depthAttr = readingSettings.content_depth === 'Artículos profundos' ? 'profundo'
+    : readingSettings.content_depth === 'Resumen rápido' ? 'rapido' : 'equilibrado';
+  // favorite_categories es la clave actual; preferred_categories es la clave
+  // antigua (onboarding) — se leen ambas para no perder preferencias guardadas.
+  const savedCats = (readingSettings.favorite_categories && readingSettings.favorite_categories.length)
+    ? readingSettings.favorite_categories
+    : (readingSettings.preferred_categories || []);
   const paraTiCategories = (() => {
-    const favs = (profile?.settings?.favorite_categories || []).map(normalizeCategory);
+    const favs = savedCats.map(normalizeCategory);
     return favs.length ? [...new Set(favs)] : ['ECONOMÍA', 'TECNOLOGÍA', 'POLÍTICA', 'DEPORTES', 'SOCIEDAD'];
   })();
+  const isParaTi = activeCategory === 'PARA_TI' || activeCategory === 'PARA TI';
   let finalStories = activeCategory === 'TODO'
     ? rawSource
-    : (activeCategory === 'PARA_TI' || activeCategory === 'PARA TI'
-        ? rawSource.filter(s => paraTiCategories.includes(normalizeCategory(s.category)))
+    : (isParaTi
+        // "Basado en tus intereses" OFF → Para Ti deja de filtrar por temas.
+        ? (personalizationOn ? rawSource.filter(s => paraTiCategories.includes(normalizeCategory(s.category))) : rawSource)
         : rawSource.filter(s => normalizeCategory(s.category) === normalizeCategory(activeCategory)));
 
   if (activeCity) {
     const term = activeCity.toLowerCase();
     finalStories = finalStories.filter(s => (s.location && s.location.toLowerCase().includes(term)) || (s.title && s.title.toLowerCase().includes(term)));
   }
-  
+
   if (activeTopic) {
     const term = activeTopic.toLowerCase();
-    finalStories = finalStories.filter(s => 
-      (s.title && s.title.toLowerCase().includes(term)) || 
+    finalStories = finalStories.filter(s =>
+      (s.title && s.title.toLowerCase().includes(term)) ||
       (s.summary && s.summary.toLowerCase().includes(term)) ||
       (s.category && s.category.toLowerCase().includes(term))
     );
   }
-        
+
+  // Frecuencia de noticias: "Solo lo más importante" filtra a historias
+  // multi-fuente / alto impacto; "Todo al momento" ordena por recencia.
+  if (newsFrequency === 'Solo lo más importante') {
+    finalStories = finalStories.filter(s => (s.totalSources || s.sourceCount || 0) >= 3 || String(s.impact || '').toUpperCase() === 'ALTO');
+  }
+  if (newsFrequency === 'Todo al momento') {
+    finalStories = [...finalStories].sort((a, b) => new Date(b.created_at || b.generated_at || 0) - new Date(a.created_at || a.generated_at || 0));
+  } else if (diverseOpinionsOn) {
+    // "Mostrar opiniones variadas": prioriza historias con cobertura equilibrada
+    // (menor distancia izquierda-derecha primero). Sin dist -> al final.
+    const spread = (s) => { const d = s.biasDistribution; return d ? Math.abs((d.left || 0) - (d.right || 0)) : 999; };
+    finalStories = [...finalStories].sort((a, b) => spread(a) - spread(b));
+  }
+
   const displayStories = finalStories.slice(0, visibleStories);
   
   // Robust Defaults for Trending
@@ -388,7 +418,7 @@ const App = () => {
   if (authLoading) return <div className="loading-overlay" style={{ background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '11px', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '2px' }}>CONECTANDO CON TNE CLOUD...</div>;
 
   return (
-    <div className="app">
+    <div className="app" data-density={densityAttr} data-depth={depthAttr}>
       <Helmet>
         <title>TNE — Trust News España | Periodismo Transparente</title>
         <meta name="description" content="La plataforma de noticias que analiza el sesgo mediático y te ofrece una visión completa de la actualidad en España." />
