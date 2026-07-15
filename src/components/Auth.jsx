@@ -148,6 +148,8 @@ const Auth = ({ onBack }) => {
   const [oauthLoading, setOauthLoading] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
     if (window.location.hash.includes('type=recovery')) setIsResetMode(true);
@@ -180,6 +182,12 @@ const Auth = ({ onBack }) => {
             : signInError.message
         );
       } else {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+          setMfaStep(true);
+          setLoading(false);
+          return;
+        }
         navigate('/');
       }
     } else {
@@ -254,10 +262,43 @@ const Auth = ({ onBack }) => {
     setLoading(false);
   };
 
+  const handleMfaVerify = async (event) => {
+    event.preventDefault();
+    clearFeedback();
+    setLoading(true);
+    const { data: factorsData } = await supabase.auth.mfa.listFactors();
+    const factor = factorsData?.totp?.[0];
+    if (!factor) { setError('No hay 2FA configurado.'); setLoading(false); return; }
+    const { data: ch, error: chErr } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+    if (chErr) { setError(chErr.message); setLoading(false); return; }
+    const { error: vErr } = await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: ch.id, code: mfaCode.trim() });
+    setLoading(false);
+    if (vErr) { setError('Codigo incorrecto.'); return; }
+    setMfaStep(false); setMfaCode('');
+    navigate('/');
+  };
+
   const switchMode = (nextIsLogin) => {
     setIsLogin(nextIsLogin);
     clearFeedback();
   };
+
+  if (mfaStep) {
+    return (
+      <div className="auth-page" style={{ minHeight: 'calc(100vh - 160px)' }}>
+        <div style={{ maxWidth: 460, margin: '0 auto' }}>
+          <h1 style={{ fontSize: 44, lineHeight: 0.95, letterSpacing: '-2px', marginBottom: 16 }}>Verificacion en dos pasos.</h1>
+          <p style={{ fontSize: 16, opacity: 0.65, marginBottom: 24 }}>Introduce el codigo de 6 digitos de tu app de autenticacion.</p>
+          <form onSubmit={handleMfaVerify} style={{ display: 'grid', gap: 18 }}>
+            <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" inputMode="numeric" style={{ ...inputStyle, fontSize: 28, letterSpacing: '8px', textAlign: 'center' }} />
+            {error && <div style={messageStyle('#fff5f5')}>X {error}</div>}
+            <button type="submit" disabled={loading || mfaCode.length !== 6} style={{ height: 54, border: 'none', borderRadius: 8, background: (loading || mfaCode.length !== 6) ? '#666' : '#000', color: '#fff', cursor: 'pointer', fontWeight: 900, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{loading ? 'VERIFICANDO...' : 'VERIFICAR'}</button>
+            <span style={{ cursor: 'pointer', fontSize: 12, opacity: 0.5 }} onClick={async () => { await supabase.auth.signOut(); setMfaStep(false); setMfaCode(''); clearFeedback(); }}>Cancelar y salir</span>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (isResetMode || isResetRequest) {
     const isUpdate = isResetMode;

@@ -233,16 +233,21 @@ export async function handleStripeWebhook(req, res) {
           }
         }
 
+        // Stripe API 2026-02-25.clover removed current_period_end from the top-level
+        // subscription; it now lives on the subscription item. Fall back safely.
+        const periodEndTs = subscription.items?.data?.[0]?.current_period_end
+          || subscription.current_period_end
+          || Math.floor(Date.now() / 1000);
         await supabase.from('profiles').update({
           stripe_subscription_id: subscription.id,
           subscription_status: status,
           subscription_tier: detectedTier,
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          access_expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_end: new Date(periodEndTs * 1000).toISOString(),
+          access_expires_at: new Date(periodEndTs * 1000).toISOString(),
         }).eq('id', userId);
 
         if (detectedTier === 'premium' || detectedTier === 'elite') {
-          const periodEnd = subscription.current_period_end || Math.floor(Date.now() / 1000);
+          const periodEnd = periodEndTs;
           await grantAiCredits(
             supabase,
             userId,
