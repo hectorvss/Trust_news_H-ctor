@@ -2,9 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
 const mono = 'var(--font-mono)';
-const REST_BASE = 'https://trustnews.es';
-const MCP_URL = 'https://trustnews.es/mcp';
-const OPENAPI_URL = 'https://trustnews.es/v1/openapi.json';
+// www evita el redirect 307 apex→www que descartaría la cabecera Authorization.
+const REST_BASE = 'https://www.trustnews.es';
+const MCP_URL = 'https://www.trustnews.es/mcp';
+const OPENAPI_URL = 'https://www.trustnews.es/v1/openapi.json';
+
+// Catálogo de herramientas expuestas por la API + MCP (para la sección "Qué puedes hacer").
+const TOOLKIT = {
+  free: [
+    ['search_news', 'Busca noticias por tema (semántica + palabras clave).'],
+    ['list_stories', 'Últimas noticias por categoría o inclinación dominante.'],
+    ['get_story', 'Una noticia: resumen, % de cobertura, factualidad, punto ciego.'],
+    ['list_categories', 'Categorías con el número de noticias.'],
+    ['list_sources', 'Catálogo de medios con sesgo, factualidad y propiedad.'],
+    ['rate_source', 'Sesgo, factualidad, propiedad y trust score de un medio.'],
+  ],
+  premium: [
+    ['compare_coverage', 'Cómo encuadra cada medio la MISMA noticia (ángulo, tono, qué enfatiza/omite).'],
+    ['full_analysis', 'Análisis completo: cuerpo, contexto, verificación, cifras, impactos y todas las fuentes.'],
+    ['get_source_piece', 'Nuestra pieza desarrollada sobre la versión de un medio concreto.'],
+    ['get_story_context', 'Paquete de contexto listo para IA (consenso, perspectivas, distribución de sesgo).'],
+    ['list_blindspots', 'Noticias infra-cubiertas por un lado del espectro.'],
+    ['blindspot_narrative', 'El lado menos cubierto y qué diría esa perspectiva ausente.'],
+    ['related_stories', 'Noticias relacionadas por tema y categoría.'],
+    ['coverage_trends', 'Volumen y balance izq/centro/der de un tema en el tiempo.'],
+    ['trending_topics', 'Qué está caliente ahora por categoría, con balance de cobertura.'],
+    ['daily_brief', 'Resumen del día con titulares y puntos ciegos.'],
+    ['analyze_bias', 'Analiza el sesgo y el encuadre de un artículo EXTERNO (texto o URL).'],
+    ['webhooks', 'Recibe avisos cuando aparece un punto ciego o una noticia de un tema.'],
+  ],
+};
 
 const MCP_JSON = `{
   "mcpServers": {
@@ -19,7 +46,7 @@ const MCP_JSON = `{
 // domain (its own favicon is loaded at runtime for the "Compatible con" grid).
 const CONNECTORS = [
   { id: 'claude', name: 'Claude', kind: 'MCP', note: 'Conector personalizado', domain: 'claude.ai',
-    steps: ['Crea una API key arriba y cópiala.', 'En Claude → Ajustes → Conectores → «Añadir conector personalizado».', 'Pega la URL del servidor MCP (abajo) y añade la cabecera Authorization: Bearer TU_CLAVE.', 'Listo: search_news, get_story_context, list_blindspots… aparecen como herramientas.'],
+    steps: ['Crea una API key arriba y cópiala.', 'En Claude → Ajustes → Conectores → «Añadir conector personalizado».', 'Pega la URL del servidor MCP (abajo) y añade la cabecera Authorization: Bearer TU_CLAVE.', 'Listo: compare_coverage, analyze_bias, list_blindspots, daily_brief… aparecen como herramientas (premium según tu plan).'],
     primary: { label: 'URL DEL SERVIDOR MCP', value: MCP_URL } },
   { id: 'cursor', name: 'Cursor', kind: 'MCP', note: 'MCP server', domain: 'cursor.com',
     steps: ['Crea y copia una API key.', 'Settings → MCP → «Add new global MCP server», o edita ~/.cursor/mcp.json:'],
@@ -138,9 +165,41 @@ export default function ApiSection({ user, profile }) {
         <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', margin: 0 }}>API &amp; MCP</h2>
         <span style={{ background: 'black', color: 'white', fontSize: '9px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '4px 8px', borderRadius: '4px' }}>NUEVO</span>
       </div>
-      <p style={{ fontSize: '15px', lineHeight: 1.6, opacity: 0.65, maxWidth: '720px', marginBottom: '48px' }}>
-        Conecta cualquier agente LLM a tus noticias y análisis de sesgo. Las claves se muestran <strong>una sola vez</strong> — guárdalas de forma segura.
+      <p style={{ fontSize: '15px', lineHeight: 1.6, opacity: 0.65, maxWidth: '720px', marginBottom: '40px' }}>
+        Conecta cualquier agente LLM o app a nuestras noticias con <strong>análisis de sesgo, comparación entre medios y puntos ciegos</strong>. Vía <strong>MCP</strong> (herramientas nativas) o <strong>REST / OpenAPI</strong>. Las claves se muestran <strong>una sola vez</strong> — guárdalas de forma segura.
       </p>
+
+      {/* ── Capabilities (free vs premium) ── */}
+      <div style={{ marginBottom: '56px' }}>
+        <SectionTitle>QUÉ PUEDES HACER · {TOOLKIT.free.length + TOOLKIT.premium.length} HERRAMIENTAS</SectionTitle>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+          {[
+            { label: 'INCLUIDO EN TODOS LOS PLANES', badge: 'GRATIS', dark: false, items: TOOLKIT.free },
+            { label: 'PLANES PREMIUM · ELITE', badge: 'PREMIUM', dark: true, items: TOOLKIT.premium },
+          ].map((col) => (
+            <div key={col.label} style={{ border: '1px solid ' + (col.dark ? '#111' : '#e0e0e0'), borderRadius: '14px', overflow: 'hidden', background: col.dark ? '#0b0b0b' : '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '16px 20px', borderBottom: '1px solid ' + (col.dark ? 'rgba(255,255,255,0.12)' : '#eee') }}>
+                <span style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', color: col.dark ? '#fff' : '#111', opacity: col.dark ? 0.7 : 0.5 }}>{col.label}</span>
+                <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '3px 8px', borderRadius: '4px', background: col.dark ? '#fff' : '#111', color: col.dark ? '#111' : '#fff' }}>{col.badge}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {col.items.map(([tool, desc], i) => (
+                  <div key={tool} style={{ padding: '13px 20px', borderTop: i > 0 ? '1px solid ' + (col.dark ? 'rgba(255,255,255,0.07)' : '#f2f2f2') : 'none' }}>
+                    <code style={{ fontSize: '12.5px', fontFamily: mono, fontWeight: 700, color: col.dark ? '#fff' : '#111' }}>{tool}</code>
+                    <div style={{ fontSize: '12.5px', lineHeight: 1.5, marginTop: '3px', color: col.dark ? 'rgba(255,255,255,0.6)' : '#555' }}>{desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {plan.free && (
+          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '13px', fontFamily: mono }}>
+            <span style={{ opacity: 0.6 }}>Tu plan actual es <strong>FREE</strong> — las {TOOLKIT.premium.length} herramientas premium requieren Premium o Elite.</span>
+            <a href="/pricing" style={{ fontWeight: 900, textDecoration: 'underline', color: 'black' }}>VER PLANES ↗</a>
+          </div>
+        )}
+      </div>
 
       {justCreated && (
         <div style={{ border: '2px solid #16a34a', background: '#f0fdf4', padding: '24px', marginBottom: '48px', borderRadius: '12px' }}>

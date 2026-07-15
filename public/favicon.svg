@@ -2,12 +2,13 @@
   <rect width="100" height="100" fill="white"/>
   <text
     x="50"
-    y="73"
+    y="74"
     text-anchor="middle"
+    textLength="90"
+    lengthAdjust="spacingAndGlyphs"
     font-family="'Arial Black', 'Impact', sans-serif"
     font-weight="900"
-    font-size="52"
-    letter-spacing="-3"
+    font-size="66"
     fill="black"
   >TN.</text>
 </svg>
