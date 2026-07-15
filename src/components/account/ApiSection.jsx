@@ -165,41 +165,9 @@ export default function ApiSection({ user, profile }) {
         <h2 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px', margin: 0 }}>API &amp; MCP</h2>
         <span style={{ background: 'black', color: 'white', fontSize: '9px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '4px 8px', borderRadius: '4px' }}>NUEVO</span>
       </div>
-      <p style={{ fontSize: '15px', lineHeight: 1.6, opacity: 0.65, maxWidth: '720px', marginBottom: '40px' }}>
+      <p style={{ fontSize: '15px', lineHeight: 1.6, opacity: 0.65, maxWidth: '720px', marginBottom: '48px' }}>
         Conecta cualquier agente LLM o app a nuestras noticias con <strong>análisis de sesgo, comparación entre medios y puntos ciegos</strong>. Vía <strong>MCP</strong> (herramientas nativas) o <strong>REST / OpenAPI</strong>. Las claves se muestran <strong>una sola vez</strong> — guárdalas de forma segura.
       </p>
-
-      {/* ── Capabilities (free vs premium) ── */}
-      <div style={{ marginBottom: '56px' }}>
-        <SectionTitle>QUÉ PUEDES HACER · {TOOLKIT.free.length + TOOLKIT.premium.length} HERRAMIENTAS</SectionTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-          {[
-            { label: 'INCLUIDO EN TODOS LOS PLANES', badge: 'GRATIS', dark: false, items: TOOLKIT.free },
-            { label: 'PLANES PREMIUM · ELITE', badge: 'PREMIUM', dark: true, items: TOOLKIT.premium },
-          ].map((col) => (
-            <div key={col.label} style={{ border: '1px solid ' + (col.dark ? '#111' : '#e0e0e0'), borderRadius: '14px', overflow: 'hidden', background: col.dark ? '#0b0b0b' : '#fff' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '16px 20px', borderBottom: '1px solid ' + (col.dark ? 'rgba(255,255,255,0.12)' : '#eee') }}>
-                <span style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', color: col.dark ? '#fff' : '#111', opacity: col.dark ? 0.7 : 0.5 }}>{col.label}</span>
-                <span style={{ fontSize: '9px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', padding: '3px 8px', borderRadius: '4px', background: col.dark ? '#fff' : '#111', color: col.dark ? '#111' : '#fff' }}>{col.badge}</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {col.items.map(([tool, desc], i) => (
-                  <div key={tool} style={{ padding: '13px 20px', borderTop: i > 0 ? '1px solid ' + (col.dark ? 'rgba(255,255,255,0.07)' : '#f2f2f2') : 'none' }}>
-                    <code style={{ fontSize: '12.5px', fontFamily: mono, fontWeight: 700, color: col.dark ? '#fff' : '#111' }}>{tool}</code>
-                    <div style={{ fontSize: '12.5px', lineHeight: 1.5, marginTop: '3px', color: col.dark ? 'rgba(255,255,255,0.6)' : '#555' }}>{desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        {plan.free && (
-          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '13px', fontFamily: mono }}>
-            <span style={{ opacity: 0.6 }}>Tu plan actual es <strong>FREE</strong> — las {TOOLKIT.premium.length} herramientas premium requieren Premium o Elite.</span>
-            <a href="/pricing" style={{ fontWeight: 900, textDecoration: 'underline', color: 'black' }}>VER PLANES ↗</a>
-          </div>
-        )}
-      </div>
 
       {justCreated && (
         <div style={{ border: '2px solid #16a34a', background: '#f0fdf4', padding: '24px', marginBottom: '48px', borderRadius: '12px' }}>
@@ -349,6 +317,40 @@ export default function ApiSection({ user, profile }) {
                 <code style={{ flex: 1, minWidth: '260px', fontSize: '13px', fontFamily: mono, background: '#f6f6f6', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '12px 14px', wordBreak: 'break-all' }}>{conn.primary.value}</code>
                 <CopyBtn text={conn.primary.value} label="COPIAR" />
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Capacidades API + MCP (al final, tono suave estilo "Cómo conectar") ── */}
+      <div style={{ marginTop: '60px' }}>
+        <SectionTitle>CAPACIDADES · API + MCP</SectionTitle>
+        <div style={{ border: '1px solid #e0e0e0', padding: '32px' }}>
+          <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#222', maxWidth: '720px', margin: '0 0 8px' }}>
+            Las mismas capacidades están disponibles tanto por <strong>MCP</strong> (herramientas nativas de tu agente) como por la <strong>API REST / OpenAPI</strong>. Se desbloquean según tu plan.
+          </p>
+          {[
+            { label: 'Incluido en todos los planes', items: TOOLKIT.free },
+            { label: 'Planes Premium · Elite', items: TOOLKIT.premium },
+          ].map((group, gi) => (
+            <div key={group.label} style={{ marginTop: gi === 0 ? '28px' : '36px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: mono, letterSpacing: '1px', opacity: 0.4, marginBottom: '18px', paddingBottom: '12px', borderBottom: '1px solid #f0f0f0' }}>
+                {group.label.toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {group.items.map(([tool, desc]) => (
+                  <div key={tool} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 185px) 1fr', gap: '20px', alignItems: 'baseline' }}>
+                    <code style={{ fontSize: '13px', fontFamily: mono, fontWeight: 700, color: '#111', wordBreak: 'break-word' }}>{tool}</code>
+                    <div style={{ fontSize: '14px', lineHeight: 1.6, color: '#333' }}>{desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {plan.free && (
+            <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '1px solid #eee', fontSize: '13px', lineHeight: 1.6, color: '#444' }}>
+              Tu plan actual es <strong>FREE</strong> — las {TOOLKIT.premium.length} capacidades premium requieren Premium o Elite.{' '}
+              <a href="/pricing" style={{ fontWeight: 800, textDecoration: 'underline', color: 'black' }}>Ver planes ↗</a>
             </div>
           )}
         </div>
