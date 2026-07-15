@@ -871,6 +871,16 @@ export const deleteNotification = async (id) => {
 
 export const subscribeToNewsletter = async ({ email, fullName = null, frequency = 'weekly', userId = null, source = 'footer' }) => {
   if (!email) return { error: 'Email obligatorio' };
+  // Ruta preferente: Edge Function newsletter-subscribe (inserta con service_role
+  // + envía el email de bienvenida vía Resend). Si falla (función caída), caemos
+  // al insert directo para no perder la suscripción.
+  try {
+    const { data, error } = await supabase.functions.invoke('newsletter-subscribe', {
+      body: { email: email.toLowerCase().trim(), full_name: fullName, frequency, source }
+    });
+    if (!error && data?.ok) return { data };
+  } catch (_) { /* fallback abajo */ }
+
   const { data, error } = await supabase
     .from('newsletter_subscribers')
     .upsert({
@@ -889,6 +899,31 @@ export const subscribeToNewsletter = async ({ email, fullName = null, frequency 
     return { error: error.message };
   }
   return { data };
+};
+
+// Manager: envía (o prueba) una newsletter a los suscriptores activos vía la
+// Edge Function send-newsletter (que valida rol manager y usa Resend).
+export const sendNewsletter = async ({ subject, html, audience = 'all', testEmail = null }) => {
+  const { data, error } = await supabase.functions.invoke('send-newsletter', {
+    body: { subject, html, audience, test_email: testEmail }
+  });
+  if (error) {
+    // functions.invoke mete el cuerpo de error en error.context si status != 2xx
+    let detail = error.message;
+    try { const j = await error.context?.json?.(); if (j?.error) detail = j.error; } catch (_) { /* noop */ }
+    return { error: detail };
+  }
+  return { data };
+};
+
+export const fetchNewsletterCampaigns = async () => {
+  const { data, error } = await supabase
+    .from('newsletter_campaigns')
+    .select('id, subject, audience, recipients, sent, failed, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) { console.error('Error fetching campaigns:', error); return []; }
+  return data || [];
 };
 
 export const fetchNewsletterSubscribers = async () => {

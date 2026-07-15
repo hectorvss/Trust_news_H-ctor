@@ -4,7 +4,7 @@ import {
   deleteStory, fetchAppConfig, updateAppConfig, fetchSpecialSections, saveSpecialSection, deleteSpecialSection, updateStoryArticles, uploadStoryImage,
   fetchAdminUsers, updateUserRole, updateUserSubscriptionTier,
   fetchAllNotifications, createNotification, deleteNotification,
-  fetchNewsletterSubscribers, updateSubscriberStatus,
+  fetchNewsletterSubscribers, updateSubscriberStatus, sendNewsletter, fetchNewsletterCampaigns,
   fetchPipelineDrafts, approveDraftStory, rejectDraftStory
 } from '../supabaseService';
 
@@ -76,6 +76,10 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   const [commTab, setCommTab] = useState('NOTIFICACIONES'); // NOTIFICACIONES | NEWSLETTER
   const [allNotifications, setAllNotifications] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [nl, setNl] = useState({ subject: '', html: '', audience: 'all', testEmail: '' });
+  const [nlSending, setNlSending] = useState(false);
+  const [nlMsg, setNlMsg] = useState(null);
   const [newNotif, setNewNotif] = useState({ title: '', message: '', type: 'info', link: '', user_id: '' });
   const [sendingNotif, setSendingNotif] = useState(false);
 
@@ -99,6 +103,7 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
     if (activeView === 'COMUNICACIÓN') {
       fetchAllNotifications().then(n => setAllNotifications(n || []));
       fetchNewsletterSubscribers().then(s => setSubscribers(s || []));
+      fetchNewsletterCampaigns().then(c => setCampaigns(c || []));
     }
     if (activeView === 'REVISIÓN') {
       setReviewLoading(true);
@@ -161,6 +166,29 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
   };
 
   // ── Admin: newsletter handlers ──
+  const handleSendNewsletter = async (isTest) => {
+    if (!nl.subject.trim() || !nl.html.trim()) { setNlMsg({ kind: 'error', text: 'Asunto y contenido son obligatorios.' }); return; }
+    if (isTest && !nl.testEmail.trim()) { setNlMsg({ kind: 'error', text: 'Indica un email para la prueba.' }); return; }
+    const activeCount = subscribers.filter(s => s.is_active && (nl.audience === 'all' || s.frequency === nl.audience)).length;
+    if (!isTest && !window.confirm(`¿Enviar esta newsletter a ${activeCount} suscriptor(es) (${nl.audience.toUpperCase()})?`)) return;
+    setNlSending(true); setNlMsg(null);
+    const { data, error } = await sendNewsletter({
+      subject: nl.subject.trim(), html: nl.html.trim(), audience: nl.audience,
+      testEmail: isTest ? nl.testEmail.trim() : null
+    });
+    setNlSending(false);
+    if (error) {
+      const noKey = /RESEND_API_KEY/i.test(error);
+      setNlMsg({ kind: 'error', text: noKey ? 'Falta configurar RESEND_API_KEY en Supabase (Edge Functions → Secrets).' : `Error: ${error}` });
+      return;
+    }
+    if (isTest) { setNlMsg({ kind: 'ok', text: `Email de prueba enviado a ${nl.testEmail}.` }); }
+    else {
+      setNlMsg({ kind: 'ok', text: `Enviada: ${data.sent} correcta(s), ${data.failed} fallida(s) de ${data.recipients}.` });
+      fetchNewsletterCampaigns().then(c => setCampaigns(c || []));
+    }
+  };
+
   const handleToggleSubscriber = async (sub) => {
     const ok = await updateSubscriberStatus(sub.id, !sub.is_active);
     if (ok) setSubscribers(prev => prev.map(s => s.id === sub.id ? { ...s, is_active: !s.is_active } : s));
@@ -1025,8 +1053,57 @@ const ManagerStudio = ({ user, profile, stories, onRefresh }) => {
           {commTab === 'NEWSLETTER' && (() => {
             const active = subscribers.filter(s => s.is_active);
             const byFreq = active.reduce((acc, s) => { acc[s.frequency] = (acc[s.frequency] || 0) + 1; return acc; }, {});
+            const audienceCount = subscribers.filter(s => s.is_active && (nl.audience === 'all' || s.frequency === nl.audience)).length;
             return (
               <div>
+                {/* Componer + enviar newsletter */}
+                <div style={{ border: '1px solid black', padding: '24px', marginBottom: '32px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>ENVIAR NEWSLETTER</h3>
+                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', opacity: 0.5, fontWeight: 800 }}>{audienceCount} DESTINATARIO(S)</span>
+                  </div>
+                  {nlMsg && (
+                    <div style={{ padding: '10px 14px', marginBottom: '14px', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: nlMsg.kind === 'ok' ? '#15803d' : '#dc2626', background: nlMsg.kind === 'ok' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${nlMsg.kind === 'ok' ? '#16a34a' : '#dc2626'}` }}>{nlMsg.text}</div>
+                  )}
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    <input value={nl.subject} onChange={e => setNl(p => ({ ...p, subject: e.target.value }))} placeholder="Asunto del correo"
+                      style={{ flex: 1, minWidth: '260px', padding: '12px 14px', border: '1px solid #ccc', fontSize: '14px', outline: 'none', fontFamily: 'inherit' }} />
+                    <select value={nl.audience} onChange={e => setNl(p => ({ ...p, audience: e.target.value }))}
+                      style={{ padding: '12px 14px', border: '1px solid #ccc', fontWeight: 800, fontFamily: 'var(--font-mono)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
+                      <option value="all">TODOS</option>
+                      <option value="daily">DIARIA</option>
+                      <option value="weekly">SEMANAL</option>
+                      <option value="breaking">BREAKING</option>
+                    </select>
+                  </div>
+                  <textarea value={nl.html} onChange={e => setNl(p => ({ ...p, html: e.target.value }))} rows={7}
+                    placeholder="Contenido HTML del correo (puedes usar <h2>, <p>, <a href>, <b>…). Se envuelve con la cabecera/pie de TNE automáticamente."
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '14px', border: '1px solid #ccc', fontSize: '13px', fontFamily: 'var(--font-mono)', lineHeight: 1.5, outline: 'none', resize: 'vertical', marginBottom: '12px' }} />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input value={nl.testEmail} onChange={e => setNl(p => ({ ...p, testEmail: e.target.value }))} placeholder="email@para-prueba.com"
+                      style={{ flex: 1, minWidth: '200px', padding: '11px 14px', border: '1px solid #ddd', fontSize: '13px', outline: 'none', fontFamily: 'var(--font-mono)' }} />
+                    <button onClick={() => handleSendNewsletter(true)} disabled={nlSending}
+                      style={{ padding: '11px 18px', background: 'white', color: 'black', border: '1px solid black', fontWeight: 900, fontSize: '11px', cursor: nlSending ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '1px', opacity: nlSending ? 0.5 : 1 }}>
+                      ENVIAR PRUEBA
+                    </button>
+                    <button onClick={() => handleSendNewsletter(false)} disabled={nlSending}
+                      style={{ padding: '11px 22px', background: 'black', color: 'white', border: 'none', fontWeight: 900, fontSize: '11px', cursor: nlSending ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '1px', opacity: nlSending ? 0.5 : 1 }}>
+                      {nlSending ? 'ENVIANDO…' : `ENVIAR A ${audienceCount}`}
+                    </button>
+                  </div>
+                  {campaigns.length > 0 && (
+                    <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '16px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 900, fontFamily: 'var(--font-mono)', opacity: 0.4, letterSpacing: '1px', marginBottom: '10px' }}>ÚLTIMOS ENVÍOS</div>
+                      {campaigns.slice(0, 5).map(c => (
+                        <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '6px 0', fontFamily: 'var(--font-mono)' }}>
+                          <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>{c.subject}</span>
+                          <span style={{ opacity: 0.6 }}>{c.sent}/{c.recipients} · {c.status} · {new Date(c.created_at).toLocaleDateString('es-ES')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: 'black', border: '1px solid black', marginBottom: '32px' }}>
                   {[
