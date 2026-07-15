@@ -229,7 +229,7 @@ export const getBiasTrend = async (userId, days = 30) => {
 let _usageWarned = false;
 export const getUsageMetrics = async (userId) => {
   const sessionId = getSessionId();
-  let query = supabase.from('usage_metrics').select('*');
+  let query = supabase.from('usage_metrics').select('articles_read, reading_seconds, read_article_ids');
   if (userId) {
     query = query.eq('user_id', userId);
   } else {
@@ -237,15 +237,27 @@ export const getUsageMetrics = async (userId) => {
   }
 
   const DEFAULT_USAGE = { articles_read: 0, reading_seconds: 0, read_article_ids: [] };
-  const { data, error } = await query.maybeSingle();
+  // Un usuario acumula UNA fila de usage_metrics por sesión (el RPC upserta por
+  // session_id), así que puede haber varias. Antes usábamos .maybeSingle(), que
+  // ERRABA con >1 fila y devolvía ceros (Noticias leídas / Tiempo de lectura en
+  // 0 aunque hubiera actividad). Ahora agregamos todas las filas del usuario.
+  const { data, error } = await query;
   if (error) {
-    // No es fatal (RLS/tabla sin fila para el usuario): devolvemos el objeto por
-    // defecto en vez de null para que ningún consumidor lea .reading_seconds de
-    // null y tumbe la app. Avisamos UNA sola vez para no ensuciar la consola.
     if (!_usageWarned) { _usageWarned = true; console.warn('usage_metrics no disponible, uso valores por defecto:', error?.message || error); }
     return { ...DEFAULT_USAGE };
   }
-  return data || { ...DEFAULT_USAGE };
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length) return { ...DEFAULT_USAGE };
+  const ids = new Set();
+  let seconds = 0, articles = 0;
+  for (const r of rows) {
+    articles += Number(r.articles_read || 0);
+    seconds += Number(r.reading_seconds || 0);
+    (Array.isArray(r.read_article_ids) ? r.read_article_ids : []).forEach((id) => ids.add(id));
+  }
+  // Nº real de artículos = ids únicos leídos (evita doble conteo entre sesiones);
+  // si no hay ids registrados, caemos al sumatorio de contadores.
+  return { articles_read: ids.size || articles, reading_seconds: seconds, read_article_ids: [...ids] };
 };
 
 
