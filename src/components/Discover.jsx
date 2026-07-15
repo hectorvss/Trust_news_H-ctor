@@ -216,32 +216,6 @@ const Discover = ({ navigate, setActiveCategory }) => {
         </h1>
       </div>
 
-      <div style={{ display: 'flex', gap: '24px', borderBottom: 'var(--border-thin)', marginBottom: '48px', flexWrap: 'wrap', overflowX: 'auto' }}>
-        {[
-          { label: 'MI FEED', go: () => navigate('/') },
-          { label: 'DESCUBRIR', go: null },
-          { label: 'GUARDADAS', go: () => navigate('/favorites') },
-          { label: 'MIS SESGOS', go: () => navigate('/mi-sesgo') },
-        ].map((tab) => (
-          <span
-            key={tab.label}
-            onClick={tab.go || undefined}
-            style={{
-              padding: '12px 0',
-              fontSize: '12px',
-              fontWeight: 900,
-              fontFamily: 'var(--font-mono)',
-              letterSpacing: '1px',
-              cursor: tab.go ? 'pointer' : 'default',
-              borderBottom: !tab.go ? '2px solid black' : '2px solid transparent',
-              opacity: !tab.go ? 1 : 0.4,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {tab.label}
-          </span>
-        ))}
-      </div>
 
       <div style={{ marginBottom: '48px' }}>
         <input
