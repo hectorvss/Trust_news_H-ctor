@@ -144,22 +144,53 @@ a { text-decoration: none; color: inherit; }
 /* Sections */
 section { border-bottom: var(--border-thin); }
 
+/* Rejilla de la home según el Figma: 3 + 6 + 3 columnas de 12.
+   1344 de contenido centrado, gutter de 24. Sin bordes pesados: el diseño
+   separa por aire, no por reglas. */
 .layout-split {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--sidebar-width);
+  gap: var(--col-gap);
+  align-items: start;
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding: 32px var(--page-padding);
   min-height: 400px;
+  border-bottom: none;
 }
 
+.layout-split > .sidebar { grid-column: 1; }
+.layout-split > .main-content { grid-column: 2; }
+.layout-split > .rail-right { grid-column: 3; }
+
 .sidebar {
-  width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
-  padding: var(--page-padding);
-  border-right: var(--border-thin);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border-right: none;
 }
 
 .main-content {
-  flex: 1;
-  padding: var(--page-padding);
+  min-width: 0;
+  padding: 0;
+}
+
+.rail-right { min-width: 0; }
+
+/* Sin columna derecha, el centro ocupa 6+3 */
+.layout-split:not(:has(> .rail-right)) {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+}
+
+@media (max-width: 1240px) {
+  .layout-split { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+  .layout-split > .rail-right { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .layout-split { grid-template-columns: 1fr; padding: 24px var(--page-padding); }
+  .layout-split > .sidebar,
+  .layout-split > .main-content,
+  .layout-split > .rail-right { grid-column: 1; }
 }
 
 .section-title {
