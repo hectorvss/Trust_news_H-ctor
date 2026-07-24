@@ -450,7 +450,7 @@ const App = () => {
         categories={categories} 
       />
       <SideRails active={showAds} navigate={navigate} />
-      <main style={{ marginTop: '72px', minHeight: '100vh', background: 'white', paddingLeft: adInset, paddingRight: adInset, transition: 'padding 0.2s ease' }}>
+      <main style={{ marginTop: 'var(--header-h, 147px)', minHeight: '100vh', background: 'var(--color-paper)', paddingLeft: adInset, paddingRight: adInset, transition: 'padding 0.2s ease' }}>
         <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={
